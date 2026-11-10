@@ -55,7 +55,7 @@ public static class CoreStrings
     /// <summary>the wire refers to a node that doesn’t exist</summary>
     public static string Issue_WireMissingNode => Get("Issue_WireMissingNode");
 
-    /// <summary>a wire only goes from a source to an output</summary>
+    /// <summary>a wire goes from a source or a bus to a bus or an output</summary>
     public static string Issue_WireDirection => Get("Issue_WireDirection");
 
     /// <summary>there can be only one wire between a pair of nodes</summary>
@@ -201,4 +201,31 @@ public static class CoreStrings
 
     /// <summary>{0}. There are no backups, so the graph starts empty.</summary>
     public static string Store_NoBackupsFormat => Get("Store_NoBackupsFormat");
+
+    /// <summary>“{0}”</summary>
+    public static string Path_NameFormat => Get("Path_NameFormat");
+
+    /// <summary>a node can’t be connected to itself</summary>
+    public static string Connect_Self => Get("Connect_Self");
+
+    /// <summary>Loop through buses: {0}. Sound would go round in circles</summary>
+    public static string Connect_CycleFormat => Get("Connect_CycleFormat");
+
+    /// <summary>No more than {0} buses in a row: a deeper layout is hard to follow</summary>
+    public static string Connect_TooDeepFormat => Get("Connect_TooDeepFormat");
+
+    /// <summary>{0}. Loop path: {1}</summary>
+    public static string Connect_LoopPathFormat => Get("Connect_LoopPathFormat");
+
+    /// <summary>select two or more sources or buses to group</summary>
+    public static string Group_NeedTwo => Get("Group_NeedTwo");
+
+    /// <summary>Voice — clean</summary>
+    public static string Preset_VoiceClean => Get("Preset_VoiceClean");
+
+    /// <summary>Voice — broadcast</summary>
+    public static string Preset_VoiceBroadcast => Get("Preset_VoiceBroadcast");
+
+    /// <summary>Music — quieter and smoother</summary>
+    public static string Preset_MusicSmooth => Get("Preset_MusicSmooth");
 }

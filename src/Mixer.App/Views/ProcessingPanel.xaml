@@ -1,0 +1,231 @@
+<UserControl x:Class="Mixer.App.Views.ProcessingPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:Mixer.App.Ui"
+             xmlns:res="clr-namespace:Mixer.App.Resources"
+             xmlns:vm="clr-namespace:Mixer.App.ViewModels"
+             Width="420" FontFamily="{StaticResource UiFont}" FontSize="13" Foreground="{StaticResource Text}">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="Vis" />
+
+        <!-- строка параметра: подпись, ползунок, значение; колесо — шаг, двойной клик — по умолчанию -->
+        <DataTemplate x:Key="ParamRow" DataType="{x:Type vm:ParamViewModel}">
+            <Grid Margin="0,3" Tag="{Binding}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="92" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="86" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding Label}" Foreground="{StaticResource Muted}" VerticalAlignment="Center" />
+                <Slider Grid.Column="1" Style="{StaticResource ParamSlider}" Value="{Binding Position, Mode=TwoWay}" VerticalAlignment="Center"
+                        Tag="{Binding}" PreviewMouseLeftButtonUp="OnSliderUp" MouseDoubleClick="OnParamReset" AutomationProperties.Name="{Binding Label}" />
+                <TextBlock Grid.Column="2" Text="{Binding Text}" TextAlignment="Right" VerticalAlignment="Center" />
+            </Grid>
+        </DataTemplate>
+
+        <Style x:Key="CardTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="Cell" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="TextAlignment" Value="Right" />
+            <Setter Property="Cursor" Value="SizeNS" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+    </UserControl.Resources>
+
+    <Border Background="{StaticResource Bar}" BorderBrush="{StaticResource Line}" BorderThickness="1,0,0,0">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- шапка -->
+            <Grid Margin="16,14,12,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Border Width="32" Height="32" CornerRadius="8" Background="{StaticResource AccentSoft}">
+                    <ui:Icon Data="{Binding Node.Glyph}" Foreground="{StaticResource Accent}" />
+                </Border>
+                <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Title}" FontSize="15" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{x:Static res:Strings.Fx_PanelSubtitle}" Foreground="{StaticResource Muted}" FontSize="12" />
+                </StackPanel>
+                <Button Grid.Column="2" Style="{StaticResource IconButton}" Command="{Binding CloseCommand}" ToolTip="{x:Static res:Strings.Fx_Close}"
+                        AutomationProperties.Name="{x:Static res:Strings.Fx_Close}">
+                    <ui:Icon Data="{StaticResource IconClose}" Foreground="{StaticResource Muted}" Width="16" Height="16" />
+                </Button>
+            </Grid>
+
+            <!-- пресет -->
+            <StackPanel Grid.Row="1" Margin="16,0,16,12">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{x:Static res:Strings.Fx_Preset}" Foreground="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <Button x:Name="PresetButton" Grid.Column="1" Style="{StaticResource ToolButton}" HorizontalContentAlignment="Stretch" Click="OnPresetClick"
+                            ToolTip="{x:Static res:Strings.Fx_PresetTip}">
+                        <Grid Width="220">
+                            <TextBlock Text="{Binding PresetName}" TextTrimming="CharacterEllipsis" HorizontalAlignment="Left" Margin="0,0,20,0" />
+                            <ui:Icon Data="{StaticResource IconDown}" Foreground="{StaticResource Muted}" Width="14" Height="14" HorizontalAlignment="Right" />
+                        </Grid>
+                    </Button>
+                    <Button Grid.Column="2" Style="{StaticResource ToolButton}" Margin="8,0,0,0" Content="{x:Static res:Strings.Fx_SaveAs}" Click="OnSaveAsClick"
+                            ToolTip="{x:Static res:Strings.Fx_SaveAsTip}" />
+                </Grid>
+                <Grid x:Name="SaveRow" Margin="0,8,0,0" Visibility="Collapsed">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="PresetNameBox" Padding="6,4" KeyDown="OnPresetNameKey" />
+                    <Button Grid.Column="1" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0" Content="{x:Static res:Strings.Fx_Save}" Click="OnSavePreset" />
+                </Grid>
+            </StackPanel>
+
+            <ScrollViewer x:Name="Scroller" Grid.Row="2" VerticalScrollBarVisibility="Auto" Focusable="False" Padding="16,0,16,0"
+                          BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0">
+                <StackPanel Margin="0,12,0,4" PreviewMouseWheel="OnWheel">
+
+                    <!-- гейт -->
+                    <Border x:Name="GateCard" Style="{StaticResource PanelCard}">
+                        <StackPanel>
+                            <Grid Margin="0,0,0,6">
+                                <TextBlock Text="{x:Static res:Strings.Fx_GateTitle}" Style="{StaticResource CardTitle}" ToolTip="{x:Static res:Strings.Fx_GateTip}" />
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <TextBlock Text="{Binding GateStateText}" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <ToggleButton Style="{StaticResource Switch}" IsChecked="{Binding GateOn}" AutomationProperties.Name="{x:Static res:Strings.Fx_GateTitle}" />
+                                </StackPanel>
+                            </Grid>
+                            <ItemsControl ItemsSource="{Binding GateParams}" ItemTemplate="{StaticResource ParamRow}" Focusable="False" />
+                            <ui:ChainBar Margin="0,10,0,2" Meter="{Binding Node.ChainMeter}" ThresholdDb="{Binding GateParams[0].Value}"
+                                         ToolTip="{x:Static res:Strings.Fx_GateBarTip}" IsHitTestVisible="True" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- EQ -->
+                    <Border x:Name="EqCard" Style="{StaticResource PanelCard}">
+                        <StackPanel>
+                            <Grid Margin="0,0,0,8">
+                                <TextBlock Text="{x:Static res:Strings.Fx_EqTitle}" Style="{StaticResource CardTitle}" ToolTip="{x:Static res:Strings.Fx_EqTip}" />
+                                <ToggleButton Style="{StaticResource Switch}" IsChecked="{Binding EqOn}" HorizontalAlignment="Right" AutomationProperties.Name="{x:Static res:Strings.Fx_EqTitle}" />
+                            </Grid>
+                            <ui:EqCurve ToolTip="{x:Static res:Strings.Fx_CurveTip}" ToolTipService.InitialShowDelay="1200" />
+
+                            <!-- таблица полос: колесо над значением меняет его -->
+                            <Grid Margin="0,8,0,0" Height="24">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="28" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="72" />
+                                    <ColumnDefinition Width="72" />
+                                    <ColumnDefinition Width="72" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="HP" Foreground="{StaticResource Muted}" VerticalAlignment="Center" />
+                                <Button Grid.Column="1" Style="{StaticResource FxButton}" HorizontalAlignment="Left" Click="OnHighPassType" ToolTip="{x:Static res:Strings.Fx_TypeTip}">
+                                    <TextBlock>
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="{x:Static res:Strings.Fx_TypeOff}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding HighPassOn}" Value="True">
+                                                        <Setter Property="Text" Value="{x:Static res:Strings.Fx_HighPass}" />
+                                                        <Setter Property="Foreground" Value="{StaticResource Text}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Button>
+                                <TextBlock Grid.Column="2" Text="{Binding HighPass.Text}" Tag="{Binding HighPass}" Style="{StaticResource Cell}" />
+                                <TextBlock Grid.Column="3" Text="—" Style="{StaticResource Cell}" Cursor="Arrow" Foreground="{StaticResource Faint}" />
+                                <TextBlock Grid.Column="4" Text="{x:Static res:Strings.Fx_HighPassSlope}" Style="{StaticResource Cell}" Cursor="Arrow" Foreground="{StaticResource Muted}" />
+                            </Grid>
+                            <ItemsControl ItemsSource="{Binding Bands}" Focusable="False">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:EqBandViewModel}">
+                                        <Grid Height="24">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="28" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="72" />
+                                                <ColumnDefinition Width="72" />
+                                                <ColumnDefinition Width="72" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding Label}" Foreground="{StaticResource Muted}" VerticalAlignment="Center" />
+                                            <Button Grid.Column="1" Style="{StaticResource FxButton}" HorizontalAlignment="Left" Content="{Binding TypeText}" Click="OnBandType"
+                                                    ToolTip="{x:Static res:Strings.Fx_TypeTip}" />
+                                            <Grid Grid.Column="2" Grid.ColumnSpan="3" Visibility="{Binding IsOn, Converter={StaticResource Vis}}">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="72" />
+                                                    <ColumnDefinition Width="72" />
+                                                    <ColumnDefinition Width="72" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding Freq.Text}" Tag="{Binding Freq}" Style="{StaticResource Cell}" />
+                                                <TextBlock Grid.Column="1" Text="{Binding Gain.Text}" Tag="{Binding Gain}" Style="{StaticResource Cell}" />
+                                                <TextBlock Grid.Column="2" Text="{Binding Q.Text}" Tag="{Binding Q}" Style="{StaticResource Cell}" />
+                                            </Grid>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- компрессор -->
+                    <Border x:Name="CompCard" Style="{StaticResource PanelCard}">
+                        <StackPanel>
+                            <Grid Margin="0,0,0,6">
+                                <TextBlock Text="{x:Static res:Strings.Fx_CompTitle}" Style="{StaticResource CardTitle}" ToolTip="{x:Static res:Strings.Fx_CompTip}" />
+                                <ToggleButton Style="{StaticResource Switch}" IsChecked="{Binding CompOn}" HorizontalAlignment="Right" AutomationProperties.Name="{x:Static res:Strings.Fx_CompTitle}" />
+                            </Grid>
+                            <ItemsControl ItemsSource="{Binding CompParams}" ItemTemplate="{StaticResource ParamRow}" Focusable="False" />
+                            <Grid Margin="0,4,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="92" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="86" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{x:Static res:Strings.Fx_Reduction}" Foreground="{StaticResource Muted}" VerticalAlignment="Center" />
+                                <ui:ChainBar Grid.Column="1" IsReduction="True" Meter="{Binding Node.ChainMeter}" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="2" Text="{Binding ReductionText}" Foreground="{StaticResource Yellow}" TextAlignment="Right" VerticalAlignment="Center" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- до и после обработки -->
+            <Border Grid.Row="3" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="16,10,16,12">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="44" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="78" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{x:Static res:Strings.Fx_In}" Foreground="{StaticResource Muted}" VerticalAlignment="Center" ToolTip="{x:Static res:Strings.Fx_InTip}" />
+                    <ui:MeterBar Grid.Column="1" Meter="{Binding Node.ChainMeter.In}" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="2" Text="{Binding InText}" Foreground="{StaticResource Muted}" TextAlignment="Right" FontSize="12" VerticalAlignment="Center" />
+                    <TextBlock Grid.Row="1" Text="{x:Static res:Strings.Fx_Out}" Foreground="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,8,0,0" ToolTip="{x:Static res:Strings.Fx_OutTip}" />
+                    <ui:MeterBar Grid.Row="1" Grid.Column="1" Meter="{Binding Node.ChainMeter.Out}" VerticalAlignment="Center" Margin="0,8,0,0" />
+                    <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding OutText}" Foreground="{StaticResource Muted}" TextAlignment="Right" FontSize="12" VerticalAlignment="Center" Margin="0,8,0,0" />
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

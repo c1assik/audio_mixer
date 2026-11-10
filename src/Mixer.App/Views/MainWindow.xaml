@@ -17,6 +17,9 @@
         <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
             <views:SettingsView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ProcessingViewModel}">
+            <views:ProcessingPanel />
+        </DataTemplate>
     </Window.Resources>
 
     <Grid Background="{StaticResource Bg}">
@@ -106,6 +109,12 @@
                             <TextBlock Text="{x:Static res:Strings.Cmd_AddSource}" />
                         </StackPanel>
                     </Button>
+                    <Button Style="{StaticResource ToolButton}" Command="{Binding AddBusNodeCommand}" Margin="0,0,8,0" ToolTip="{x:Static res:Strings.Cmd_AddBusTip}">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:Icon Data="{StaticResource IconPlus}" Foreground="{StaticResource Text}" Width="16" Height="16" Margin="0,0,6,0" />
+                            <TextBlock Text="{x:Static res:Strings.Cmd_AddBus}" />
+                        </StackPanel>
+                    </Button>
                     <Button Style="{StaticResource ToolButton}" Command="{Binding AddOutputCommand}" ToolTip="{x:Static res:Strings.Cmd_AddOutputTip}">
                         <StackPanel Orientation="Horizontal">
                             <ui:Icon Data="{StaticResource IconPlus}" Foreground="{StaticResource Text}" Width="16" Height="16" Margin="0,0,6,0" />
@@ -113,6 +122,8 @@
                         </StackPanel>
                     </Button>
                     <Border Width="1" Height="20" Background="{StaticResource Line}" Margin="12,0" />
+                    <Button Style="{StaticResource ToolButton}" Command="{Binding GroupSelectedCommand}" Content="{x:Static res:Strings.Cmd_GroupIntoBus}"
+                            ToolTip="{x:Static res:Strings.Cmd_GroupIntoBusTip}" ToolTipService.ShowOnDisabled="True" Margin="0,0,12,0" />
                     <TextBlock Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                Text="{x:Static res:Strings.Toolbar_Hint}" />
                 </StackPanel>
@@ -134,7 +145,15 @@
         </Border>
 
         <!-- ── холст ── -->
-        <views:GraphView x:Name="Graph" Grid.Row="2" Focusable="True" FocusVisualStyle="{x:Null}" />
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <views:GraphView x:Name="Graph" Focusable="True" FocusVisualStyle="{x:Null}" />
+            <!-- боковая панель обработки выбранного узла -->
+            <ContentControl Grid.Column="1" Content="{Binding Processing}" Focusable="False" />
+        </Grid>
 
         <!-- ── подвал ── -->
         <Border Grid.Row="3" Background="{StaticResource Bar}" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="16,0">

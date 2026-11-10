@@ -53,7 +53,7 @@
     <value>the wire refers to a node that doesn’t exist</value>
   </data>
   <data name="Issue_WireDirection" xml:space="preserve">
-    <value>a wire only goes from a source to an output</value>
+    <value>a wire goes from a source or a bus to a bus or an output</value>
   </data>
   <data name="Issue_WireDuplicate" xml:space="preserve">
     <value>there can be only one wire between a pair of nodes</value>
@@ -225,5 +225,32 @@
   <data name="Store_NoBackupsFormat" xml:space="preserve">
     <value>{0}. There are no backups, so the graph starts empty.</value>
     <comment>{0} = Store_Unreadable*</comment>
+  </data>
+  <data name="Path_NameFormat" xml:space="preserve">
+    <value>“{0}”</value>
+  </data>
+  <data name="Connect_Self" xml:space="preserve">
+    <value>a node can’t be connected to itself</value>
+  </data>
+  <data name="Connect_CycleFormat" xml:space="preserve">
+    <value>Loop through buses: {0}. Sound would go round in circles</value>
+  </data>
+  <data name="Connect_TooDeepFormat" xml:space="preserve">
+    <value>No more than {0} buses in a row: a deeper layout is hard to follow</value>
+  </data>
+  <data name="Connect_LoopPathFormat" xml:space="preserve">
+    <value>{0}. Loop path: {1}</value>
+  </data>
+  <data name="Group_NeedTwo" xml:space="preserve">
+    <value>select two or more sources or buses to group</value>
+  </data>
+  <data name="Preset_VoiceClean" xml:space="preserve">
+    <value>Voice — clean</value>
+  </data>
+  <data name="Preset_VoiceBroadcast" xml:space="preserve">
+    <value>Voice — broadcast</value>
+  </data>
+  <data name="Preset_MusicSmooth" xml:space="preserve">
+    <value>Music — quieter and smoother</value>
   </data>
 </root>

@@ -92,6 +92,42 @@ public static class Fmt
         return name == DefaultNodeName(kind, role) || UiCultures.Any(c => Strings.ResourceManager.GetString(key, c) == name);
     }
 
+    // ── обработка ──
+
+    /// <summary>«80 Гц», «3,5 кГц», «10 кГц».</summary>
+    public static string Hz(double hz) => hz >= 1000
+        ? string.Format(C, Strings.Unit_kHzFormat, (hz / 1000).ToString(hz >= 10000 ? "0.#" : "0.##", C))
+        : string.Format(C, Strings.Unit_HzFormat, hz.ToString("0", C));
+
+    /// <summary>«+2,5 дБ», «−3,0 дБ», «0,0 дБ».</summary>
+    public static string SignedDb(double db) => Db(Signed(db, "0.0", plus: true));
+
+    /// <summary>Ширина без знака: «6,0 дБ».</summary>
+    public static string PlainDb(double db) => Db(db.ToString("0.0", C));
+
+    /// <summary>Порог: «−48 dBFS».</summary>
+    public static string Dbfs(double db) => string.Format(C, Strings.Unit_dBFSFormat, Signed(db, "0.#", plus: false));
+
+    /// <summary>Уровень индикатора: «−18 dBFS», ниже −60 — «−∞ dBFS».</summary>
+    public static string Level(double db) => string.Format(C, Strings.Unit_dBFSFormat, db <= MeterState.FloorDb ? "−∞" : Signed(db, "0", plus: false));
+
+    /// <summary>«8 мс», «0,5 мс».</summary>
+    public static string Millis(double ms) => string.Format(C, Strings.Unit_msFormat, ms.ToString(ms < 10 ? "0.#" : "0", C));
+
+    /// <summary>«3 : 1».</summary>
+    public static string Ratio(double r) => r.ToString("0.#", C) + " : 1";
+
+    /// <summary>Добротность: «Q 1,0».</summary>
+    public static string Q(double q) => "Q " + q.ToString(q < 10 ? "0.0#" : "0", C);
+
+    public static string BandType(Mixer.Audio.Dsp.EqBandType t) => t switch
+    {
+        Mixer.Audio.Dsp.EqBandType.Peak => Strings.Fx_TypePeak,
+        Mixer.Audio.Dsp.EqBandType.LowShelf => Strings.Fx_TypeLowShelf,
+        Mixer.Audio.Dsp.EqBandType.HighShelf => Strings.Fx_TypeHighShelf,
+        _ => Strings.Fx_TypeOff,
+    };
+
     /// <summary>Округление дБ до 0,1 и притягивание к 0 дБ рядом с нулём.</summary>
     public static double SnapDb(double db, bool snapZero = true)
     {

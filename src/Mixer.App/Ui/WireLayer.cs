@@ -178,7 +178,7 @@ public sealed class WireLayer : FrameworkElement
             }
             else
             {
-                color = w.Source.Color;
+                color = w.Source.WireColor;
                 bool silent = w.Source.Muted || w.Target.Muted;
                 thick = 1.5 + 2.5 * level;
                 opacity = silent ? 0.3 : w.IsIdle ? 0.4 : 0.55 + 0.45 * level;

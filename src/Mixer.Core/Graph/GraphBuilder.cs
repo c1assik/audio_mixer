@@ -1,3 +1,4 @@
+using Mixer.Audio.Dsp;
 using Mixer.Audio.Engine;
 using Mixer.Audio.Interop;
 using Mixer.Core.Apps;
@@ -38,6 +39,12 @@ public sealed record BuildResult(
     /// Нет записи — узел в обычном режиме, один exclude-захват по PID микшера.
     /// </summary>
     public IReadOnlyDictionary<string, SystemPlan> SystemPlans { get; init; } = new Dictionary<string, SystemPlan>();
+
+    /// <summary>
+    /// Узел графа → шина в движке, которая несёт его звук после фейдера: у шины это она сама, у приложения и
+    /// «Весь звук системы» с обработкой — неявная шина «id#fx» (захваты сводятся в неё, обработка и фейдер — там).
+    /// </summary>
+    public IReadOnlyDictionary<string, string> EngineBuses { get; init; } = new Dictionary<string, string>();
 }
 
 /// <summary>Состояние системы, нужное для узлов «Приложение» и «Весь звук системы».</summary>
@@ -104,12 +111,19 @@ public static class GraphBuilder
     public static string EngineId(NodeConfig node, uint pid, bool perProcess = false) =>
         node.Kind == NodeKind.App || perProcess ? $"{node.Id}@{pid}" : node.Id;
 
-    /// <summary>ID узла графа по ID источника в движке («n2@1234» → «n2»).</summary>
+    /// <summary>Суффикс неявной шины обработки у узла с несколькими захватами.</summary>
+    public const string FxSuffix = "#fx";
+
+    /// <summary>ID узла графа по ID источника или шины в движке («n2@1234» → «n2», «n3#fx» → «n3»).</summary>
     public static string NodeIdOf(string engineId)
     {
+        if (engineId.EndsWith(FxSuffix, StringComparison.Ordinal)) return engineId[..^FxSuffix.Length];
         int at = engineId.LastIndexOf('@');
         return at > 0 ? engineId[..at] : engineId;
     }
+
+    /// <summary>Цепочка для движка: только если включён хотя бы один блок.</summary>
+    private static ChainSettings? ChainOf(NodeConfig n) => n.HasChain ? n.Chain : null;
 
     public static BuildResult Build(GraphConfig graph, IReadOnlyList<EndpointInfo> devices, bool allowFeedback = false, RuntimeContext? apps = null)
     {
@@ -121,6 +135,8 @@ public static class GraphBuilder
         var wires = new List<WireSpec>();
         var nodes = new Dictionary<string, NodeConfig>();
         var engineSources = new Dictionary<string, IReadOnlyList<string>>();
+        var buses = new List<BusSpec>();
+        var engineBuses = new Dictionary<string, string>();
         // узлы process loopback: PID захватов (у «Весь звук системы» — PID микшера для exclude)
         var procNodes = new Dictionary<string, IReadOnlyList<uint>>();
         var systemPlans = new Dictionary<string, SystemPlan>();
@@ -134,6 +150,13 @@ public static class GraphBuilder
             if (!nodes.TryAdd(n.Id, n))
             {
                 issues.Add(new GraphIssue(IssueKind.Invalid, n.Id, Loc.F(CoreStrings.Issue_DuplicateIdFormat, n.Id)));
+                continue;
+            }
+
+            if (n.IsBus)
+            {
+                buses.Add(new BusSpec(n.Id, n.GainDb, n.Muted) { Chain = ChainOf(n) });
+                engineBuses[n.Id] = n.Id;
                 continue;
             }
 
@@ -195,21 +218,23 @@ public static class GraphBuilder
             switch (n.Kind)
             {
                 case NodeKind.DeviceInput:
-                    sources.Add(new SourceSpec(n.Id, SourceKind.DeviceInput, ep.Id, n.GainDb, n.Muted, n.Mono ?? false, n.Balance ?? 0));
+                    sources.Add(new SourceSpec(n.Id, SourceKind.DeviceInput, ep.Id, n.GainDb, n.Muted, n.Mono ?? false, n.Balance ?? 0) { Chain = ChainOf(n) });
                     engineSources[n.Id] = [n.Id];
                     break;
                 case NodeKind.Loopback:
-                    sources.Add(new SourceSpec(n.Id, SourceKind.Loopback, ep.Id, n.GainDb, n.Muted, n.Mono ?? false, n.Balance ?? 0));
+                    sources.Add(new SourceSpec(n.Id, SourceKind.Loopback, ep.Id, n.GainDb, n.Muted, n.Mono ?? false, n.Balance ?? 0) { Chain = ChainOf(n) });
                     engineSources[n.Id] = [n.Id];
                     break;
                 case NodeKind.DeviceOutput:
-                    outputs.Add(new OutputSpec(n.Id, ep.Id, n.GainDb, n.Muted));
+                    outputs.Add(new OutputSpec(n.Id, ep.Id, n.GainDb, n.Muted) { Chain = ChainOf(n) });
                     break;
             }
         }
 
+        // провода, замыкающие цикл через шины (файл поправили руками), не берутся: первый по порядку остаётся
         var seen = new HashSet<(string, string)>();
-        var valid = new List<WireConfig>();
+        var accepted = new List<WireConfig>();
+        var cyclePaths = new GraphPaths(nodes.Values, []);
         foreach (var w in graph.Wires)
         {
             string subject = $"{w.From} → {w.To}";
@@ -218,7 +243,7 @@ public static class GraphBuilder
                 issues.Add(new GraphIssue(IssueKind.Invalid, subject, CoreStrings.Issue_WireMissingNode));
                 continue;
             }
-            if (!from.IsSource || !to.IsOutput)
+            if (!from.HasOutPort || !to.HasInPort || w.From == w.To)
             {
                 issues.Add(new GraphIssue(IssueKind.Invalid, subject, CoreStrings.Issue_WireDirection));
                 continue;
@@ -228,15 +253,42 @@ public static class GraphBuilder
                 issues.Add(new GraphIssue(IssueKind.Invalid, subject, CoreStrings.Issue_WireDuplicate));
                 continue;
             }
-            resolved.TryGetValue(w.From, out var epFrom);
-            resolved.TryGetValue(w.To, out var epTo);
-            string? why = FeedbackRules.WhyForbidden(from, epFrom, epTo, devices);
-            if (why is not null)
+            if (cyclePaths.Path(w.To, w.From) is { } back)
             {
-                issues.Add(new GraphIssue(IssueKind.Feedback, subject, why));
-                if (!allowFeedback) continue;
+                issues.Add(new GraphIssue(IssueKind.Invalid, subject, Loc.F(CoreStrings.Connect_CycleFormat, cyclePaths.Describe(back.Prepend(w.From)))));
+                continue;
             }
-            if (epTo is null) continue; // выход ждёт устройство, провод остаётся в конфиге
+            cyclePaths.Add(w.From, w.To);
+            accepted.Add(w);
+        }
+
+        var paths = new GraphPaths(nodes.Values, accepted);
+        var valid = new List<WireConfig>();
+        foreach (var w in accepted)
+        {
+            string subject = $"{w.From} → {w.To}";
+            var from = nodes[w.From];
+            var to = nodes[w.To];
+            resolved.TryGetValue(w.From, out var epFrom);
+            if (from.IsSource)
+            {
+                // петля через устройство на любом пути от источника через шины до выхода
+                string? why = paths.Downstream(w.To)
+                    .Select(o => resolved.TryGetValue(o.Id, out var epO) ? FeedbackRules.WhyForbidden(from, epFrom, epO, devices) : null)
+                    .FirstOrDefault(x => x is not null);
+                if (why is not null)
+                {
+                    issues.Add(new GraphIssue(IssueKind.Feedback, subject, why));
+                    if (!allowFeedback) continue;
+                }
+            }
+            if (to.IsOutput && !resolved.ContainsKey(w.To)) continue; // выход ждёт устройство, провод остаётся в конфиге
+            if (to.IsBus && !engineBuses.ContainsKey(w.To)) continue;
+            if (from.IsBus)
+            {
+                if (engineBuses.ContainsKey(w.From)) valid.Add(w);
+                continue;
+            }
             if (procNodes.TryGetValue(w.From, out var pids))
             {
                 if (pids.Count > 0) valid.Add(w); // приложение не запущено — провод ждёт вместе с узлом
@@ -251,28 +303,48 @@ public static class GraphBuilder
         {
             if (pids.Count == 0) continue;
             var n = nodes[id];
-            int rate = CaptureRate(valid.Where(w => w.From == id).Select(w => apps.OutputRate(resolved[w.To].Id)));
+            int rate = CaptureRate(paths.Downstream(id).Where(o => resolved.ContainsKey(o.Id)).Select(o => apps.OutputRate(resolved[o.Id].Id)));
             bool perProcess = systemPlans.ContainsKey(id);
             // «Весь звук системы» без приложений — набор include-захватов, как у узла «Приложение»
             var kind = n.Kind == NodeKind.System && !perProcess ? SourceKind.System : SourceKind.App;
             var ids = new List<string>();
+            // Обработка у узла из нескольких захватов — на их сумме, а не на каждом процессе по отдельности (иначе
+            // компрессор «Весь звук системы» жал бы каждое приложение порознь). Захваты сводятся в неявную шину,
+            // фейдер и цепочка — на ней. Шина остаётся и при выключенных блоках: включение блока не меняет схему.
+            string? fx = n.Chain is not null ? n.Id + FxSuffix : null;
             foreach (uint pid in pids)
             {
                 string eid = EngineId(n, pid, perProcess);
                 ids.Add(eid);
-                sources.Add(new SourceSpec(eid, kind, "", n.GainDb, n.Muted, n.Mono ?? false, n.Balance ?? 0, pid, rate));
+                sources.Add(fx is null
+                    ? new SourceSpec(eid, kind, "", n.GainDb, n.Muted, n.Mono ?? false, n.Balance ?? 0, pid, rate)
+                    : new SourceSpec(eid, kind, "", 0, false, n.Mono ?? false, 0, pid, rate));
+                if (fx is not null) wires.Add(new WireSpec(eid, fx));
             }
             engineSources[id] = ids;
+            if (fx is not null)
+            {
+                buses.Add(new BusSpec(fx, n.GainDb, n.Muted, n.Balance ?? 0) { Chain = ChainOf(n) });
+                engineBuses[id] = fx;
+            }
         }
 
         foreach (var w in valid)
-            foreach (string src in engineSources.GetValueOrDefault(w.From, []))
+        {
+            IReadOnlyList<string> from = engineBuses.TryGetValue(w.From, out string? bus) ? [bus] : engineSources.GetValueOrDefault(w.From, []);
+            foreach (string src in from)
                 wires.Add(new WireSpec(src, w.To, w.GainDb, w.Enabled));
+        }
 
-        AddDoubleSoundWarnings(graph, nodes, systemPlans, issues);
+        AddDoubleSoundWarnings(new GraphPaths(nodes.Values, accepted.Where(w => w.Enabled)), nodes, systemPlans, issues);
         AddTakeOverWarnings(graph, nodes, resolved, devices, apps, issues);
 
-        return new BuildResult(new EngineGraph(sources, outputs, wires), issues, resolved) { EngineSources = engineSources, SystemPlans = systemPlans };
+        return new BuildResult(new EngineGraph(sources, outputs, wires) { Buses = buses }, issues, resolved)
+        {
+            EngineSources = engineSources,
+            SystemPlans = systemPlans,
+            EngineBuses = engineBuses,
+        };
     }
 
     /// <summary>«устройства записи по умолчанию», «устройства связи для воспроизведения по умолчанию» и т. п. (родительный падеж).</summary>
@@ -292,10 +364,9 @@ public static class GraphBuilder
     /// «Весь звук системы» в обычном режиме (один exclude-захват) содержит и приложения со своим узлом: если оба
     /// узла ведут в один выход, приложение прозвучит дважды. Режим без приложений (<see cref="SystemCapture"/>) этого не делает.
     /// </summary>
-    private static void AddDoubleSoundWarnings(GraphConfig graph, Dictionary<string, NodeConfig> nodes, Dictionary<string, SystemPlan> plans, List<GraphIssue> issues)
+    private static void AddDoubleSoundWarnings(GraphPaths paths, Dictionary<string, NodeConfig> nodes, Dictionary<string, SystemPlan> plans, List<GraphIssue> issues)
     {
-        HashSet<string> OutputsOf(string nodeId) =>
-            graph.Wires.Where(w => w.From == nodeId && w.Enabled && nodes.ContainsKey(w.To)).Select(w => w.To).ToHashSet();
+        HashSet<string> OutputsOf(string nodeId) => paths.Downstream(nodeId).Select(o => o.Id).ToHashSet();
 
         var appNodes = nodes.Values.Where(n => n.Kind == NodeKind.App && !string.IsNullOrWhiteSpace(n.Exe)).ToList();
         foreach (var sys in nodes.Values.Where(n => n.Kind == NodeKind.System && !plans.ContainsKey(n.Id)))

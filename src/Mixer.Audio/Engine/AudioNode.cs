@@ -58,6 +58,8 @@ public abstract class AudioNode : IDisposable
     /// <summary>Формат устройства (после успешного открытия).</summary>
     public WaveFormat? Format => _format;
     public PeakMeter Peak { get; } = new();
+    /// <summary>Обработка узла (гейт → EQ → компрессор) перед фейдером.</summary>
+    public ProcessingChain Chain { get; } = new();
 
     /// <summary>Сколько раз поток открывал устройство заново после сбоя.</summary>
     public int Restarts { get; private set; }

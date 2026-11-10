@@ -1,3 +1,4 @@
+using Mixer.Audio.Dsp;
 using System.Runtime;
 
 namespace Mixer.Audio.Engine;
@@ -7,31 +8,52 @@ namespace Mixer.Audio.Engine;
 /// (или исключаемый процесс), SampleRate — частота захвата (её конвертирует Windows).
 /// </summary>
 public sealed record SourceSpec(string Id, SourceKind Kind, string EndpointId, float GainDb = 0, bool Muted = false, bool Mono = false, float Balance = 0,
-    uint ProcessId = 0, int SampleRate = 0);
+    uint ProcessId = 0, int SampleRate = 0)
+{
+    /// <summary>Обработка перед фейдером (null — нет).</summary>
+    public ChainSettings? Chain { get; init; }
+}
 
 /// <summary>Выход в снимке маршрутизации.</summary>
-public sealed record OutputSpec(string Id, string EndpointId, float GainDb = 0, bool Muted = false);
+public sealed record OutputSpec(string Id, string EndpointId, float GainDb = 0, bool Muted = false)
+{
+    public ChainSettings? Chain { get; init; }
+}
 
-/// <summary>Провод в снимке маршрутизации.</summary>
+/// <summary>Шина: своих часов нет, считается в периоде каждого выхода, в который ведёт.</summary>
+public sealed record BusSpec(string Id, float GainDb = 0, bool Muted = false, float Balance = 0)
+{
+    public ChainSettings? Chain { get; init; }
+}
+
+/// <summary>Провод в снимке маршрутизации: источник или шина → шина или выход.</summary>
 public sealed record WireSpec(string From, string To, float GainDb = 0, bool Enabled = true);
 
 /// <summary>Готовый снимок маршрутизации: движок не знает ни о графе, ни об интерфейсе.</summary>
 public sealed record EngineGraph(IReadOnlyList<SourceSpec> Sources, IReadOnlyList<OutputSpec> Outputs, IReadOnlyList<WireSpec> Wires)
 {
     public static readonly EngineGraph Empty = new([], [], []);
+
+    public IReadOnlyList<BusSpec> Buses { get; init; } = [];
 }
 
 /// <summary>
 /// Узлы движка на момент последнего Apply. Читается без блокировки из любого потока (интерфейс забирает пики
 /// 30 раз в секунду и не должен ждать Apply, который может стоять до 2 с на остановке зависшего узла).
+/// Провод в шину, которая идёт в несколько выходов, есть в нескольких экземплярах (по одному на выход, Out).
 /// </summary>
 public sealed record EngineSnapshot(
     IReadOnlyDictionary<string, SourceNode> Sources,
     IReadOnlyDictionary<string, OutputNode> Outputs,
-    IReadOnlyDictionary<(string From, string To), Wire> Wires)
+    IReadOnlyDictionary<(string From, string To, string Out), Wire> Wires)
 {
     public static readonly EngineSnapshot Empty = new(
-        new Dictionary<string, SourceNode>(), new Dictionary<string, OutputNode>(), new Dictionary<(string, string), Wire>());
+        new Dictionary<string, SourceNode>(), new Dictionary<string, OutputNode>(), new Dictionary<(string, string, string), Wire>());
+
+    /// <summary>Экземпляры шин: по одному на выход, в который шина ведёт.</summary>
+    public IReadOnlyDictionary<(string Bus, string Out), BusInstance> Buses { get; init; } = new Dictionary<(string, string), BusInstance>();
+    /// <summary>Провода из шин (по экземпляру на выход).</summary>
+    public IReadOnlyDictionary<(string From, string To, string Out), BusLink> Links { get; init; } = new Dictionary<(string, string, string), BusLink>();
 }
 
 /// <summary>
@@ -44,7 +66,9 @@ public sealed class AudioEngine : IDisposable
     private readonly object _gate = new();
     private readonly Dictionary<string, SourceNode> _sources = new();
     private readonly Dictionary<string, OutputNode> _outputs = new();
-    private readonly Dictionary<(string From, string To), Wire> _wires = new();
+    private readonly Dictionary<(string From, string To, string Out), Wire> _wires = new();
+    private readonly Dictionary<(string Bus, string Out), BusInstance> _buses = new();
+    private readonly Dictionary<(string From, string To, string Out), BusLink> _links = new();
     private EngineGraph _last = EngineGraph.Empty;
     private volatile EngineSnapshot _snapshot = EngineSnapshot.Empty;
 
@@ -72,7 +96,8 @@ public sealed class AudioEngine : IDisposable
 
     public SourceNode? FindSource(string id) { lock (_gate) return _sources.GetValueOrDefault(id); }
     public OutputNode? FindOutput(string id) { lock (_gate) return _outputs.GetValueOrDefault(id); }
-    public Wire? FindWire(string from, string to) { lock (_gate) return _wires.GetValueOrDefault((from, to)); }
+    /// <summary>Первый экземпляр провода from → to (у провода в шину их может быть несколько, по выходам).</summary>
+    public Wire? FindWire(string from, string to) { lock (_gate) return _wires.Values.FirstOrDefault(w => w.FromId == from && w.ToId == to); }
 
     /// <summary>
     /// Пересоздать источник (сторожевой таймер: захват при активной сессии перестал получать пакеты).
@@ -132,6 +157,7 @@ public sealed class AudioEngine : IDisposable
                 }
                 cur.SetGain(s.GainDb, s.Balance, s.Muted);
                 cur.Mono = s.Mono;
+                cur.Chain.Set(s.Chain);
             }
             foreach (var (id, node) in _sources)
                 if (!newSources.ContainsKey(id)) toStop.Add(node);
@@ -152,23 +178,71 @@ public sealed class AudioEngine : IDisposable
                     toStart.Add(cur);
                 }
                 cur.SetGain(o.GainDb, 0, o.Muted);
+                cur.Chain.Set(o.Chain);
             }
             foreach (var (id, node) in _outputs)
                 if (!newOutputs.ContainsKey(id)) toStop.Add(node);
 
-            // ── провода ──
-            var newWires = new Dictionary<(string, string), Wire>();
-            foreach (var w in graph.Wires)
+            // ── шины и провода: раскладка по выходам ──
+            var busSpecs = new Dictionary<string, BusSpec>();
+            foreach (var b in graph.Buses) busSpecs.TryAdd(b.Id, b);
+            var live = graph with { Sources = graph.Sources.Where(x => newSources.ContainsKey(x.Id)).ToList() };
+            var newWires = new Dictionary<(string, string, string), Wire>();
+            var newBuses = new Dictionary<(string, string), BusInstance>();
+            var newLinks = new Dictionary<(string, string, string), BusLink>();
+            var plans = new Dictionary<string, MixPlan>();
+            foreach (var route in MixPlanner.Plan(live))
             {
-                if (!newSources.TryGetValue(w.From, out var src) || !newOutputs.TryGetValue(w.To, out var dst)) continue;
-                var key = (w.From, w.To);
-                if (newWires.ContainsKey(key)) continue; // между парой узлов только один провод
-                bool sameNodes = _wires.TryGetValue(key, out var wire)
-                                 && _sources.GetValueOrDefault(w.From) == src && _outputs.GetValueOrDefault(w.To) == dst;
-                if (!sameNodes) wire = new Wire(w.From, w.To, src.Clock, Options);
-                wire!.GainDb = w.GainDb;
-                wire.Enabled = w.Enabled;
-                newWires[key] = wire;
+                if (!newOutputs.TryGetValue(route.OutputId, out var dst)) continue;
+                string o = route.OutputId;
+                // выход пересоздан — его шины и провода тоже новые (старые экземпляры знал только старый поток)
+                bool sameOutput = _outputs.GetValueOrDefault(o) == dst;
+
+                foreach (string id in route.Buses)
+                {
+                    if (!sameOutput || !_buses.TryGetValue((id, o), out var bus)) bus = new BusInstance(id, o, Options.MaxBlockFrames);
+                    var spec = busSpecs[id];
+                    bus.SetGain(spec.GainDb, spec.Balance, spec.Muted);
+                    bus.Chain.Set(spec.Chain);
+                    newBuses[(id, o)] = bus;
+                }
+
+                Wire WireFor(WireSpec w)
+                {
+                    var src = newSources[w.From];
+                    var key = (w.From, w.To, o);
+                    Wire? wire = null;
+                    bool same = sameOutput && _wires.TryGetValue(key, out wire) && _sources.GetValueOrDefault(w.From) == src;
+                    if (!same) wire = new Wire(w.From, w.To, src.Clock, Options, o);
+                    wire!.GainDb = w.GainDb;
+                    wire.Enabled = w.Enabled;
+                    newWires[key] = wire;
+                    return wire;
+                }
+
+                BusLink LinkFor(WireSpec w)
+                {
+                    var key = (w.From, w.To, o);
+                    var from = newBuses[(w.From, o)];
+                    if (!_links.TryGetValue(key, out var link) || link.From != from) link = new BusLink(from, w.To);
+                    link.GainDb = w.GainDb;
+                    link.Enabled = w.Enabled;
+                    newLinks[key] = link;
+                    return link;
+                }
+
+                var steps = route.Buses.Select(id => new MixStep
+                {
+                    Bus = newBuses[(id, o)],
+                    Wires = route.SourceWires.Where(w => w.To == id).Select(WireFor).ToArray(),
+                    Links = route.BusWires.Where(w => w.To == id).Select(LinkFor).ToArray(),
+                }).ToArray();
+                plans[o] = new MixPlan
+                {
+                    Steps = steps,
+                    Wires = route.SourceWires.Where(w => w.To == o).Select(WireFor).ToArray(),
+                    Links = route.BusWires.Where(w => w.To == o).Select(LinkFor).ToArray(),
+                };
             }
 
             // Удаляемые провода сначала гасим фейдом mute (5 мс), чтобы не было щелчка.
@@ -179,13 +253,19 @@ public sealed class AudioEngine : IDisposable
                 wire.Enabled = false;
                 faded = true;
             }
+            foreach (var (key, link) in _links)
+            {
+                if (newLinks.ContainsKey(key) || !link.Enabled) continue;
+                link.Enabled = false;
+                faded = true;
+            }
             if (faded) Thread.Sleep(30);
 
-            // ── публикация массивов ──
+            // ── публикация ──
             foreach (var src in newSources.Values)
                 src.PublishWires(newWires.Values.Where(w => newSources[w.FromId] == src).ToArray());
-            foreach (var dst in newOutputs.Values)
-                dst.PublishWires(newWires.Values.Where(w => newOutputs[w.ToId] == dst).ToArray());
+            foreach (var (id, dst) in newOutputs)
+                dst.PublishPlan(plans.GetValueOrDefault(id) ?? MixPlan.Empty);
 
             _sources.Clear();
             foreach (var kv in newSources) _sources[kv.Key] = kv.Value;
@@ -193,9 +273,17 @@ public sealed class AudioEngine : IDisposable
             foreach (var kv in newOutputs) _outputs[kv.Key] = kv.Value;
             _wires.Clear();
             foreach (var kv in newWires) _wires[kv.Key] = kv.Value;
+            _buses.Clear();
+            foreach (var kv in newBuses) _buses[kv.Key] = kv.Value;
+            _links.Clear();
+            foreach (var kv in newLinks) _links[kv.Key] = kv.Value;
             _snapshot = new EngineSnapshot(
                 new Dictionary<string, SourceNode>(newSources), new Dictionary<string, OutputNode>(newOutputs),
-                new Dictionary<(string, string), Wire>(newWires));
+                new Dictionary<(string, string, string), Wire>(newWires))
+            {
+                Buses = new Dictionary<(string, string), BusInstance>(newBuses),
+                Links = new Dictionary<(string, string, string), BusLink>(newLinks),
+            };
 
             StopAll(toStop, restart is not null ? RestartStopTimeoutMs : StopTimeoutMs);
             foreach (var n in toStart) n.Start();
@@ -223,6 +311,8 @@ public sealed class AudioEngine : IDisposable
             _sources.Clear();
             _outputs.Clear();
             _wires.Clear();
+            _buses.Clear();
+            _links.Clear();
         }
     }
 }

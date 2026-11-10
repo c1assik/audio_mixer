@@ -1,6 +1,7 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Mixer.Audio.Dsp;
 
 namespace Mixer.Core.Config;
 
@@ -11,7 +12,12 @@ public enum NodeKind
     App,
     System,
     DeviceOutput,
+    /// <summary>Шина: сводит несколько источников (или шин) и раздаёт сумму дальше.</summary>
+    Bus,
 }
+
+/// <summary>Колонка холста: сигнал идёт слева направо, источники → шины → выходы.</summary>
+public enum NodeColumn { Sources, Buses, Outputs }
 
 /// <summary>Роль Windows, за устройством по умолчанию которой следует узел.</summary>
 public enum DefaultRole
@@ -48,12 +54,25 @@ public sealed record NodeConfig
     /// <summary>Только у источников: −1 … +1.</summary>
     public float? Balance { get; init; }
 
+    /// <summary>Обработка перед фейдером: гейт → EQ → компрессор (null — не настраивалась).</summary>
+    public ChainSettings? Chain { get; init; }
+
     public double X { get; init; }
     public double Y { get; init; }
     public string? Color { get; init; }
 
-    [JsonIgnore] public bool IsSource => Kind != NodeKind.DeviceOutput;
+    /// <summary>Источник (левая колонка): только выходной порт.</summary>
+    [JsonIgnore] public bool IsSource => Kind is not (NodeKind.DeviceOutput or NodeKind.Bus);
+    /// <summary>Выход (правая колонка): только входной порт.</summary>
     [JsonIgnore] public bool IsOutput => Kind == NodeKind.DeviceOutput;
+    [JsonIgnore] public bool IsBus => Kind == NodeKind.Bus;
+    /// <summary>Из узла можно вести провод: источник или шина.</summary>
+    [JsonIgnore] public bool HasOutPort => !IsOutput;
+    /// <summary>В узел можно вести провод: шина или выход.</summary>
+    [JsonIgnore] public bool HasInPort => !IsSource;
+    [JsonIgnore] public NodeColumn Column => IsSource ? NodeColumn.Sources : IsBus ? NodeColumn.Buses : NodeColumn.Outputs;
+    /// <summary>Включён хотя бы один блок обработки.</summary>
+    [JsonIgnore] public bool HasChain => Chain is { IsActive: true };
     [JsonIgnore] public bool HasDevice => Kind is NodeKind.DeviceInput or NodeKind.Loopback or NodeKind.DeviceOutput;
     [JsonIgnore] public bool FollowsDefault => DefaultRole is not null && HasDevice;
 }
@@ -68,7 +87,8 @@ public sealed record WireConfig
 
 public sealed record GraphConfig
 {
-    public const int CurrentVersion = 1;
+    /// <summary>2 — v2: шины, обработка. Файл v1 читается как есть (новых полей в нём нет).</summary>
+    public const int CurrentVersion = 2;
 
     public int Version { get; init; } = CurrentVersion;
     /// <summary>Эндпоинт-заглушка для режима «Забрать себе» (этап 2).</summary>
@@ -100,6 +120,9 @@ public static class GraphSerializer
         var g = JsonSerializer.Deserialize<GraphConfig>(json, Options) ?? throw new InvalidDataException(CoreStrings.Config_Empty);
         if (g.Version > GraphConfig.CurrentVersion)
             throw new InvalidDataException(Loc.F(CoreStrings.Config_NewerVersionFormat, g.Version, GraphConfig.CurrentVersion));
+        // значения обработки — в пределах спецификации, сколько бы ни написали в файл руками
+        if (g.Nodes.Any(n => n.Chain is not null))
+            g = g with { Nodes = g.Nodes.Select(n => n.Chain is null ? n : n with { Chain = n.Chain.Normalized() }).ToList() };
         return g;
     }
 

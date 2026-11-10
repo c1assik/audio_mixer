@@ -1,6 +1,6 @@
 # Mixer for Windows: developer notes
 
-The user guide is in the [README](../README.md). The specification and plan (in Russian) is `Микшер для Windows спецификация и план.md` in the repository root; section names from it are quoted below in Russian. Stage 0 (risk check): [tools/Mixer.Probe](../tools/Mixer.Probe/README.md). The v2 specification is `Микшер для Windows v2 спецификация и план.md`; its stage 0 results (captures, new applications, direct route, `IAudioClient3`) are in the same Mixer.Probe README.
+The user guide is in the [README](../README.md). The specification and plan (in Russian) is `Микшер для Windows спецификация и план.md` in the repository root; section names from it are quoted below in Russian. Stage 0 (risk check): [tools/Mixer.Probe](../tools/Mixer.Probe/README.md). The v2 specification is `Микшер для Windows v2 спецификация и план.md`; its stage 0 results (captures, new applications, direct route, `IAudioClient3`) are in the same Mixer.Probe README; stages 1 (buses) and 2 (processing) are described below in «v2 stage 1» and «v2 stage 2».
 
 The UI is in English, or in Russian when Windows is in Russian (see "Localization"). Log messages are in English; code comments are in Russian. Russian strings quoted below are shown as they appear in the Russian UI.
 
@@ -8,9 +8,9 @@ The UI is in English, or in Russian when Windows is in Russian (see "Localizatio
 
 | Project | Contents |
 | --- | --- |
-| `src/Mixer.Audio` | Audio engine and WASAPI interop, no WPF: source and output nodes, wires, resamplers, PI controller, ramps, limiter, peak meters; process loopback, `IAudioPolicyConfig`, audio sessions, probe stream, device change notifications (`IMMNotificationClient`) |
-| `src/Mixer.Core` | Graph model and `graph.json`, device lookup by ID, name and default role, the feedback rule, building the engine snapshot; process snapshot, Take over with the `boundApps` journal, sink validation, watchdog, the `MixerHost` control layer with hot-plug and sleep handling; a WPF-free editor: history, edits, wire validation, layout, store with backups, application catalog; file log |
-| `src/Mixer.App` | UI (WPF, CommunityToolkit.Mvvm): graph canvas, cards, wires, palette, sink settings. Builds `Mixer.exe` |
+| `src/Mixer.Audio` | Audio engine and WASAPI interop, no WPF: source and output nodes, wires, buses (per-output instances and mix plans), resamplers, PI controller, ramps, limiter, processing chain (gate, EQ, compressor), peak meters; process loopback, `IAudioPolicyConfig`, audio sessions, probe stream, device change notifications (`IMMNotificationClient`) |
+| `src/Mixer.Core` | Graph model and `graph.json`, device lookup by ID, name and default role, the feedback rule, paths through buses, building the engine snapshot; process snapshot, Take over with the `boundApps` journal, sink validation, watchdog, the `MixerHost` control layer with hot-plug and sleep handling; a WPF-free editor: history, edits (including grouping into a bus), wire validation, layout, store with backups, chain presets, application catalog; file log |
+| `src/Mixer.App` | UI (WPF, CommunityToolkit.Mvvm): graph canvas, cards, wires, palette, sink settings, processing side panel with the EQ curve. Builds `Mixer.exe` |
 | `tools/Mixer.Run` | Console host for stages 1–2: runs a JSON graph through `MixerHost` with statistics, lists applications, checks a sink, measures loop latency |
 | `tests/Mixer.Tests` | xUnit tests without a sound card, including UI view models (on their own STA thread, without a window) |
 | `tools/publish.ps1`, `tools/make-icon.ps1` | Release build of a single `Mixer.exe` and the program icon (stage 5) |
@@ -332,6 +332,84 @@ A new `Mixer.exe` switch: `--log-dir <folder>`, a custom log folder. `Mixer.Run 
 
 - Done: publish profile, release script, icon, version 1.0.0, user README in English with screenshots. `tools/publish.ps1` ran end to end: 162 tests, build, launch check of the published exe. The solution builds without warnings.
 - Acceptance criteria are in the plan, section «Критерии приёмки», marked with what has been verified.
+
+## v2 stage 1: buses
+
+### How it works
+
+- **Bus node** (`kind: bus`) sits in the middle column of the canvas. It has an input port on the left, an output port on the right, a fader, mute, a meter and a processing chain. Wires go source → bus, bus → bus and bus → output; a source still can't receive a wire and an output still can't send one.
+- **No clock of its own.** In v1 each output summed its own wires. In v2 each output, in its own period, computes the buses it is reached from (`MixPlanner`): all buses with a path to the output, in topological order (Kahn). A bus that leads to two outputs exists twice in the engine (`BusInstance`, one per output) with its own processing state, as the specification asks. A wire from a source into such a bus becomes two rings with two resamplers, one per output clock (`Wire.OutputId`); the v1 adaptive resampler stays on the wire. A wire out of a bus is a `BusLink`: same clock, no ring, only a gain ramp and a meter.
+- **One immutable plan per output** (`MixPlan`): steps (a bus with the wires and links that feed it), then direct wires, then links from buses. `AudioEngine.Apply` builds it and swaps it with one reference, as it did with the wire arrays. Bus instances, rings and links are reused across `Apply` while their output node is the same, so a fader move doesn't reset processing state. Removed wires and links are faded out first (5 ms mute ramp), as before.
+- **Checks** (`ConnectionRules`, `GraphPaths`):
+  - a wire that closes a cycle through buses is forbidden; the reason shows the cycle: «Цикл через шины: «A» → «B» → «A»»;
+  - no more than 2 buses on any source → output path;
+  - the v1 endpoint rule now looks at every source above the wire and every output below it through buses. Loopback of the headphones into a bus that leads to the headphones is a loop, and the reason shows the path: «… Путь петли: «Звук наушников» → «Игра + чат» → «Наушники»».
+- **Graph building** (`GraphBuilder`): buses go to the engine as `BusSpec`. Cycles from a hand-edited file are dropped with an `Invalid` issue (the first wire in the file wins). A loop that appears later (the default device changed) drops only the source's wire on the loop path, and only that wire is drawn red: the bus's own wires carry other sources too. An application's capture rate is picked from every output it reaches through buses. The double-sound warning also looks through buses.
+- **Group into bus** (`GraphEdits.GroupIntoBus`): select two or more sources or buses (Ctrl + click) and press «Сгруппировать в шину» in the toolbar or in the node menu. The new bus gets a wire from every selected node and takes over their common outputs (targets every selected node feeds with an enabled wire); the direct wires to those outputs are removed. Levels don't change: every old gain g(source, output) is split as a(source) + b(output), with a on the source → bus wire and b on the bus → output wire. Wires out of the bus are at most 0 dB. «Разгруппировать» (bus menu) does the reverse: every input goes straight to every output at input + bus fader + output gain.
+- **Canvas**: three columns; a bus is added with «+ Шина», or by right-clicking empty space in the middle column. A bus without inputs or without outputs is drawn dimmed with the tooltip «ничего не слышно». A wire leaving a bus is grey. The footer counts buses. While a wire is dragged from a bus, the side being dragged decides the targets: from the output port — buses and outputs; from the input port — sources and buses.
+- **`graph.json` version 2.** A v1 file is read as is; before the first save it is copied to `graph.v1.json` next to it (`GraphStore.Upgrade`).
+
+### Deviations from the specification
+
+30. **The `graph.json` version and the `graph.v1.json` copy are done now, not in stage 5.** v1 can't read `kind: bus` or `chain`, so a v2 graph saved with version 1 would make v1 move it aside as broken. The rest of the migration (cable pairing, the «Сгруппировать в шину?» offer) is still stage 5.
+31. **«Not more than 2 levels» is read as «at most 2 buses on any path».** Grouping that would make a third level is refused with the same reason.
+32. **Grouping keeps levels exactly or not at all.** If the selected sources reach a common output at levels that can't be split as a(source) + b(output) (for example, the microphone is 6 dB louder than the game in the headphones but 6 dB quieter in the stream), that output stays on direct wires, and the message says so. Grouping without any common output still creates the bus with inputs only.
+33. **Ungrouping isn't specified in detail.** A disabled wire or a muted bus gives a disabled direct wire; a direct wire that already exists is kept as is; the bus's processing is lost (the message says so).
+34. **A loop through a bus after a device change drops only the source wire**, not the bus wires (see «How it works»).
+
+### Tests
+
+`BusTests`, `UiBusTests`:
+
+- planner: per-output instances in topological order, a bus that leads nowhere is not computed, a cycle is skipped;
+- mixing in the output period with synthetic sources: bus fader, wire and link gains, bus → bus → output plus a direct wire, muted bus and disabled link;
+- checks: both drag directions, a cycle with its path, three buses in a row, loopback through a bus with its path (both ways), CABLE Output through a bus;
+- builder: buses and their wires, capture rate through buses, a loop after a device change drops only the source wire, a cycle from a file;
+- grouping keeps every level (a non-decomposable output stays direct), no common outputs, ungrouping restores levels, a muted bus, three levels refused;
+- layout, `graph.json` round trip with a bus and a chain, clamping of hand-edited values, the `graph.v1.json` copy, chain edits are parameter changes;
+- view models: a new bus in the middle column, Ctrl + click and grouping as one undo step, ungrouping from the menu, port highlighting from both bus ports, a silent bus.
+
+## v2 stage 2: processing
+
+### How it works
+
+- **Chain** (`ProcessingChain`, one per engine node: source capture, bus instance, output): gate → EQ → compressor, then the node's fader and mute; on outputs the v1 limiter stays last. Our own C#, `Span<float>`, no allocations (a test checks it, including parameter changes). No lookahead, no added latency.
+  - **Gate**: shared stereo peak detector (instant attack, 30 ms release, so it doesn't fall between the periods of a low note), threshold, hold, then the gain moves to 1 with the attack time and to the depth with the release time.
+  - **EQ**: high-pass 40–300 Hz (RBJ, Q 1/√2, 12 dB/oct) and four bands (peak, low shelf, high shelf, off), RBJ Audio EQ Cookbook in double, direct form I.
+  - **Compressor**: soft knee (Giannoulis–Massberg–Reiss gain computer), shared stereo detector, decoupled peak detector on the gain reduction (release holds the peak, attack smooths it), makeup.
+- **Parameters arrive in the routing snapshot** (`ChainSettings`, immutable) and the audio thread moves every parameter to the new value over 10 ms: frequencies on a log scale, gains in dB, compressor thresholds sample by sample. Biquad coefficients are recomputed every 16 frames while a transition is running. A band changes type (or turns off) through 0 dB, where peak and shelves are exactly unity, and waits there for two transition times before switching. Turning a block on or off is a 10 ms S-curve crossfade with the dry signal; a block that is fully off isn't computed at all.
+- **Applications with processing**: an App or All system audio node can be several captures. Processing per capture would compress each application on its own, so once such a node has a chain, its captures (at 0 dB) are summed into an implicit bus `id#fx` that carries the node's chain, fader, balance and mute. The implicit bus stays when blocks are switched off, so toggling a block doesn't rebuild wires.
+- **On the card**: chips of enabled blocks (Gate · EQ · Comp) and the current compressor reduction (`−4 dB`, held 0.5 s); «+ FX» when nothing is on. A chip, «+ FX» or «Обработка…» in the node menu opens the side panel.
+- **Side panel** (`ProcessingPanel`): preset (built-in and own), «Сохранить как…», gate with its level bar and threshold mark and «открыт/закрыт», EQ curve with draggable points (drag: frequency and gain; wheel: Q; right click: band type; double click: 0 dB; Shift: frequency only) and a table of bands (wheel over a value changes it), compressor with a reduction bar, «До» and «После» meters at the bottom. Every knob move is a graph edit through the history, merged into one undo step per drag, so Ctrl+Z works in the panel too.
+- **Presets** (`ChainPresets`): «Голос — чистый», «Голос — эфирный», «Музыка потише и ровнее». A preset is copied into the node, not linked. Own presets are stored in `settings.json` next to `graph.json`.
+
+### Deviations from the specification
+
+35. **Biquad coefficients are computed by the audio thread**, not the UI thread. Only the audio thread knows the device rate (it is known after the device opens and can change on hot-plug); the computation is a handful of `Math` calls per band every 16 frames during a 10 ms transition and allocates nothing. The UI computes the same response for the curve.
+36. **Direct form I.** The transposed form II gave a −37 dB transient while a shelf's gain was being turned (its state depends on the coefficients); direct form I keeps past inputs and outputs and stays below −70 dB.
+37. **Processing on application nodes goes through an implicit bus** (see «How it works»). The specification doesn't say where a multi-capture node is processed.
+38. **Preset values are a starting point, not tuned by ear.** The specification leaves tuning by ear to stage 2; that needs a listening session with a real microphone.
+39. **The gate panel shows all five parameters** (the mockup shows threshold and release only).
+
+### Tests
+
+`ProcessingTests`, `ProcessingBudgetTests`, `UiBusTests`:
+
+- **EQ response matches the design within ±0.1 dB** (criterion): a high-pass and four bands of every type, measured with a sine fit at 11 frequencies from 30 Hz to 19 kHz against |H| from the RBJ formulas. Measured error: under 0.001 dB. RBJ design points: peak gain at its centre, −3.01 dB at the high-pass cutoff, 12 dB/oct, shelves.
+- **No clicks while turning knobs on a 1 kHz sine** (criterion): every parameter is swept over its range and back with a new value every 10 ms. The detector is the residual above 6 kHz (four Butterworth high-passes); the limit is −60 dB below the signal. A test checks the detector itself: a 1 dB gain step without a ramp is caught, a clean sine is not. Results: EQ frequency −78, gain −87, Q −127, shelf −72, high-pass −124; compressor −83…−124; gate −97…−128; turning blocks, the high-pass and bands on and off and switching band types −70…−120.
+- compressor static curve on a sine (−13.50 dBFS against −13.51 expected) and the reduction meter; the shared detector keeps the stereo image; gate: open, hold, closed at −60 dB;
+- a disabled chain and a block that has faded out pass audio bit-exact;
+- no allocations while processing and changing parameters;
+- **CPU: the full chain on a stereo node takes 0.16% of one core** (budget 0.3%, Release, 10 s of noise, best of 5, not in parallel with other tests);
+- presets are within the specification ranges; values from a hand-edited file are clamped;
+- view models: chips follow the chain; a knob drag is one undo step and Ctrl+Z brings the panel back; presets are applied and recognised; band type and curve drag; deleting the node closes its panel; log slider mapping.
+
+### Status as of 10 November 2026
+
+- Done: buses, checks, grouping, processing, side panel, presets. 231 tests pass (2 manual tuning sweeps skipped). The solution builds without warnings.
+- Checked: the look of the canvas with buses and of the side panel, from snapshots in `--no-audio` mode with the streamer layout from the v2 mockup (`--open fx:<node>[:gate|eq|comp]` opens the panel on start). The user's own v1 graph was upgraded by the new build (`graph.v1.json` written) and played through it without errors in the log.
+- Checked by ear by the user on 10 November 2026 (buses and processing on real devices): no issues, according to the user; not repeated here.
+- **Not checked**: CPU of the 8-node layout with full chains (criterion: 5% on a 4-core CPU).
 
 ## Localization
 
