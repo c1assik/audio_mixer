@@ -3,12 +3,14 @@
 #   ... -CertThumbprint <отпечаток>         подпись сертификатом из хранилища текущего пользователя
 #   ... -Pfx cert.pfx -PfxPassword <пароль>  подпись сертификатом из файла
 #   ... -SkipTests
+#   ... -Version 1.2.3                       версия exe вместо <Version> из Directory.Build.props
 # Результат: dist\Mixer.exe и dist\Mixer.exe.sha256.
 param(
     [string]$CertThumbprint,
     [string]$Pfx,
     [string]$PfxPassword,
     [string]$TimestampUrl = 'http://timestamp.digicert.com',
+    [string]$Version,
     [switch]$SkipTests
 )
 
@@ -30,7 +32,9 @@ if (-not $SkipTests) {
 
 Step 'сборка'
 if (Test-Path $dist) { Remove-Item $dist -Recurse -Force }
-Run 'dotnet' @('publish', (Join-Path $root 'src\Mixer.App'), '-c', 'Release', '-p:PublishProfile=win-x64', '-nologo')
+$publish = @('publish', (Join-Path $root 'src\Mixer.App'), '-c', 'Release', '-p:PublishProfile=win-x64', '-nologo')
+if ($Version) { $publish += "-p:Version=$Version" }
+Run 'dotnet' $publish
 # рядом с exe не должно остаться ничего, кроме него самого
 Get-ChildItem $dist -File | Where-Object { $_.Name -ne 'Mixer.exe' } | Remove-Item -Force
 if (-not (Test-Path $exe)) { throw "нет $exe" }

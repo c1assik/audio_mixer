@@ -1,0 +1,92 @@
+# Сборка и тесты на каждый push/PR; выпуск на тег v* (например v1.2.0):
+#   git tag v1.2.0 && git push origin v1.2.0
+# Подпись (необязательно): секреты SIGN_PFX_BASE64 (pfx в base64) и SIGN_PFX_PASSWORD.
+#   [Convert]::ToBase64String([IO.File]::ReadAllBytes('cert.pfx')) | Set-Clipboard
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Сборка
+        run: dotnet build Mixer.sln -c Release
+
+      - name: Тесты
+        run: dotnet test tests/Mixer.Tests -c Release --no-build --logger trx --results-directory TestResults
+
+      - name: Результаты тестов
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: test-results
+          path: TestResults
+
+      - name: Выпуск exe
+        env:
+          SIGN_PFX_BASE64: ${{ secrets.SIGN_PFX_BASE64 }}
+          SIGN_PFX_PASSWORD: ${{ secrets.SIGN_PFX_PASSWORD }}
+        run: |
+          $opts = @{ SkipTests = $true }
+          if ($env:GITHUB_REF_TYPE -eq 'tag') { $opts.Version = $env:GITHUB_REF_NAME.TrimStart('v') }
+          if ($env:SIGN_PFX_BASE64) {
+            $pfx = Join-Path $env:RUNNER_TEMP 'sign.pfx'
+            [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:SIGN_PFX_BASE64))
+            $opts.Pfx = $pfx
+            if ($env:SIGN_PFX_PASSWORD) { $opts.PfxPassword = $env:SIGN_PFX_PASSWORD }
+          }
+          ./tools/publish.ps1 @opts
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: Mixer
+          path: |
+            dist/Mixer.exe
+            dist/Mixer.exe.sha256
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: Mixer
+          path: dist
+
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "$GITHUB_REF_NAME" dist/Mixer.exe dist/Mixer.exe.sha256
+          --repo "$GITHUB_REPOSITORY" --title "Mixer $GITHUB_REF_NAME" --generate-notes
