@@ -52,7 +52,7 @@ public sealed class GraphStore : IDisposable
         if (!File.Exists(path)) return new GraphConfig();
         try
         {
-            return GraphSerializer.Load(path);
+            return Upgrade(path, GraphSerializer.Load(path));
         }
         catch (Exception ex) when (IsCorrupt(ex))
         {
@@ -83,6 +83,25 @@ public sealed class GraphStore : IDisposable
             error = Loc.F(CoreStrings.Store_NoBackupsFormat, what);
             return new GraphConfig();
         }
+    }
+
+    /// <summary>
+    /// Файл прежней версии: оригинал откладывается рядом («graph.v1.json», если такого ещё нет), чтобы откат на v1
+    /// ничего не терял — v1 не читает узлы-шины и обработку. Сам граф переносится как есть: поля v1 не изменились.
+    /// </summary>
+    public static GraphConfig Upgrade(string path, GraphConfig g)
+    {
+        if (g.Version >= GraphConfig.CurrentVersion) return g;
+        string old = System.IO.Path.ChangeExtension(path, $".v{g.Version}.json");
+        try
+        {
+            if (!File.Exists(old)) File.Copy(path, old);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // без копии граф всё равно читается; запись v2 поверх v1 остаётся читаемой для v2
+        }
+        return g with { Version = GraphConfig.CurrentVersion };
     }
 
     /// <summary>Файл прочитан, но испорчен. Ошибка доступа — не порча: такой файл нельзя подменять копией.</summary>

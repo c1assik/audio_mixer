@@ -145,6 +145,10 @@ public partial class App : Application
             case "palette-sources": _vm.OpenPalette(PaletteMode.Sources, null); break;
             case "palette-outputs": _vm.OpenPalette(PaletteMode.Outputs, null); break;
             case "settings": _vm.OpenSettingsCommand.Execute(null); break;
+            // «fx:n3» — боковая панель обработки узла n3, «fx:n3:comp» — сразу у компрессора
+            case { } s when s.StartsWith("fx:", StringComparison.Ordinal) && _vm.FindNode(s[3..].Split(':')[0]) is { } node:
+                _vm.OpenProcessing(node, s[3..].Split(':').ElementAtOrDefault(1));
+                break;
         }
         if (opt.Snapshot is { } png) ScheduleSnapshot(window, png);
     }

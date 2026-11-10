@@ -121,7 +121,7 @@ public static class Strings
     /// <summary>Couldn’t open the Windows volume mixer: {0}</summary>
     public static string Cmd_OpenWindowsMixerFailedFormat => Get("Cmd_OpenWindowsMixerFailedFormat");
 
-    /// <summary>Drag from a source’s dot to an output to connect. Scroll over “dB” on a wire to change its volume.</summary>
+    /// <summary>Drag from a dot to another node to connect. Ctrl+click sources to group them into a bus. Click + FX on a node to tune its sound.</summary>
     public static string Toolbar_Hint => Get("Toolbar_Hint");
 
     /// <summary>SOURCES</summary>
@@ -391,7 +391,7 @@ public static class Strings
     /// <summary>The output limiter is holding back peaks above −1 dBFS. Turn down the sources or the output.</summary>
     public static string Node_LimiterTip => Get("Node_LimiterTip");
 
-    /// <summary>Drag to a node in the other column to connect</summary>
+    /// <summary>Drag to a node in the next column to connect</summary>
     public static string Node_PortTip => Get("Node_PortTip");
 
     /// <summary>Rename</summary>
@@ -729,4 +729,244 @@ public static class Strings
 
     /// <summary>The check failed: {0}</summary>
     public static string Settings_CheckFailedFormat => Get("Settings_CheckFailedFormat");
+
+    /// <summary>Bus</summary>
+    public static string Cmd_AddBus => Get("Cmd_AddBus");
+
+    /// <summary>Add a bus: several sources go into it, and it sends the sum on with one fader</summary>
+    public static string Cmd_AddBusTip => Get("Cmd_AddBusTip");
+
+    /// <summary>Group into bus</summary>
+    public static string Cmd_GroupIntoBus => Get("Cmd_GroupIntoBus");
+
+    /// <summary>Ctrl+click two or more sources, then group them: their common outputs move onto a new bus, levels stay the same</summary>
+    public static string Cmd_GroupIntoBusTip => Get("Cmd_GroupIntoBusTip");
+
+    /// <summary>Drag to a source or a bus to bring its sound here</summary>
+    public static string Node_InPortTip => Get("Node_InPortTip");
+
+    /// <summary>BUSES</summary>
+    public static string Graph_BusesHeader => Get("Graph_BusesHeader");
+
+    /// <summary>bus|buses</summary>
+    public static string Plural_Bus => Get("Plural_Bus");
+
+    /// <summary>input|inputs</summary>
+    public static string Plural_Input => Get("Plural_Input");
+
+    /// <summary>Bus {0}</summary>
+    public static string Bus_NameFormat => Get("Bus_NameFormat");
+
+    /// <summary>“{0}” created: {1} now go through it, the levels haven’t changed</summary>
+    public static string Bus_GroupedFormat => Get("Bus_GroupedFormat");
+
+    /// <summary>“{0}” created: {1} now go through it. {2} stayed on direct wires, because the sources reach them at different relative levels</summary>
+    public static string Bus_GroupedSomeFormat => Get("Bus_GroupedSomeFormat");
+
+    /// <summary>“{0}” created. The selected sources have no output in common, so the bus doesn’t lead anywhere yet: connect it to an output</summary>
+    public static string Bus_GroupedNoOutputsFormat => Get("Bus_GroupedNoOutputsFormat");
+
+    /// <summary>Group {0} into a bus</summary>
+    public static string Bus_GroupMenuFormat => Get("Bus_GroupMenuFormat");
+
+    /// <summary>Ungroup</summary>
+    public static string Bus_Ungroup => Get("Bus_Ungroup");
+
+    /// <summary>Remove the bus and connect its inputs straight to its outputs at the same levels</summary>
+    public static string Bus_UngroupTip => Get("Bus_UngroupTip");
+
+    /// <summary>“{0}” removed: {1} now go directly.</summary>
+    public static string Bus_UngroupedFormat => Get("Bus_UngroupedFormat");
+
+    /// <summary>{0} already existed and were left as they were.</summary>
+    public static string Bus_UngroupKeptFormat => Get("Bus_UngroupKeptFormat");
+
+    /// <summary>The bus processing is gone with it.</summary>
+    public static string Bus_UngroupLostChain => Get("Bus_UngroupLostChain");
+
+    /// <summary>bus · {0}</summary>
+    public static string NodeSub_BusFormat => Get("NodeSub_BusFormat");
+
+    /// <summary>A bus sums its inputs and sends the result on with one fader</summary>
+    public static string NodeTip_Bus => Get("NodeTip_Bus");
+
+    /// <summary>Nothing is heard: the bus has no inputs or leads nowhere</summary>
+    public static string NodeTip_BusSilent => Get("NodeTip_BusSilent");
+
+    /// <summary>From a bus: mixed in the output’s own period, no extra latency</summary>
+    public static string Wire_TooltipFromBus => Get("Wire_TooltipFromBus");
+
+    /// <summary>{0} Hz</summary>
+    public static string Unit_HzFormat => Get("Unit_HzFormat");
+
+    /// <summary>{0} kHz</summary>
+    public static string Unit_kHzFormat => Get("Unit_kHzFormat");
+
+    /// <summary>{0} dBFS</summary>
+    public static string Unit_dBFSFormat => Get("Unit_dBFSFormat");
+
+    /// <summary>{0} ms</summary>
+    public static string Unit_msFormat => Get("Unit_msFormat");
+
+    /// <summary>+ FX</summary>
+    public static string Fx_Add => Get("Fx_Add");
+
+    /// <summary>Gate, EQ and compressor for this node</summary>
+    public static string Fx_AddTip => Get("Fx_AddTip");
+
+    /// <summary>Gate</summary>
+    public static string Fx_Gate => Get("Fx_Gate");
+
+    /// <summary>EQ</summary>
+    public static string Fx_Eq => Get("Fx_Eq");
+
+    /// <summary>Comp</summary>
+    public static string Fx_Comp => Get("Fx_Comp");
+
+    /// <summary>Open processing settings</summary>
+    public static string Fx_ChipTip => Get("Fx_ChipTip");
+
+    /// <summary>How much the compressor is turning the sound down right now</summary>
+    public static string Fx_ReductionTip => Get("Fx_ReductionTip");
+
+    /// <summary>Processing…</summary>
+    public static string Fx_Menu => Get("Fx_Menu");
+
+    /// <summary>Processing · applies before the fader</summary>
+    public static string Fx_PanelSubtitle => Get("Fx_PanelSubtitle");
+
+    /// <summary>Close</summary>
+    public static string Fx_Close => Get("Fx_Close");
+
+    /// <summary>Preset</summary>
+    public static string Fx_Preset => Get("Fx_Preset");
+
+    /// <summary>Ready-made settings for the whole chain</summary>
+    public static string Fx_PresetTip => Get("Fx_PresetTip");
+
+    /// <summary>Custom</summary>
+    public static string Fx_PresetCustom => Get("Fx_PresetCustom");
+
+    /// <summary>No processing</summary>
+    public static string Fx_PresetNone => Get("Fx_PresetNone");
+
+    /// <summary>Preset “{0}” applied to “{1}”. Ctrl+Z undoes it</summary>
+    public static string Fx_PresetAppliedFormat => Get("Fx_PresetAppliedFormat");
+
+    /// <summary>There is nowhere to save presets in this mode</summary>
+    public static string Fx_PresetNoSettings => Get("Fx_PresetNoSettings");
+
+    /// <summary>The preset wasn’t saved: {0}</summary>
+    public static string Fx_PresetSaveFailedFormat => Get("Fx_PresetSaveFailedFormat");
+
+    /// <summary>Preset “{0}” saved</summary>
+    public static string Fx_PresetSavedFormat => Get("Fx_PresetSavedFormat");
+
+    /// <summary>Save as…</summary>
+    public static string Fx_SaveAs => Get("Fx_SaveAs");
+
+    /// <summary>Save the current settings as your own preset</summary>
+    public static string Fx_SaveAsTip => Get("Fx_SaveAsTip");
+
+    /// <summary>Save</summary>
+    public static string Fx_Save => Get("Fx_Save");
+
+    /// <summary>Gate</summary>
+    public static string Fx_GateTitle => Get("Fx_GateTitle");
+
+    /// <summary>Mutes background noise in pauses: opens when the sound is above the threshold</summary>
+    public static string Fx_GateTip => Get("Fx_GateTip");
+
+    /// <summary>open</summary>
+    public static string Fx_GateOpen => Get("Fx_GateOpen");
+
+    /// <summary>closed</summary>
+    public static string Fx_GateClosed => Get("Fx_GateClosed");
+
+    /// <summary>Green: the level the gate hears. Yellow tick: the threshold</summary>
+    public static string Fx_GateBarTip => Get("Fx_GateBarTip");
+
+    /// <summary>EQ</summary>
+    public static string Fx_EqTitle => Get("Fx_EqTitle");
+
+    /// <summary>Removes rumble and boominess, adds clarity</summary>
+    public static string Fx_EqTip => Get("Fx_EqTip");
+
+    /// <summary>Drag a point: frequency and gain. Wheel: width (Q). Right-click: band type. Double-click: 0 dB. Shift: frequency only</summary>
+    public static string Fx_CurveTip => Get("Fx_CurveTip");
+
+    /// <summary>Band type</summary>
+    public static string Fx_TypeTip => Get("Fx_TypeTip");
+
+    /// <summary>12 dB/oct</summary>
+    public static string Fx_HighPassSlope => Get("Fx_HighPassSlope");
+
+    /// <summary>Compressor</summary>
+    public static string Fx_CompTitle => Get("Fx_CompTitle");
+
+    /// <summary>Evens out quiet and loud phrases</summary>
+    public static string Fx_CompTip => Get("Fx_CompTip");
+
+    /// <summary>Reduction</summary>
+    public static string Fx_Reduction => Get("Fx_Reduction");
+
+    /// <summary>In</summary>
+    public static string Fx_In => Get("Fx_In");
+
+    /// <summary>Level before processing</summary>
+    public static string Fx_InTip => Get("Fx_InTip");
+
+    /// <summary>Out</summary>
+    public static string Fx_Out => Get("Fx_Out");
+
+    /// <summary>Level after processing, before the fader</summary>
+    public static string Fx_OutTip => Get("Fx_OutTip");
+
+    /// <summary>Threshold</summary>
+    public static string Fx_Threshold => Get("Fx_Threshold");
+
+    /// <summary>Attack</summary>
+    public static string Fx_Attack => Get("Fx_Attack");
+
+    /// <summary>Hold</summary>
+    public static string Fx_Hold => Get("Fx_Hold");
+
+    /// <summary>Release</summary>
+    public static string Fx_Release => Get("Fx_Release");
+
+    /// <summary>Depth</summary>
+    public static string Fx_Depth => Get("Fx_Depth");
+
+    /// <summary>Ratio</summary>
+    public static string Fx_Ratio => Get("Fx_Ratio");
+
+    /// <summary>Knee</summary>
+    public static string Fx_Knee => Get("Fx_Knee");
+
+    /// <summary>Makeup</summary>
+    public static string Fx_Makeup => Get("Fx_Makeup");
+
+    /// <summary>High-pass</summary>
+    public static string Fx_HighPass => Get("Fx_HighPass");
+
+    /// <summary>Frequency</summary>
+    public static string Fx_Freq => Get("Fx_Freq");
+
+    /// <summary>Gain</summary>
+    public static string Fx_Gain => Get("Fx_Gain");
+
+    /// <summary>Q</summary>
+    public static string Fx_Q => Get("Fx_Q");
+
+    /// <summary>Peak</summary>
+    public static string Fx_TypePeak => Get("Fx_TypePeak");
+
+    /// <summary>Low shelf</summary>
+    public static string Fx_TypeLowShelf => Get("Fx_TypeLowShelf");
+
+    /// <summary>High shelf</summary>
+    public static string Fx_TypeHighShelf => Get("Fx_TypeHighShelf");
+
+    /// <summary>Off</summary>
+    public static string Fx_TypeOff => Get("Fx_TypeOff");
 }

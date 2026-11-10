@@ -42,6 +42,7 @@
                 <ui:WireLayer x:Name="Wires" />
 
                 <TextBlock Text="{x:Static res:Strings.Graph_SourcesHeader}" Style="{StaticResource SectionLabel}" Margin="40,26,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" />
+                <TextBlock x:Name="BusesLabel" Text="{x:Static res:Strings.Graph_BusesHeader}" Style="{StaticResource SectionLabel}" HorizontalAlignment="Left" VerticalAlignment="Top" />
                 <TextBlock x:Name="OutputsLabel" Text="{x:Static res:Strings.Graph_OutputsHeader}" Style="{StaticResource SectionLabel}" HorizontalAlignment="Left" VerticalAlignment="Top" />
 
                 <!-- пилюли проводов -->

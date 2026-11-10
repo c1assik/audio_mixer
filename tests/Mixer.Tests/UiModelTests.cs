@@ -148,18 +148,19 @@ public class UiModelTests
             var (vm, store) = Make();
             using var _ = store;
             var lb = vm.FindNode("lb")!;
-            vm.BeginConnectPreview(lb);
-            Assert.Equal(PortLook.Origin, lb.Port);
-            Assert.Equal(PortLook.Forbidden, vm.FindNode("hp")!.Port);
+            vm.BeginConnectPreview(lb, fromInput: false);
+            Assert.Equal(PortLook.Origin, lb.OutPort);
+            Assert.Equal(PortLook.Forbidden, vm.FindNode("hp")!.InPort);
             Assert.Contains("Петля", vm.FindNode("hp")!.PortReason);
-            Assert.Equal(PortLook.Valid, vm.FindNode("stream")!.Port);
+            Assert.Equal(PortLook.Valid, vm.FindNode("stream")!.InPort);
             Assert.True(vm.FindNode("mic")!.IsDimmed); // своя колонка гаснет
             vm.EndConnectPreview();
-            Assert.All(vm.Nodes, n => Assert.Equal(PortLook.None, n.Port));
+            Assert.All(vm.Nodes, n => Assert.Equal(PortLook.None, n.InPort));
+            Assert.All(vm.Nodes, n => Assert.Equal(PortLook.None, n.OutPort));
 
-            vm.BeginConnectPreview(vm.FindNode("hp")!);
-            Assert.Equal(PortLook.Occupied, vm.FindNode("mic")!.Port);
-            Assert.Equal(PortLook.Forbidden, vm.FindNode("lb")!.Port);
+            vm.BeginConnectPreview(vm.FindNode("hp")!, fromInput: true);
+            Assert.Equal(PortLook.Occupied, vm.FindNode("mic")!.OutPort);
+            Assert.Equal(PortLook.Forbidden, vm.FindNode("lb")!.OutPort);
             vm.EndConnectPreview();
             vm.Dispose();
         });

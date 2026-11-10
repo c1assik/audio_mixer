@@ -63,6 +63,8 @@
     <Geometry x:Key="IconSystem">M3 4h18v12H3zM8 20h8M12 16v4</Geometry>
     <Geometry x:Key="IconMenu">M5 11a1 1 0 1 1 0 2a1 1 0 1 1 0-2zM12 11a1 1 0 1 1 0 2a1 1 0 1 1 0-2zM19 11a1 1 0 1 1 0 2a1 1 0 1 1 0-2z</Geometry>
     <Geometry x:Key="IconCheck">M5 12l5 5L19 7</Geometry>
+    <Geometry x:Key="IconBus">M5 7h14M5 12h14M5 17h14M9 5v4M15 10v4M8 15v4</Geometry>
+    <Geometry x:Key="IconDown">M6 9l6 6 6-6</Geometry>
     <Geometry x:Key="IconChevron">M9 6l6 6-6 6</Geometry>
 
     <!-- ── базовые стили ── -->
@@ -485,6 +487,95 @@
         <Setter Property="CornerRadius" Value="11" />
         <Setter Property="Background" Value="{StaticResource Raised}" />
         <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+
+    <!-- ── v2: обработка ── -->
+    <!-- «+ FX» на карточке: пунктирная рамка, приглушённый текст -->
+    <Style x:Key="FxButton" TargetType="Button">
+        <Setter Property="Height" Value="22" />
+        <Setter Property="Padding" Value="7,0" />
+        <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Foreground" Value="{StaticResource Muted}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Margin" Value="0,0,4,0" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid>
+                        <Rectangle x:Name="Bd" RadiusX="5" RadiusY="5" Stroke="{StaticResource LineStrong}" StrokeDashArray="3 2" Fill="Transparent" />
+                        <ContentPresenter Margin="{TemplateBinding Padding}" VerticalAlignment="Center" HorizontalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Stroke" Value="{StaticResource Accent}" />
+                            <Setter Property="Foreground" Value="{StaticResource Text}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <!-- чип включённого блока (Gate · EQ · Comp) -->
+    <Style x:Key="ChipButton" TargetType="Button" BasedOn="{StaticResource FxButton}">
+        <Setter Property="Foreground" Value="{StaticResource Text}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" CornerRadius="5" BorderThickness="1" BorderBrush="#4D4FA3FF" Background="{StaticResource AccentSoft}" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <!-- переключатель блока в панели обработки -->
+    <Style x:Key="Switch" TargetType="ToggleButton">
+        <Setter Property="Width" Value="36" />
+        <Setter Property="Height" Value="20" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Grid>
+                        <Border x:Name="Track" CornerRadius="10" Background="{StaticResource LineStrong}" />
+                        <Ellipse x:Name="Knob" Width="14" Height="14" Fill="{StaticResource Text}" HorizontalAlignment="Left" Margin="3,0" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Track" Property="Background" Value="{StaticResource Accent}" />
+                            <Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right" />
+                            <Setter TargetName="Knob" Property="Fill" Value="#FFFFFF" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <!-- ползунок параметра в панели: тот же фейдер, акцентный цвет -->
+    <Style x:Key="ParamSlider" TargetType="Slider" BasedOn="{StaticResource Fader}">
+        <Setter Property="Foreground" Value="{StaticResource Accent}" />
+        <Setter Property="Minimum" Value="0" />
+        <Setter Property="Maximum" Value="1" />
+        <Setter Property="SmallChange" Value="0.01" />
+        <Setter Property="LargeChange" Value="0.1" />
+    </Style>
+    <Style x:Key="PanelCard" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Card}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="14,12" />
+        <Setter Property="Margin" Value="0,0,0,12" />
     </Style>
 
 </ResourceDictionary>

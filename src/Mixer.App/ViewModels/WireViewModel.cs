@@ -46,13 +46,15 @@ public sealed partial class WireViewModel : ObservableObject
 
     public MeterState Meter { get; } = new();
     internal Wire[] EngineWires = [];
+    /// <summary>Провода из шины в движке (по экземпляру на выход).</summary>
+    internal BusLink[] EngineLinks = [];
 
     public string PillText => Forbidden is not null ? Strings.Wire_Loop : Enabled ? Fmt.Pill(GainDb) : Strings.Wire_Off;
     public bool IsPillOff => !Enabled || Forbidden is not null;
     public string TipHint => Strings.Wire_Hint;
 
-    public Point A => Source.PortPoint;
-    public Point B => Target.PortPoint;
+    public Point A => Source.OutPoint;
+    public Point B => Target.InPoint;
 
     internal void Load(WireConfig c)
     {

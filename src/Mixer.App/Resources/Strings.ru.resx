@@ -110,7 +110,7 @@
     <value>Не удалось открыть микшер громкости Windows: {0}</value>
   </data>
   <data name="Toolbar_Hint" xml:space="preserve">
-    <value>Потяните от точки источника к выходу, чтобы соединить. Колесо над «дБ» на проводе меняет громкость.</value>
+    <value>Потяните от точки к другому узлу, чтобы соединить. Ctrl + клик по источникам — выделить их, чтобы сгруппировать в шину. «+ FX» на узле — обработка.</value>
   </data>
   <data name="Graph_SourcesHeader" xml:space="preserve">
     <value>ИСТОЧНИКИ</value>
@@ -380,7 +380,7 @@
     <value>Ограничитель на выходе срезает пики выше −1 dBFS. Убавьте источники или выход.</value>
   </data>
   <data name="Node_PortTip" xml:space="preserve">
-    <value>Потяните к узлу другой колонки, чтобы соединить</value>
+    <value>Потяните к узлу следующей колонки, чтобы соединить</value>
   </data>
   <data name="Node_Rename" xml:space="preserve">
     <value>Переименовать</value>
@@ -717,5 +717,245 @@
   </data>
   <data name="Settings_CheckFailedFormat" xml:space="preserve">
     <value>Проверка не удалась: {0}</value>
+  </data>
+  <data name="Cmd_AddBus" xml:space="preserve">
+    <value>Шина</value>
+  </data>
+  <data name="Cmd_AddBusTip" xml:space="preserve">
+    <value>Добавить шину: в неё сводятся несколько источников, а дальше сумма идёт одним фейдером</value>
+  </data>
+  <data name="Cmd_GroupIntoBus" xml:space="preserve">
+    <value>Сгруппировать в шину</value>
+  </data>
+  <data name="Cmd_GroupIntoBusTip" xml:space="preserve">
+    <value>Выделите два или больше источника (Ctrl + клик) и сгруппируйте: их общие выходы переедут на новую шину, уровни не изменятся</value>
+  </data>
+  <data name="Node_InPortTip" xml:space="preserve">
+    <value>Потяните к источнику или шине, чтобы завести их звук сюда</value>
+  </data>
+  <data name="Graph_BusesHeader" xml:space="preserve">
+    <value>ШИНЫ</value>
+  </data>
+  <data name="Plural_Bus" xml:space="preserve">
+    <value>шина|шины|шин</value>
+  </data>
+  <data name="Plural_Input" xml:space="preserve">
+    <value>вход|входа|входов</value>
+  </data>
+  <data name="Bus_NameFormat" xml:space="preserve">
+    <value>Шина {0}</value>
+  </data>
+  <data name="Bus_GroupedFormat" xml:space="preserve">
+    <value>Создана «{0}»: {1} теперь через неё, уровни не изменились</value>
+  </data>
+  <data name="Bus_GroupedSomeFormat" xml:space="preserve">
+    <value>Создана «{0}»: {1} теперь через неё. {2} остались на прямых проводах: источники приходят туда с разным соотношением уровней</value>
+  </data>
+  <data name="Bus_GroupedNoOutputsFormat" xml:space="preserve">
+    <value>Создана «{0}». Общих выходов у выделенных источников нет, поэтому шина пока никуда не ведёт: соедините её с выходом</value>
+  </data>
+  <data name="Bus_GroupMenuFormat" xml:space="preserve">
+    <value>Сгруппировать в шину ({0})</value>
+  </data>
+  <data name="Bus_Ungroup" xml:space="preserve">
+    <value>Разгруппировать</value>
+  </data>
+  <data name="Bus_UngroupTip" xml:space="preserve">
+    <value>Убрать шину и соединить её входы прямо с её выходами с теми же уровнями</value>
+  </data>
+  <data name="Bus_UngroupedFormat" xml:space="preserve">
+    <value>«{0}» убрана: {1} теперь напрямую.</value>
+  </data>
+  <data name="Bus_UngroupKeptFormat" xml:space="preserve">
+    <value>{0} уже были и остались как есть.</value>
+  </data>
+  <data name="Bus_UngroupLostChain" xml:space="preserve">
+    <value>Обработка шины пропала вместе с ней.</value>
+  </data>
+  <data name="NodeSub_BusFormat" xml:space="preserve">
+    <value>шина · {0}</value>
+  </data>
+  <data name="NodeTip_Bus" xml:space="preserve">
+    <value>Шина складывает свои входы и отдаёт сумму дальше одним фейдером</value>
+  </data>
+  <data name="NodeTip_BusSilent" xml:space="preserve">
+    <value>Ничего не слышно: в шину ничего не входит или она никуда не ведёт</value>
+  </data>
+  <data name="Wire_TooltipFromBus" xml:space="preserve">
+    <value>Из шины: сводится в периоде самого выхода, без добавочной задержки</value>
+  </data>
+  <data name="Unit_HzFormat" xml:space="preserve">
+    <value>{0} Гц</value>
+  </data>
+  <data name="Unit_kHzFormat" xml:space="preserve">
+    <value>{0} кГц</value>
+  </data>
+  <data name="Unit_dBFSFormat" xml:space="preserve">
+    <value>{0} dBFS</value>
+  </data>
+  <data name="Unit_msFormat" xml:space="preserve">
+    <value>{0} мс</value>
+  </data>
+  <data name="Fx_Add" xml:space="preserve">
+    <value>+ FX</value>
+  </data>
+  <data name="Fx_AddTip" xml:space="preserve">
+    <value>Гейт, EQ и компрессор для этого узла</value>
+  </data>
+  <data name="Fx_Gate" xml:space="preserve">
+    <value>Gate</value>
+  </data>
+  <data name="Fx_Eq" xml:space="preserve">
+    <value>EQ</value>
+  </data>
+  <data name="Fx_Comp" xml:space="preserve">
+    <value>Comp</value>
+  </data>
+  <data name="Fx_ChipTip" xml:space="preserve">
+    <value>Открыть настройки обработки</value>
+  </data>
+  <data name="Fx_ReductionTip" xml:space="preserve">
+    <value>Насколько компрессор сейчас приглушает звук</value>
+  </data>
+  <data name="Fx_Menu" xml:space="preserve">
+    <value>Обработка…</value>
+  </data>
+  <data name="Fx_PanelSubtitle" xml:space="preserve">
+    <value>Обработка · до фейдера</value>
+  </data>
+  <data name="Fx_Close" xml:space="preserve">
+    <value>Закрыть</value>
+  </data>
+  <data name="Fx_Preset" xml:space="preserve">
+    <value>Пресет</value>
+  </data>
+  <data name="Fx_PresetTip" xml:space="preserve">
+    <value>Готовые настройки всей цепочки</value>
+  </data>
+  <data name="Fx_PresetCustom" xml:space="preserve">
+    <value>Свои настройки</value>
+  </data>
+  <data name="Fx_PresetNone" xml:space="preserve">
+    <value>Без обработки</value>
+  </data>
+  <data name="Fx_PresetAppliedFormat" xml:space="preserve">
+    <value>Пресет «{0}» применён к «{1}». Ctrl+Z отменит</value>
+  </data>
+  <data name="Fx_PresetNoSettings" xml:space="preserve">
+    <value>В этом режиме пресеты сохранить некуда</value>
+  </data>
+  <data name="Fx_PresetSaveFailedFormat" xml:space="preserve">
+    <value>Пресет не сохранён: {0}</value>
+  </data>
+  <data name="Fx_PresetSavedFormat" xml:space="preserve">
+    <value>Пресет «{0}» сохранён</value>
+  </data>
+  <data name="Fx_SaveAs" xml:space="preserve">
+    <value>Сохранить как…</value>
+  </data>
+  <data name="Fx_SaveAsTip" xml:space="preserve">
+    <value>Сохранить текущие настройки как свой пресет</value>
+  </data>
+  <data name="Fx_Save" xml:space="preserve">
+    <value>Сохранить</value>
+  </data>
+  <data name="Fx_GateTitle" xml:space="preserve">
+    <value>Гейт</value>
+  </data>
+  <data name="Fx_GateTip" xml:space="preserve">
+    <value>Глушит фон в паузах: открывается, когда звук громче порога</value>
+  </data>
+  <data name="Fx_GateOpen" xml:space="preserve">
+    <value>открыт</value>
+  </data>
+  <data name="Fx_GateClosed" xml:space="preserve">
+    <value>закрыт</value>
+  </data>
+  <data name="Fx_GateBarTip" xml:space="preserve">
+    <value>Зелёное — уровень, который слышит гейт. Жёлтая засечка — порог</value>
+  </data>
+  <data name="Fx_EqTitle" xml:space="preserve">
+    <value>EQ</value>
+  </data>
+  <data name="Fx_EqTip" xml:space="preserve">
+    <value>Убирает гул и «бубнение», добавляет разборчивости</value>
+  </data>
+  <data name="Fx_CurveTip" xml:space="preserve">
+    <value>Тащите точку: частота и усиление. Колесо — ширина (Q). Правый клик — тип полосы. Двойной клик — 0 дБ. Shift — только частота</value>
+  </data>
+  <data name="Fx_TypeTip" xml:space="preserve">
+    <value>Тип полосы</value>
+  </data>
+  <data name="Fx_HighPassSlope" xml:space="preserve">
+    <value>12 дБ/окт</value>
+  </data>
+  <data name="Fx_CompTitle" xml:space="preserve">
+    <value>Компрессор</value>
+  </data>
+  <data name="Fx_CompTip" xml:space="preserve">
+    <value>Выравнивает тихие и громкие фразы</value>
+  </data>
+  <data name="Fx_Reduction" xml:space="preserve">
+    <value>Подавление</value>
+  </data>
+  <data name="Fx_In" xml:space="preserve">
+    <value>До</value>
+  </data>
+  <data name="Fx_InTip" xml:space="preserve">
+    <value>Уровень до обработки</value>
+  </data>
+  <data name="Fx_Out" xml:space="preserve">
+    <value>После</value>
+  </data>
+  <data name="Fx_OutTip" xml:space="preserve">
+    <value>Уровень после обработки, до фейдера</value>
+  </data>
+  <data name="Fx_Threshold" xml:space="preserve">
+    <value>Порог</value>
+  </data>
+  <data name="Fx_Attack" xml:space="preserve">
+    <value>Атака</value>
+  </data>
+  <data name="Fx_Hold" xml:space="preserve">
+    <value>Удержание</value>
+  </data>
+  <data name="Fx_Release" xml:space="preserve">
+    <value>Спад</value>
+  </data>
+  <data name="Fx_Depth" xml:space="preserve">
+    <value>Глубина</value>
+  </data>
+  <data name="Fx_Ratio" xml:space="preserve">
+    <value>Степень</value>
+  </data>
+  <data name="Fx_Knee" xml:space="preserve">
+    <value>Колено</value>
+  </data>
+  <data name="Fx_Makeup" xml:space="preserve">
+    <value>Компенсация</value>
+  </data>
+  <data name="Fx_HighPass" xml:space="preserve">
+    <value>Срез низа</value>
+  </data>
+  <data name="Fx_Freq" xml:space="preserve">
+    <value>Частота</value>
+  </data>
+  <data name="Fx_Gain" xml:space="preserve">
+    <value>Усиление</value>
+  </data>
+  <data name="Fx_Q" xml:space="preserve">
+    <value>Q</value>
+  </data>
+  <data name="Fx_TypePeak" xml:space="preserve">
+    <value>Пик</value>
+  </data>
+  <data name="Fx_TypeLowShelf" xml:space="preserve">
+    <value>Низкая полка</value>
+  </data>
+  <data name="Fx_TypeHighShelf" xml:space="preserve">
+    <value>Высокая полка</value>
+  </data>
+  <data name="Fx_TypeOff" xml:space="preserve">
+    <value>Выкл</value>
   </data>
 </root>

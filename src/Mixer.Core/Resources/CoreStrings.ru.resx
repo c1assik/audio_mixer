@@ -44,7 +44,7 @@
     <value>провод ссылается на несуществующий узел</value>
   </data>
   <data name="Issue_WireDirection" xml:space="preserve">
-    <value>провод идёт только от источника к выходу</value>
+    <value>провод идёт от источника или шины к шине или выходу</value>
   </data>
   <data name="Issue_WireDuplicate" xml:space="preserve">
     <value>между парой узлов может быть только один провод</value>
@@ -189,5 +189,32 @@
   </data>
   <data name="Store_NoBackupsFormat" xml:space="preserve">
     <value>{0}, резервных копий нет — начата пустая схема.</value>
+  </data>
+  <data name="Path_NameFormat" xml:space="preserve">
+    <value>«{0}»</value>
+  </data>
+  <data name="Connect_Self" xml:space="preserve">
+    <value>узел нельзя соединить сам с собой</value>
+  </data>
+  <data name="Connect_CycleFormat" xml:space="preserve">
+    <value>Цикл через шины: {0}. Звук пошёл бы по кругу</value>
+  </data>
+  <data name="Connect_TooDeepFormat" xml:space="preserve">
+    <value>Больше {0} шин подряд нельзя: такую схему трудно читать</value>
+  </data>
+  <data name="Connect_LoopPathFormat" xml:space="preserve">
+    <value>{0}. Путь петли: {1}</value>
+  </data>
+  <data name="Group_NeedTwo" xml:space="preserve">
+    <value>выделите два или больше источника или шины, чтобы сгруппировать</value>
+  </data>
+  <data name="Preset_VoiceClean" xml:space="preserve">
+    <value>Голос — чистый</value>
+  </data>
+  <data name="Preset_VoiceBroadcast" xml:space="preserve">
+    <value>Голос — эфирный</value>
+  </data>
+  <data name="Preset_MusicSmooth" xml:space="preserve">
+    <value>Музыка потише и ровнее</value>
   </data>
 </root>

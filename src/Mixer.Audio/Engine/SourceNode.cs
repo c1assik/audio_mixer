@@ -200,7 +200,7 @@ public sealed class SourceNode : AudioNode
                     {
                         int n = Math.Min((int)frames - done, maxFrames);
                         IntPtr chunk = data + done * format.BlockAlign;
-                        ProcessPacket(map, chunk, n, bufFlags, buf, ref gain, now);
+                        ProcessPacket(map, chunk, n, bufFlags, buf, ref gain, now, format.SampleRate);
                         done += n;
                     }
                     AudioException.Check(capture.ReleaseBuffer(frames), what, "ReleaseBuffer");
@@ -228,7 +228,7 @@ public sealed class SourceNode : AudioNode
         }
     }
 
-    private void ProcessPacket(ChannelMap map, IntPtr data, int frames, uint flags, float[] buf, ref StereoGain gain, long now)
+    private void ProcessPacket(ChannelMap map, IntPtr data, int frames, uint flags, float[] buf, ref StereoGain gain, long now, int rate)
     {
         var span = buf.AsSpan(0, frames * 2);
         if ((flags & AudioConst.AUDCLNT_BUFFERFLAGS_SILENT) != 0) span.Clear();
@@ -257,6 +257,7 @@ public sealed class SourceNode : AudioNode
             }
         }
 
+        Chain.Process(span, frames, rate);
         gain.SetTargets(GainL, GainR, Muted);
         gain.Apply(span, frames);
         Peak.Update(span, frames);

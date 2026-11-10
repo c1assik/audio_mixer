@@ -145,6 +145,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             Nodes.Remove(gone);
             if (Selected == gone) Selected = null;
             if (_hover == gone) _hover = null;
+            _picked.Remove(gone);
+            if (Processing?.Node == gone) Processing = null;
         }
 
         var wseen = new HashSet<(string, string)>();
@@ -152,7 +154,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         {
             var key = (c.From, c.To);
             if (!wseen.Add(key)) continue;
-            if (!_nodes.TryGetValue(c.From, out var src) || !_nodes.TryGetValue(c.To, out var dst) || !src.IsSource || !dst.IsOutput) continue;
+            if (!_nodes.TryGetValue(c.From, out var src) || !_nodes.TryGetValue(c.To, out var dst) || !src.HasOutPort || !dst.HasInPort || src == dst) continue;
             if (_wires.TryGetValue(key, out var w))
             {
                 if (w.Config != c) w.Load(c);
@@ -174,6 +176,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         CanvasHeight = GraphLayout.Height(g);
         OnPropertyChanged(nameof(IsEmpty));
         UpdateCounts();
+        UpdateSilentBuses();
+        Processing?.Load();
+        GroupSelectedCommand.NotifyCanExecuteChanged();
         LayoutPills();
         ApplyDim();
         WiresInvalidated?.Invoke();
@@ -235,7 +240,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     public void MoveNode(NodeViewModel n, double x, double y)
     {
-        var (cx, cy) = GraphLayout.Clamp(n.IsSource, x, y);
+        var (cx, cy) = GraphLayout.Clamp(n.Column, x, y);
         if (cx == n.Config.X && cy == n.Config.Y) return;
         Edit(g => GraphEdits.UpdateNode(g, n.Id, c => c with { X = cx, Y = cy }), "move:" + n.Id);
     }
@@ -256,6 +261,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public void DeleteWire(WireViewModel w) => Edit(g => GraphEdits.Disconnect(g, w.From, w.To));
 
     public void DeleteNode(NodeViewModel n) => Edit(g => GraphEdits.RemoveNode(g, n.Id));
+
+    /// <summary>Цепочка обработки узла: правка из боковой панели (ручки склеиваются в один шаг по ключу).</summary>
+    public void SetChain(NodeViewModel n, Mixer.Audio.Dsp.ChainSettings chain, string? mergeKey = null) =>
+        Edit(g => GraphEdits.UpdateNode(g, n.Id, c => c with { Chain = chain.Normalized() }), mergeKey is null ? null : $"chain:{n.Id}:{mergeKey}");
 
     public ConnectCheck CheckConnect(string a, string b) => ConnectionRules.Check(Graph, a, b, Devices);
 
@@ -283,7 +292,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public void Reroute(WireViewModel w, string newFrom, string newTo)
     {
         if (newFrom == w.From && newTo == w.To) return;
-        var check = CheckConnect(newFrom, newTo);
+        var check = ConnectionRules.Check(GraphEdits.Disconnect(Graph, w.From, w.To), newFrom, newTo, Devices);
         if (!check.Ok)
         {
             Notify(check.Reason ?? Strings.Graph_WireNotMoved, error: true);
@@ -325,7 +334,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public NodeViewModel AddNode(NodeConfig template, double? atY = null)
     {
         var g = Graph;
-        var (x, y) = GraphLayout.NextSlot(g, template.IsSource, atY);
+        var (x, y) = GraphLayout.NextSlot(g, template.Column, atY);
         string id = GraphEdits.NewNodeId(g);
         string? color = template.Color ?? (template.IsSource ? NextColor(g) : null);
         var node = template with { Id = id, X = x, Y = y, Color = color };
@@ -339,7 +348,102 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     private static bool GraphBuilderTakesOver(NodeConfig n) => Mixer.Core.Graph.GraphBuilder.TakesOver(n);
 
-    private static string NextColor(GraphConfig g)
+    /// <summary>Новая шина в средней колонке: «Шина 1», «Шина 2», …</summary>
+    public NodeViewModel AddBus(double? atY = null)
+    {
+        Palette = null;
+        Settings = null;
+        return AddNode(new NodeConfig { Id = "", Kind = NodeKind.Bus, Name = NextBusName(Graph) }, atY);
+    }
+
+    private static string NextBusName(GraphConfig g)
+    {
+        var used = g.Nodes.Select(n => n.Name).ToHashSet(StringComparer.CurrentCultureIgnoreCase);
+        for (int i = 1; ; i++)
+        {
+            string name = Fmt.F(Strings.Bus_NameFormat, i);
+            if (!used.Contains(name)) return name;
+        }
+    }
+
+    // ── шины: сгруппировать и разгруппировать ──
+
+    /// <summary>Выделенные узлы, которые можно сгруппировать (источники и шины), по порядку на холсте.</summary>
+    public IReadOnlyList<NodeViewModel> Picked => _picked.Where(n => n.HasOutPort).OrderBy(n => n.Y).ToList();
+
+    private bool CanGroup() => Picked.Count >= 2;
+
+    [RelayCommand(CanExecute = nameof(CanGroup))]
+    private void GroupSelected()
+    {
+        var members = Picked;
+        if (members.Count < 2)
+        {
+            Notify(Mixer.Core.Resources.CoreStrings.Group_NeedTwo);
+            return;
+        }
+        var g = Graph;
+        double atY = members.Average(m => m.Y) + GraphLayout.PortY;
+        var (x, y) = GraphLayout.NextSlot(g, NodeColumn.Buses, atY);
+        var bus = new NodeConfig { Id = GraphEdits.NewNodeId(g), Kind = NodeKind.Bus, Name = NextBusName(g), X = x, Y = y };
+        var r = GraphEdits.GroupIntoBus(g, members.Select(m => m.Id).ToList(), bus);
+        if (r.Error is not null)
+        {
+            Notify(Fmt.Capitalize(r.Error), error: true);
+            return;
+        }
+        Edit(_ => r.Graph);
+        Select(_nodes.GetValueOrDefault(bus.Id));
+        Notify(r.Moved == 0 ? Fmt.F(Strings.Bus_GroupedNoOutputsFormat, bus.Name)
+            : r.Skipped > 0 ? Fmt.F(Strings.Bus_GroupedSomeFormat, bus.Name, Fmt.Plural(r.Moved, Strings.Plural_Output), Fmt.Plural(r.Skipped, Strings.Plural_Output))
+            : Fmt.F(Strings.Bus_GroupedFormat, bus.Name, Fmt.Plural(r.Moved, Strings.Plural_Output)));
+    }
+
+    public void Ungroup(NodeViewModel bus)
+    {
+        var r = GraphEdits.Ungroup(Graph, bus.Id);
+        if (r.Error is not null)
+        {
+            Notify(Fmt.Capitalize(r.Error), error: true);
+            return;
+        }
+        Edit(_ => r.Graph);
+        string text = Fmt.F(Strings.Bus_UngroupedFormat, bus.Name, Fmt.Plural(r.Moved, Strings.Plural_Wire));
+        if (r.Skipped > 0) text += " " + Fmt.F(Strings.Bus_UngroupKeptFormat, Fmt.Plural(r.Skipped, Strings.Plural_Wire));
+        if (r.LostChain) text += " " + Strings.Bus_UngroupLostChain;
+        Notify(text);
+    }
+
+    /// <summary>Шина без входов или без выходов: «ничего не слышно».</summary>
+    private void UpdateSilentBuses()
+    {
+        foreach (var n in Nodes)
+        {
+            if (!n.IsBus)
+            {
+                n.IsSilent = false;
+                continue;
+            }
+            bool hasIn = Wires.Any(w => w.Target == n), hasOut = Wires.Any(w => w.Source == n);
+            n.IsSilent = !hasIn || !hasOut;
+        }
+    }
+
+    // ── боковая панель обработки ──
+
+    [ObservableProperty] private ProcessingViewModel? _processing;
+
+    public void OpenProcessing(NodeViewModel n, string? block = null)
+    {
+        Select(n);
+        if (Processing?.Node != n) Processing = new ProcessingViewModel(this, n);
+        Processing.Focus(block);
+    }
+
+    [RelayCommand]
+    private void CloseProcessing() => Processing = null;
+
+    internal static string NextColor(GraphConfig g)
     {
         var used = g.Nodes.Where(n => n.IsSource).Select(n => n.Color).ToHashSet(StringComparer.OrdinalIgnoreCase);
         return SourceColors.FirstOrDefault(c => !used.Contains(c)) ?? SourceColors[g.Nodes.Count(n => n.IsSource) % SourceColors.Length];
@@ -347,13 +451,44 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     // ── выбор и подсветка маршрутов ──
 
+    private readonly HashSet<NodeViewModel> _picked = new();
+
     public void Select(object? item)
     {
-        if (Selected is NodeViewModel on) on.IsSelected = false;
+        foreach (var p in _picked) p.IsSelected = false;
+        _picked.Clear();
         if (Selected is WireViewModel ow) ow.IsSelected = false;
         Selected = item;
-        if (item is NodeViewModel nn) nn.IsSelected = true;
+        if (item is NodeViewModel nn)
+        {
+            nn.IsSelected = true;
+            _picked.Add(nn);
+        }
         if (item is WireViewModel nw) nw.IsSelected = true;
+        GroupSelectedCommand.NotifyCanExecuteChanged();
+        WiresInvalidated?.Invoke();
+    }
+
+    /// <summary>Ctrl + клик: добавить узел к выделению или убрать из него (чтобы сгруппировать в шину).</summary>
+    public void TogglePick(NodeViewModel n)
+    {
+        if (Selected is WireViewModel ow)
+        {
+            ow.IsSelected = false;
+            Selected = null;
+        }
+        if (!_picked.Remove(n))
+        {
+            _picked.Add(n);
+            n.IsSelected = true;
+            Selected = n;
+        }
+        else
+        {
+            n.IsSelected = false;
+            if (Selected == n) Selected = _picked.FirstOrDefault();
+        }
+        GroupSelectedCommand.NotifyCanExecuteChanged();
         WiresInvalidated?.Invoke();
     }
 
@@ -395,39 +530,56 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         WiresInvalidated?.Invoke();
     }
 
-    /// <summary>Тянут провод от узла: допустимые порты обведены, недоступные гаснут, запрещённые — красные.</summary>
-    public void BeginConnectPreview(NodeViewModel origin, WireViewModel? moving = null)
+    /// <summary>
+    /// Тянут провод от порта узла: допустимые порты обведены, недоступные гаснут, запрещённые — красные.
+    /// fromInput — тянут от входного порта (слева): ищем, откуда звук пойдёт в узел; иначе — куда пойдёт из него.
+    /// </summary>
+    public void BeginConnectPreview(NodeViewModel origin, bool fromInput, WireViewModel? moving = null)
     {
         Interacting = true;
         foreach (var n in Nodes)
         {
             n.PortReason = null;
+            n.InPort = PortLook.None;
+            n.OutPort = PortLook.None;
             if (n == origin)
             {
-                n.Port = PortLook.Origin;
+                if (fromInput) n.InPort = PortLook.Origin;
+                else n.OutPort = PortLook.Origin;
                 n.IsDimmed = false;
                 continue;
             }
-            if (n.IsSource == origin.IsSource)
+            bool can = fromInput ? n.HasOutPort : n.HasInPort;
+            if (!can)
             {
-                n.Port = PortLook.None;
                 n.IsDimmed = true;
                 continue;
             }
             n.IsDimmed = false;
-            if (moving is not null && (moving.Source == n || moving.Target == n))
+            PortLook look;
+            if (moving is not null && (fromInput ? moving.Source == n : moving.Target == n))
             {
-                n.Port = PortLook.Valid; // вернуть конец на место — можно
-                continue;
+                look = PortLook.Valid; // вернуть конец на место — можно
             }
-            var check = CheckConnect(origin.Id, n.Id);
-            n.Port = check.Verdict switch
+            else
             {
-                ConnectVerdict.Ok => PortLook.Valid,
-                ConnectVerdict.Exists => PortLook.Occupied,
-                _ => PortLook.Forbidden,
-            };
-            n.PortReason = check.Reason;
+                var check = fromInput ? CheckConnect(n.Id, origin.Id) : CheckConnect(origin.Id, n.Id);
+                // проверка не должна видеть сам переносимый провод: он уйдёт с прежнего места
+                if (moving is not null && check.Verdict is ConnectVerdict.Cycle or ConnectVerdict.TooDeep or ConnectVerdict.Feedback)
+                {
+                    var without = GraphEdits.Disconnect(Graph, moving.From, moving.To);
+                    check = fromInput ? ConnectionRules.Check(without, n.Id, origin.Id, Devices) : ConnectionRules.Check(without, origin.Id, n.Id, Devices);
+                }
+                look = check.Verdict switch
+                {
+                    ConnectVerdict.Ok => PortLook.Valid,
+                    ConnectVerdict.Exists => PortLook.Occupied,
+                    _ => PortLook.Forbidden,
+                };
+                n.PortReason = check.Reason;
+            }
+            if (fromInput) n.OutPort = look;
+            else n.InPort = look;
         }
         foreach (var w in Wires) w.IsDimmed = w != moving;
         WiresInvalidated?.Invoke();
@@ -437,7 +589,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     {
         foreach (var n in Nodes)
         {
-            n.Port = PortLook.None;
+            n.InPort = PortLook.None;
+            n.OutPort = PortLook.None;
             n.PortReason = null;
         }
         Interacting = false;
@@ -464,6 +617,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     [RelayCommand]
     private void AddOutput() => OpenPalette(PaletteMode.Outputs, null);
+
+    [RelayCommand]
+    private void AddBusNode() => AddBus();
 
     public void OpenPalette(PaletteMode mode, double? atY)
     {

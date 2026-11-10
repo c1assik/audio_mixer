@@ -54,8 +54,9 @@ public sealed partial class MainViewModel
 
     private void UpdateCounts()
     {
-        int src = Nodes.Count(n => n.IsSource), outs = Nodes.Count - src, off = Wires.Count(w => !w.Enabled);
+        int src = Nodes.Count(n => n.IsSource), buses = Nodes.Count(n => n.IsBus), outs = Nodes.Count(n => n.IsOutput), off = Wires.Count(w => !w.Enabled);
         string s = Fmt.Plural(src, Strings.Plural_Source), o = Fmt.Plural(outs, Strings.Plural_Output), w = Fmt.Plural(Wires.Count, Strings.Plural_Wire);
+        if (buses > 0) s += " · " + Fmt.Plural(buses, Strings.Plural_Bus);
         CountsText = off > 0
             ? Fmt.F(Strings.Status_SummaryOffFormat, s, o, w, Fmt.Plural(off, Strings.Plural_WireOff))
             : Fmt.F(Strings.Status_SummaryFormat, s, o, w);
@@ -72,7 +73,8 @@ public sealed partial class MainViewModel
         var issues = build?.Issues ?? [];
 
         foreach (var n in Nodes) PollNode(n, st, snap, build, issues);
-        foreach (var w in Wires) PollWire(w, snap, devices);
+        var paths = devices.Count > 0 ? new GraphPaths(Graph) : null;
+        foreach (var w in Wires) PollWire(w, snap, devices, paths);
 
         // ── шапка ──
         double latency = 0;
@@ -84,7 +86,7 @@ public sealed partial class MainViewModel
             resync += w.Resyncs;
             if (w.State != WireState.Running) continue;
             var s = snap.Sources.GetValueOrDefault(w.FromId);
-            var o = snap.Outputs.GetValueOrDefault(w.ToId);
+            var o = snap.Outputs.GetValueOrDefault(w.OutputId);
             latency = Math.Max(latency, (s?.CaptureLatencyMs ?? 0) + w.LatencyMs + (o?.RenderLatencyMs ?? 0));
         }
         failures = under + over + resync;
@@ -96,6 +98,7 @@ public sealed partial class MainViewModel
             ? Strings.Header_DropoutsTipNone
             : Fmt.F(Strings.Header_DropoutsTipFormat, under, over, resync);
 
+        Processing?.Poll();
         if (_pollCount % 4 == 1) PollCpu();
         if (_pollCount % 8 == 1) PollFooter(st, devices);
     }
@@ -156,13 +159,23 @@ public sealed partial class MainViewModel
             if (!SameNodes(n.EngineNodes, list)) n.EngineNodes = list.ToArray();
             n.EngineOutput = null;
         }
-        else
+        else if (n.IsOutput)
         {
             var o = snap.Outputs.GetValueOrDefault(n.Id);
             n.EngineOutput = o;
             if (n.EngineNodes.Length != (o is null ? 0 : 1) || o is not null && n.EngineNodes[0] != o)
                 n.EngineNodes = o is null ? [] : [o];
         }
+        // шина (и неявная шина обработки у приложения): экземпляры по выходам
+        string? busId = build?.EngineBuses.GetValueOrDefault(n.Id);
+        var buses = new List<BusInstance>();
+        if (busId is not null)
+            foreach (var (key, bus) in snap.Buses)
+                if (key.Bus == busId) buses.Add(bus);
+        if (buses.Count != n.EngineBuses.Length || buses.Where((b, i) => b != n.EngineBuses[i]).Any()) n.EngineBuses = buses.ToArray();
+        var chains = busId is not null ? n.EngineBuses.Select(b => b.Chain) : n.EngineNodes.Select(e => e.Chain);
+        if (!chains.SequenceEqual(n.EngineChains)) n.EngineChains = chains.ToArray();
+        n.ReductionText = n.HasComp && n.ChainMeter.ReductionDb >= 0.5f ? Fmt.Pill(-Math.Round(n.ChainMeter.ReductionDb)) : null;
 
         GraphIssue? wait = null, error = null;
         var warnings = new List<string>();
@@ -217,7 +230,13 @@ public sealed partial class MainViewModel
         }
         if (c.Muted && error is null && wait is null) sub = Strings.NodeSub_Muted;
 
-        if (_host is null)
+        if (n.IsBus)
+        {
+            int inputs = Wires.Count(w => w.Target == n);
+            sub = c.Muted ? Strings.NodeSub_Muted : Fmt.F(Strings.NodeSub_BusFormat, Fmt.Plural(inputs, Strings.Plural_Input));
+        }
+
+        if (_host is null || n.IsBus)
         {
             n.Look = NodeLook.Normal;
             n.Message = null;
@@ -274,6 +293,7 @@ public sealed partial class MainViewModel
                 : ProcessSnapshot.NormalizeExe(c.Exe ?? ""),
             NodeKind.System when plan is not null => SystemTooltip(plan),
             NodeKind.System => Strings.NodeTip_System,
+            NodeKind.Bus => n.IsSilent ? Strings.NodeTip_BusSilent : Strings.NodeTip_Bus,
             _ when c.DefaultRole is { } role => Fmt.F(Strings.NodeTip_DefaultFormat,
                 role == DefaultRole.Communications ? Strings.NodeTip_DefaultCommsDevice : Strings.NodeTip_DefaultDevice,
                 current is null ? Strings.NodeTip_DefaultNowNone : Fmt.F(Strings.NodeTip_DefaultNowFormat, current.Name)),
@@ -336,20 +356,24 @@ public sealed partial class MainViewModel
         };
     }
 
-    private void PollWire(WireViewModel w, EngineSnapshot snap, IReadOnlyList<Mixer.Audio.Interop.EndpointInfo> devices)
+    private void PollWire(WireViewModel w, EngineSnapshot snap, IReadOnlyList<Mixer.Audio.Interop.EndpointInfo> devices, GraphPaths? paths)
     {
         var list = new List<Wire>(1);
         foreach (var (key, wire) in snap.Wires)
             if (key.To == w.To && GraphBuilder.NodeIdOf(key.From) == w.From) list.Add(wire);
         if (list.Count != w.EngineWires.Length || list.Where((x, i) => x != w.EngineWires[i]).Any()) w.EngineWires = list.ToArray();
+        var links = new List<BusLink>();
+        foreach (var (key, link) in snap.Links)
+            if (key.To == w.To && GraphBuilder.NodeIdOf(key.From) == w.From) links.Add(link);
+        if (links.Count != w.EngineLinks.Length || links.Where((x, i) => x != w.EngineLinks[i]).Any()) w.EngineLinks = links.ToArray();
 
-        string? forbidden = devices.Count > 0 ? Mixer.Core.Editing.ConnectionRules.WhyForbidden(w.Source.Config, w.Target.Config, devices) : null;
+        string? forbidden = paths is not null ? Mixer.Core.Editing.ConnectionRules.WhyWireForbidden(Graph, w.Config, devices, paths) : null;
         if (forbidden != w.Forbidden)
         {
             w.Forbidden = forbidden;
             WiresInvalidated?.Invoke();
         }
-        bool idle = _host is not null && (w.Source.Look != NodeLook.Normal || w.Target.Look != NodeLook.Normal || list.Count == 0);
+        bool idle = _host is not null && (w.Source.Look != NodeLook.Normal || w.Target.Look != NodeLook.Normal || list.Count + links.Count == 0);
         if (idle != w.IsIdle)
         {
             w.IsIdle = idle;
@@ -383,10 +407,14 @@ public sealed partial class MainViewModel
         if (running is not null && running.InputRate > 0 && running.OutputRate > 0)
         {
             var src = snap.Sources.GetValueOrDefault(running.FromId);
-            var dst = snap.Outputs.GetValueOrDefault(running.ToId);
+            var dst = snap.Outputs.GetValueOrDefault(running.OutputId);
             double total = (src?.CaptureLatencyMs ?? 0) + running.LatencyMs + (dst?.RenderLatencyMs ?? 0);
             w.TipFormat = Fmt.F(Strings.Wire_TooltipRateFormat, Fmt.Khz(running.InputRate), Fmt.Khz(running.OutputRate), Fmt.Ms(running.FillMs), Fmt.Ms(total)) +
                           (list.Count > 1 ? " · " + Fmt.Plural(list.Count, Strings.Plural_Capture) : "");
+        }
+        else if (links.Count > 0)
+        {
+            w.TipFormat = Strings.Wire_TooltipFromBus;
         }
         else
         {
@@ -417,6 +445,20 @@ public sealed partial class MainViewModel
         _now = now;
         foreach (var n in Nodes)
         {
+            if (n.EngineBuses.Length > 0)
+            {
+                // фейдер и обработка у такого узла — на шине: индикатор после них
+                float bl = 0, br = 0;
+                foreach (var b in n.EngineBuses)
+                {
+                    var (pl, pr) = b.Peak.Take();
+                    if (pl > bl) bl = pl;
+                    if (pr > br) br = pr;
+                }
+                foreach (var e in n.EngineNodes) e.Peak.Take();
+                n.Meter.Push(bl, br, now, dt);
+                continue;
+            }
             var nodes = n.EngineNodes;
             if (nodes.Length == 0)
             {
@@ -433,16 +475,28 @@ public sealed partial class MainViewModel
             n.Meter.Push(l, r, now, dt);
             if (n.EngineOutput is { } o) n.Meter.PushReduction(o.TakeLimiterMinGain(), now);
         }
+        foreach (var n in Nodes)
+        {
+            if ((n.HasGate || n.HasEq || n.HasComp) && n.EngineChains.Length > 0) n.ChainMeter.Push(n.EngineChains, now, dt);
+            else n.ChainMeter.Reset();
+        }
         foreach (var w in Wires)
         {
             var wires = w.EngineWires;
-            if (wires.Length == 0)
+            var links = w.EngineLinks;
+            if (wires.Length == 0 && links.Length == 0)
             {
                 w.Meter.Reset();
                 continue;
             }
             float l = 0, r = 0;
             foreach (var e in wires)
+            {
+                var (pl, pr) = e.Peak.Take();
+                if (pl > l) l = pl;
+                if (pr > r) r = pr;
+            }
+            foreach (var e in links)
             {
                 var (pl, pr) = e.Peak.Take();
                 if (pl > l) l = pl;

@@ -14,9 +14,7 @@ public sealed class OutputNode : AudioNode
 {
     // строка читается при создании узла: в цикле выхода нет обращений к ResourceManager
     private readonly string What = AudioStrings.Stream_Playback;
-    private static readonly Wire[] NoWires = [];
-
-    private volatile Wire[] _wires = NoWires;
+    private volatile MixPlan _plan = MixPlan.Empty;
     private int _starvations;
     private int _eventTimeouts;
     private int _limiterBlocks;
@@ -30,9 +28,10 @@ public sealed class OutputNode : AudioNode
     {
     }
 
-    internal void PublishWires(Wire[] wires) => _wires = wires;
+    /// <summary>Новый план сведения; поток выхода подхватит его со следующего периода.</summary>
+    internal void PublishPlan(MixPlan plan) => _plan = plan;
 
-    internal Wire[] Wires => _wires;
+    internal MixPlan Plan => _plan;
 
     /// <summary>Сколько раз к нашему пробуждению буфер устройства был уже пуст (вероятный щелчок на выходе).</summary>
     public int Starvations => Volatile.Read(ref _starvations);
@@ -107,9 +106,9 @@ public sealed class OutputNode : AudioNode
                 long now = Stopwatch.GetTimestamp();
                 var block = mix.AsSpan(0, n * 2);
                 block.Clear();
-                var wires = _wires;
-                for (int i = 0; i < wires.Length; i++) wires[i].Render(block, scratch, n, rate, now);
+                _plan.Render(block, scratch, n, rate, now);
 
+                Chain.Process(block, n, rate);
                 gain.SetTargets(GainL, GainR, Muted);
                 gain.Apply(block, n);
                 float minGain = limiter.Process(block, n);
@@ -131,7 +130,7 @@ public sealed class OutputNode : AudioNode
         }
         finally
         {
-            foreach (var w in _wires) w.Deactivate();
+            foreach (var w in _plan.AllWires) w.Deactivate();
             if (started) client!.Stop();
             Release(render);
             Release(client);

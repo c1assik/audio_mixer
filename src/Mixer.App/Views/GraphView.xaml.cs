@@ -26,6 +26,8 @@ public partial class GraphView : UserControl
     private NodeViewModel? _node;
     private Vector _grab;
     private NodeViewModel? _origin;
+    /// <summary>Провод тянут от входного порта (звук пойдёт в _origin), иначе — от выходного.</summary>
+    private bool _fromInput;
     private WireViewModel? _wire;
     private bool _moveTargetEnd;
     private double _pillStartGain;
@@ -46,6 +48,7 @@ public partial class GraphView : UserControl
     {
         InitializeComponent();
         OutputsLabel.Margin = new Thickness(GraphLayout.OutputX, 26, 0, 0);
+        BusesLabel.Margin = new Thickness(GraphLayout.BusX, 26, 0, 0);
         _tip.ContentTemplate = (DataTemplate)Resources["WireTip"];
         _tip.PlacementTarget = Wires;
         _tipTimer.Tick += (_, _) =>
@@ -117,12 +120,18 @@ public partial class GraphView : UserControl
         var (role, el) = FindRole(e.OriginalSource, Surface);
         switch (role)
         {
-            case "port" when el!.DataContext is NodeViewModel node:
+            case "port-in" or "port-out" when el!.DataContext is NodeViewModel node:
                 _mode = Mode.Connect;
                 _origin = node;
+                _fromInput = role == "port-in";
                 Capture();
-                _vm.BeginConnectPreview(node);
+                _vm.BeginConnectPreview(node, _fromInput);
                 UpdateConnect(p);
+                break;
+
+            case "card" when el!.DataContext is NodeViewModel node && Keyboard.Modifiers.HasFlag(ModifierKeys.Control):
+                // Ctrl + клик: несколько узлов, чтобы сгруппировать в шину
+                _vm.TogglePick(node);
                 break;
 
             case "pill" when el!.DataContext is WireViewModel w:
@@ -188,7 +197,8 @@ public partial class GraphView : UserControl
                 _mode = Mode.Reroute;
                 _wire!.IsDetached = true;
                 _origin = _moveTargetEnd ? _wire.Source : _wire.Target;
-                _vm.BeginConnectPreview(_origin, _wire);
+                _fromInput = !_moveTargetEnd;
+                _vm.BeginConnectPreview(_origin, _fromInput, _wire);
                 goto case Mode.Reroute;
             case Mode.Reroute:
                 UpdateConnect(p);
@@ -271,17 +281,18 @@ public partial class GraphView : UserControl
 
     // ── провод ──
 
-    /// <summary>Узел нужной колонки под точкой: по карточке с запасом или рядом с портом.</summary>
-    private NodeViewModel? TargetAt(Point p, bool wantSource)
+    /// <summary>Узел с нужным портом под точкой: по карточке с запасом или рядом с портом.</summary>
+    /// <param name="wantInput">Нужен входной порт (звук пойдёт в узел), иначе выходной.</param>
+    private NodeViewModel? TargetAt(Point p, bool wantInput)
     {
         NodeViewModel? best = null;
         double bestD = double.MaxValue;
         foreach (var n in _vm!.Nodes)
         {
-            if (n.IsSource != wantSource) continue;
+            if (n == _origin || (wantInput ? !n.HasInPort : !n.HasOutPort)) continue;
             var r = n.Bounds;
             r.Inflate(18, 14);
-            double d = (n.PortPoint - p).Length;
+            double d = (n.PortFor(wantInput) - p).Length;
             if (!r.Contains(p) && d > 32) continue;
             if (d < bestD)
             {
@@ -295,13 +306,13 @@ public partial class GraphView : UserControl
     private void UpdateConnect(Point p)
     {
         var origin = _origin!;
-        var target = TargetAt(p, !origin.IsSource);
-        Point end = target?.PortPoint ?? p;
-        bool valid = target?.Port == PortLook.Valid;
-        if (origin.IsSource) Wires.SetGhost(origin.PortPoint, end, origin.Color, valid);
-        else Wires.SetGhost(end, origin.PortPoint, target?.Color ?? origin.Color, valid);
+        var target = TargetAt(p, !_fromInput);
+        var look = target is null ? PortLook.None : _fromInput ? target.OutPort : target.InPort;
+        bool valid = look == PortLook.Valid;
+        if (!_fromInput) Wires.SetGhost(origin.OutPoint, target?.InPoint ?? p, origin.WireColor, valid);
+        else Wires.SetGhost(target?.OutPoint ?? p, origin.InPoint, target?.WireColor ?? origin.WireColor, valid);
 
-        if (target is { Port: PortLook.Forbidden or PortLook.Occupied, PortReason: { } why })
+        if (look is PortLook.Forbidden or PortLook.Occupied && target?.PortReason is { } why)
         {
             ReasonText.Text = why;
             Canvas.SetLeft(ReasonTip, p.X + 14);
@@ -318,8 +329,10 @@ public partial class GraphView : UserControl
     {
         var origin = _origin;
         if (origin is null) return;
-        var target = TargetAt(p, !origin.IsSource);
-        if (target is not null) _vm!.Connect(origin.Id, target.Id);
+        var target = TargetAt(p, !_fromInput);
+        if (target is null) return;
+        if (_fromInput) _vm!.Connect(target.Id, origin.Id);
+        else _vm!.Connect(origin.Id, target.Id);
     }
 
     private void FinishReroute(Point p)
@@ -327,7 +340,7 @@ public partial class GraphView : UserControl
         var w = _wire;
         var fixedEnd = _origin;
         if (w is null || fixedEnd is null) return;
-        var target = TargetAt(p, !fixedEnd.IsSource);
+        var target = TargetAt(p, !_fromInput);
         if (target is null)
         {
             _vm!.DeleteWire(w); // оттянули конец в пустоту
@@ -346,9 +359,10 @@ public partial class GraphView : UserControl
         var p = e.GetPosition(Surface);
         var (role, el) = FindRole(e.OriginalSource, Surface);
         ContextMenu? menu = null;
-        if (role is "card" or "port" && el!.DataContext is NodeViewModel node)
+        if (role is "card" or "port-in" or "port-out" && el!.DataContext is NodeViewModel node)
         {
-            _vm.Select(node);
+            // правый клик по одному из выделенных узлов не сбрасывает выделение: меню предложит сгруппировать
+            if (!node.IsSelected || _vm.Picked.Count < 2) _vm.Select(node);
             menu = NodeMenus.ForNode(_vm, node);
         }
         else if (role == "pill" && el!.DataContext is WireViewModel pw)
@@ -363,7 +377,18 @@ public partial class GraphView : UserControl
         }
         else if (role is null)
         {
-            _vm.OpenPalette(GraphLayout.IsSourceSide(p.X) ? PaletteMode.Sources : PaletteMode.Outputs, p.Y);
+            switch (GraphLayout.ColumnAt(p.X))
+            {
+                case Mixer.Core.Config.NodeColumn.Buses:
+                    _vm.AddBus(p.Y);
+                    break;
+                case Mixer.Core.Config.NodeColumn.Sources:
+                    _vm.OpenPalette(PaletteMode.Sources, p.Y);
+                    break;
+                default:
+                    _vm.OpenPalette(PaletteMode.Outputs, p.Y);
+                    break;
+            }
         }
         if (menu is not null)
         {

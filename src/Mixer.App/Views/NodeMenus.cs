@@ -37,13 +37,46 @@ public static class NodeMenus
     public static ContextMenu ForNode(MainViewModel main, NodeViewModel n)
     {
         var menu = new ContextMenu();
+        var picked = main.Picked;
+        if (picked.Count >= 2 && picked.Contains(n))
+        {
+            menu.Items.Add(Item(Fmt.F(Strings.Bus_GroupMenuFormat, picked.Count), () => main.GroupSelectedCommand.Execute(null)));
+            menu.Items.Add(new Separator());
+        }
         menu.Items.Add(Item(Strings.Node_Rename, () => n.BeginRenameCommand.Execute(null), "F2"));
 
-        // «Вывести в…» / «Принимать из…» — чекбоксы для тех, кто не хочет тянуть провод
-        var routes = new MenuItem { Header = n.IsSource ? Strings.Node_RouteTo : Strings.Node_ReceiveFrom };
-        foreach (var other in main.Nodes.Where(o => o.IsSource != n.IsSource).OrderBy(o => o.Y))
+        // «Вывести в…» / «Принимать из…» — чекбоксы для тех, кто не хочет тянуть провод; у шины есть оба
+        if (n.HasOutPort) menu.Items.Add(Routes(main, n, outgoing: true));
+        if (n.HasInPort) menu.Items.Add(Routes(main, n, outgoing: false));
+
+        menu.Items.Add(Item(Strings.Fx_Menu, () => main.OpenProcessing(n)));
+        if (n.IsSource)
         {
-            var (src, dst) = n.IsSource ? (n, other) : (other, n);
+            menu.Items.Add(Check(Strings.Node_Mono, n.Mono, () => n.Mono = !n.Mono, Strings.Node_MonoTip));
+            menu.Items.Add(BalanceItem(main, n));
+        }
+        if (n.IsApp)
+        {
+            menu.Items.Add(Check(Strings.Node_TakeOver, n.TakeOver, () => n.TakeOver = !n.TakeOver, Strings.Node_TakeOverTip));
+        }
+        if (n.HasDevice) menu.Items.Add(DeviceItem(main, n));
+        if (n.IsSource) menu.Items.Add(ColorItem(main, n));
+        if (n.IsBus) menu.Items.Add(Item(Strings.Bus_Ungroup, () => main.Ungroup(n), tip: Strings.Bus_UngroupTip));
+
+        menu.Items.Add(new Separator());
+        menu.Items.Add(Item(Strings.Node_ResetGain, () => n.ResetGainCommand.Execute(null)));
+        menu.Items.Add(Item(Strings.Node_Delete, () => main.DeleteNode(n), "Del"));
+        return menu;
+    }
+
+    private static MenuItem Routes(MainViewModel main, NodeViewModel n, bool outgoing)
+    {
+        var routes = new MenuItem { Header = outgoing ? Strings.Node_RouteTo : Strings.Node_ReceiveFrom };
+        var others = main.Nodes.Where(o => o != n && (outgoing ? o.HasInPort : o.HasOutPort))
+            .OrderBy(o => o.Column).ThenBy(o => o.Y);
+        foreach (var other in others)
+        {
+            var (src, dst) = outgoing ? (n, other) : (other, n);
             bool on = main.FindWire(src.Id, dst.Id) is not null;
             var check = main.CheckConnect(src.Id, dst.Id);
             bool allowed = on || check.Ok;
@@ -57,25 +90,8 @@ public static class NodeMenus
             routes.Items.Add(mi);
         }
         if (routes.Items.Count == 0)
-            routes.Items.Add(new MenuItem { Header = n.IsSource ? Strings.Node_AddOutputFirst : Strings.Node_AddSourceFirst, IsEnabled = false });
-        menu.Items.Add(routes);
-
-        if (n.IsSource)
-        {
-            menu.Items.Add(Check(Strings.Node_Mono, n.Mono, () => n.Mono = !n.Mono, Strings.Node_MonoTip));
-            menu.Items.Add(BalanceItem(main, n));
-        }
-        if (n.IsApp)
-        {
-            menu.Items.Add(Check(Strings.Node_TakeOver, n.TakeOver, () => n.TakeOver = !n.TakeOver, Strings.Node_TakeOverTip));
-        }
-        if (n.HasDevice) menu.Items.Add(DeviceItem(main, n));
-        if (n.IsSource) menu.Items.Add(ColorItem(main, n));
-
-        menu.Items.Add(new Separator());
-        menu.Items.Add(Item(Strings.Node_ResetGain, () => n.ResetGainCommand.Execute(null)));
-        menu.Items.Add(Item(Strings.Node_Delete, () => main.DeleteNode(n), "Del"));
-        return menu;
+            routes.Items.Add(new MenuItem { Header = outgoing ? Strings.Node_AddOutputFirst : Strings.Node_AddSourceFirst, IsEnabled = false });
+        return routes;
     }
 
     private static MenuItem BalanceItem(MainViewModel main, NodeViewModel n)

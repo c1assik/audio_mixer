@@ -123,13 +123,17 @@ public sealed class Wire
     public WireTrace? Trace { get; set; }
 
     public string FromId { get; }
+    /// <summary>Куда провод ведёт: выход или шина.</summary>
     public string ToId { get; }
+    /// <summary>Выход, поток которого читает провод (у провода в шину — выход, для которого посчитан экземпляр шины).</summary>
+    public string OutputId { get; }
     public PeakMeter Peak { get; } = new();
 
-    public Wire(string fromId, string toId, SourceClock clock, EngineOptions options)
+    public Wire(string fromId, string toId, SourceClock clock, EngineOptions options, string? outputId = null)
     {
         FromId = fromId;
         ToId = toId;
+        OutputId = outputId ?? toId;
         _clock = clock;
         _opt = options;
         _ring = new SpscRing(options.RingCapacityFrames);

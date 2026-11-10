@@ -11,6 +11,9 @@
         <Style TargetType="UserControl">
             <Setter Property="Opacity" Value="1" />
             <Style.Triggers>
+                <DataTrigger Binding="{Binding IsSilent}" Value="True">
+                    <Setter Property="Opacity" Value="0.6" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsDimmed}" Value="True">
                     <Setter Property="Opacity" Value="0.35" />
                 </DataTrigger>
@@ -66,6 +69,9 @@
                                     <DataTrigger Binding="{Binding IsOutput}" Value="True">
                                         <Setter Property="Background" Value="{StaticResource Raised2}" />
                                     </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsBus}" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource Raised2}" />
+                                    </DataTrigger>
                                     <DataTrigger Binding="{Binding Muted}" Value="True">
                                         <Setter Property="Background" Value="{StaticResource Raised2}" />
                                     </DataTrigger>
@@ -86,6 +92,9 @@
                                         <Setter Property="Visibility" Value="Visible" />
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsOutput}" Value="True">
+                                                <Setter Property="Foreground" Value="{StaticResource Text}" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsBus}" Value="True">
                                                 <Setter Property="Foreground" Value="{StaticResource Text}" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding Muted}" Value="True">
@@ -203,7 +212,20 @@
                         <ToggleButton Grid.Column="2" Style="{StaticResource MuteButton}" IsChecked="{Binding Muted, Mode=TwoWay}" ToolTip="{x:Static res:Strings.Node_MuteTip}"
                                       AutomationProperties.Name="{x:Static res:Strings.Node_Mute}" />
                     </Grid>
-                    <ui:MeterBar Margin="0,10,0,0" Meter="{Binding Meter}" />
+                    <!-- обработка: «+ FX» или чипы включённых блоков и подавление компрессора -->
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0" Height="22">
+                        <Button Style="{StaticResource FxButton}" Content="{x:Static res:Strings.Fx_Add}" Command="{Binding OpenChainCommand}"
+                                ToolTip="{x:Static res:Strings.Fx_AddTip}" Visibility="{Binding ShowFx, Converter={StaticResource Vis}}" />
+                        <Button Style="{StaticResource ChipButton}" Content="{x:Static res:Strings.Fx_Gate}" Command="{Binding OpenChainCommand}" CommandParameter="gate"
+                                ToolTip="{x:Static res:Strings.Fx_ChipTip}" Visibility="{Binding HasGate, Converter={StaticResource Vis}}" />
+                        <Button Style="{StaticResource ChipButton}" Content="{x:Static res:Strings.Fx_Eq}" Command="{Binding OpenChainCommand}" CommandParameter="eq"
+                                ToolTip="{x:Static res:Strings.Fx_ChipTip}" Visibility="{Binding HasEq, Converter={StaticResource Vis}}" />
+                        <Button Style="{StaticResource ChipButton}" Content="{x:Static res:Strings.Fx_Comp}" Command="{Binding OpenChainCommand}" CommandParameter="comp"
+                                ToolTip="{x:Static res:Strings.Fx_ChipTip}" Visibility="{Binding HasComp, Converter={StaticResource Vis}}" />
+                        <TextBlock Text="{Binding ReductionText}" Foreground="{StaticResource Yellow}" FontSize="12" Margin="4,0,0,0" VerticalAlignment="Center"
+                                   ToolTip="{x:Static res:Strings.Fx_ReductionTip}" Visibility="{Binding HasReduction, Converter={StaticResource Vis}}" />
+                    </StackPanel>
+                    <ui:MeterBar Margin="0,8,0,0" Meter="{Binding Meter}" />
                 </StackPanel>
 
                 <!-- ждёт или ошибка: причина словами и что сделать -->
@@ -232,40 +254,29 @@
             </StackPanel>
         </Border>
 
-        <!-- порт: справа у источника, слева у выхода; круг побольше — чтобы легче попасть -->
-        <Grid Width="28" Height="28" VerticalAlignment="Top" Background="Transparent" ui:Ui.Role="port" Cursor="Cross"
-              ToolTip="{x:Static res:Strings.Node_PortTip}">
-            <Grid.Style>
-                <Style TargetType="Grid">
-                    <Setter Property="HorizontalAlignment" Value="Right" />
-                    <Setter Property="Margin" Value="0,45,-14,0" />
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding IsOutput}" Value="True">
-                            <Setter Property="HorizontalAlignment" Value="Left" />
-                            <Setter Property="Margin" Value="-14,45,0,0" />
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </Grid.Style>
+        <!-- выходной порт: справа у источника и шины; круг побольше — чтобы легче попасть -->
+        <Grid Width="28" Height="28" VerticalAlignment="Top" Background="Transparent" ui:Ui.Role="port-out" Cursor="Cross"
+              HorizontalAlignment="Right" Margin="0,45,-14,0" ToolTip="{x:Static res:Strings.Node_PortTip}"
+              Visibility="{Binding HasOutPort, Converter={StaticResource Vis}}">
             <Ellipse Width="26" Height="26" StrokeThickness="2">
                 <Ellipse.Style>
                     <Style TargetType="Ellipse">
                         <Setter Property="Visibility" Value="Collapsed" />
                         <Setter Property="Stroke" Value="{StaticResource Accent}" />
                         <Style.Triggers>
-                            <DataTrigger Binding="{Binding Port}" Value="Valid">
+                            <DataTrigger Binding="{Binding OutPort}" Value="Valid">
                                 <Setter Property="Visibility" Value="Visible" />
                             </DataTrigger>
-                            <DataTrigger Binding="{Binding Port}" Value="Origin">
+                            <DataTrigger Binding="{Binding OutPort}" Value="Origin">
                                 <Setter Property="Visibility" Value="Visible" />
                                 <Setter Property="Stroke" Value="{Binding ColorBrush}" />
                             </DataTrigger>
-                            <DataTrigger Binding="{Binding Port}" Value="Forbidden">
+                            <DataTrigger Binding="{Binding OutPort}" Value="Forbidden">
                                 <Setter Property="Visibility" Value="Visible" />
                                 <Setter Property="Stroke" Value="{StaticResource Red}" />
                                 <Setter Property="StrokeDashArray" Value="2 1.5" />
                             </DataTrigger>
-                            <DataTrigger Binding="{Binding Port}" Value="Occupied">
+                            <DataTrigger Binding="{Binding OutPort}" Value="Occupied">
                                 <Setter Property="Visibility" Value="Visible" />
                                 <Setter Property="Stroke" Value="{StaticResource Faint}" />
                                 <Setter Property="StrokeDashArray" Value="2 1.5" />
@@ -279,7 +290,52 @@
                     <Style TargetType="Ellipse">
                         <Setter Property="Fill" Value="{Binding ColorBrush}" />
                         <Style.Triggers>
-                            <DataTrigger Binding="{Binding Port}" Value="Forbidden">
+                            <DataTrigger Binding="{Binding OutPort}" Value="Forbidden">
+                                <Setter Property="Fill" Value="{StaticResource Red}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Ellipse.Style>
+            </Ellipse>
+        </Grid>
+
+        <!-- входной порт: слева у шины и выхода -->
+        <Grid Width="28" Height="28" VerticalAlignment="Top" Background="Transparent" ui:Ui.Role="port-in" Cursor="Cross"
+              HorizontalAlignment="Left" Margin="-14,45,0,0" ToolTip="{x:Static res:Strings.Node_InPortTip}"
+              Visibility="{Binding HasInPort, Converter={StaticResource Vis}}">
+            <Ellipse Width="26" Height="26" StrokeThickness="2">
+                <Ellipse.Style>
+                    <Style TargetType="Ellipse">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Setter Property="Stroke" Value="{StaticResource Accent}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding InPort}" Value="Valid">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding InPort}" Value="Origin">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Setter Property="Stroke" Value="{Binding ColorBrush}" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding InPort}" Value="Forbidden">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Setter Property="Stroke" Value="{StaticResource Red}" />
+                                <Setter Property="StrokeDashArray" Value="2 1.5" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding InPort}" Value="Occupied">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Setter Property="Stroke" Value="{StaticResource Faint}" />
+                                <Setter Property="StrokeDashArray" Value="2 1.5" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Ellipse.Style>
+            </Ellipse>
+            <Ellipse Width="14" Height="14" Stroke="{StaticResource Bg}" StrokeThickness="3">
+                <Ellipse.Style>
+                    <Style TargetType="Ellipse">
+                        <Setter Property="Fill" Value="{Binding ColorBrush}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding InPort}" Value="Forbidden">
                                 <Setter Property="Fill" Value="{StaticResource Red}" />
                             </DataTrigger>
                         </Style.Triggers>
