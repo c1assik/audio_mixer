@@ -19,11 +19,30 @@ public static class TonePlayer
     /// <summary>Конкретное устройство вместо устройства по умолчанию (ID или часть имени). null — по умолчанию.</summary>
     public static string? Device { get; set; }
 
+    /// <summary>
+    /// Белый шум вместо синуса. Две копии шума со сдвигом складываются по мощности (+3 дБ), а две копии синуса
+    /// могут и погасить друг друга, поэтому для замера «двойного звука» нужен шум.
+    /// </summary>
+    public static bool Noise { get; set; }
+
+    /// <summary>
+    /// Перед открытием потока познакомиться с аудиослужбой (без потока), напечатать READY и ждать строку в stdin.
+    /// За это время родитель успевает задать привязку IAudioPolicyConfig, и поток сразу открывается на нужном устройстве.
+    /// </summary>
+    public static bool WaitStdin { get; set; }
+
     public static int Run(double seconds, double levelDb, bool autoRouting)
     {
         if (Device is not null) autoRouting = false;
         var steps = Stopwatch.StartNew();
         void Step(string what) => Console.WriteLine($"tone: [{steps.ElapsedMilliseconds,5} мс] {what}");
+
+        if (WaitStdin)
+        {
+            Devices.Sessions(Devices.List(EDataFlow.Render)); // без этого Set/Get для процесса возвращают E_INVALIDARG
+            Console.WriteLine($"READY pid={Environment.ProcessId}");
+            if (Console.ReadLine() is null) return 3;
+        }
 
         IAudioClient client;
         Step(autoRouting ? "ActivateAudioInterfaceAsync(DEVINTERFACE_AUDIO_RENDER)…" : "IMMDevice.Activate(устройство по умолчанию)…");
@@ -68,13 +87,15 @@ public static class TonePlayer
         AudioException.Check(client.SetEventHandle(evt.SafeWaitHandle.DangerousGetHandle()), "SetEventHandle");
 
         double amplitude = Math.Pow(10, levelDb / 20);
+        var noise = new Random(Environment.ProcessId);
         double phase = 0, step = 2 * Math.PI * Frequency / format.SampleRate;
         var clock = Stopwatch.StartNew();
 
         long prefill = 0;
-        Fill(render, client, bufferFrames, format, bytesPerSample, amplitude, ref phase, step, ref prefill);
+        Fill(render, client, bufferFrames, format, bytesPerSample, amplitude, ref phase, step, ref prefill, noise);
         Step("Start…");
         AudioException.Check(client.Start(), "IAudioClient.Start (render)");
+        Console.WriteLine($"MARK start qpc={Stopwatch.GetTimestamp()}"); // момент первого звука для родителя (newapp)
         Console.WriteLine($"tone: {format}, {Ui.Db(levelDb)} dBFS, маршрутизация {(autoRouting ? "auto" : "fixed")}, PID {Environment.ProcessId}");
         long written = 0;
         int timeouts = 0;
@@ -84,7 +105,7 @@ public static class TonePlayer
             while (clock.Elapsed.TotalSeconds < seconds && !Ui.Cancel.IsSet)
             {
                 if (!evt.WaitOne(100)) timeouts++;
-                int hr = Fill(render, client, bufferFrames, format, bytesPerSample, amplitude, ref phase, step, ref written);
+                int hr = Fill(render, client, bufferFrames, format, bytesPerSample, amplitude, ref phase, step, ref written, noise);
                 if (hr < 0)
                 {
                     Console.WriteLine($"tone: поток воспроизведения оборвался: {Hr.Describe(hr)}");
@@ -109,7 +130,7 @@ public static class TonePlayer
     }
 
     private static unsafe int Fill(IAudioRenderClient render, IAudioClient client, uint bufferFrames, AudioFormat format,
-        int bytesPerSample, double amplitude, ref double phase, double step, ref long written)
+        int bytesPerSample, double amplitude, ref double phase, double step, ref long written, Random noise)
     {
         int hr = client.GetCurrentPadding(out uint padding);
         if (hr < 0) return hr;
@@ -128,6 +149,7 @@ public static class TonePlayer
             for (int c = 0; c < ch; c++)
             {
                 int idx = i * ch + c;
+                if (Noise) v = amplitude * Math.Sqrt(3) * (2 * noise.NextDouble() - 1); // равномерный шум с RMS = amplitude, свой в каждом канале
                 double cv = FrontOnly && c >= 2 ? 0 : v; // как стерео-контент в многоканальном потоке: только FL/FR
                 if (format.IsFloat) ((float*)data)[idx] = (float)cv;
                 else if (bytesPerSample == 2) ((short*)data)[idx] = (short)(cv * 32767);

@@ -556,6 +556,13 @@ internal static partial class Commands
     {
         TonePlayer.FrontOnly = (a.Opt("channels") ?? "all") == "front";
         TonePlayer.Device = a.Opt("device");
+        TonePlayer.Noise = (a.Opt("signal") ?? "sine") switch
+        {
+            "sine" => false,
+            "noise" => true,
+            var x => throw new UsageException($"--signal: sine или noise, а не «{x}»."),
+        };
+        TonePlayer.WaitStdin = a.Flag("wait-stdin");
         return TonePlayer.Run(a.Dbl("seconds", 30), a.Dbl("level", -30), (a.Opt("routing") ?? "auto") switch
         {
             "auto" => true,
