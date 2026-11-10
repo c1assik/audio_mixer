@@ -4,6 +4,16 @@ using Mixer.Probe.Interop;
 
 namespace Mixer.Probe.Audio;
 
+/// <summary>Пакет захвата: позиция устройства в кадрах и время первого кадра по QPC в единицах 100 нс.</summary>
+public readonly record struct PacketInfo(int Frames, uint Flags, ulong DevicePosition, ulong Qpc100ns)
+{
+    public bool Silent => (Flags & AudioConst.AUDCLNT_BUFFERFLAGS_SILENT) != 0;
+    public bool Discontinuity => (Flags & AudioConst.AUDCLNT_BUFFERFLAGS_DATA_DISCONTINUITY) != 0;
+}
+
+/// <summary>Вызывается из потока захвата на каждый пакет; samples — float interleaved в формате потока (тишина — нули).</summary>
+public delegate void PacketHandler(in PacketInfo packet, ReadOnlySpan<float> samples);
+
 /// <summary>
 /// Событийный захват из уже активированного IAudioClient (process loopback или loopback устройства) в WAV и LevelStats.
 /// Это утилита проверки: запись в файл идёт прямо из потока захвата, в движке так делать нельзя.
@@ -28,11 +38,21 @@ public sealed class CaptureStream : IDisposable
     public AudioFormat Format { get; }
     public LevelStats Stats { get; }
     public int ErrorHr { get; private set; }
+
+    /// <summary>Stopwatch-время IAudioClient.Start и первого пакета (0 — пакетов ещё не было).</summary>
+    public long StartedTicks { get; private set; }
+    public long FirstPacketTicks { get; private set; }
+
+    /// <summary>От Start до первого пакета, мс; NaN — пакетов не было.</summary>
+    public double FirstPacketMs => FirstPacketTicks == 0 ? double.NaN : (FirstPacketTicks - StartedTicks) * 1000.0 / Stopwatch.Frequency;
     public string? WavPath => _wavPath;
 
     /// <summary>Трассировка вызовов COM (для поиска зависаний). null — без трассировки.</summary>
     public StepLog? Trace { get; set; }
     public bool UseMmcss { get; set; } = true;
+
+    /// <summary>Обработчик каждого пакета (уровень, кольцо, отметки времени). null — только статистика и WAV.</summary>
+    public PacketHandler? OnPacket { get; set; }
     public ThreadPriority Priority { get; set; } = ThreadPriority.Highest;
 
     private void Step(string what, Action action)
@@ -75,10 +95,23 @@ public sealed class CaptureStream : IDisposable
             format = requested;
         }
 
+        return TryCreateWith(name, client, format,
+            p => client.Initialize(AudioConst.AUDCLNT_SHAREMODE_SHARED, streamFlags, BufferDuration100ns, 0, p, IntPtr.Zero),
+            wavPath, clock, maxSeconds);
+    }
+
+    /// <summary>
+    /// То же со своей инициализацией: initialize получает указатель на формат и возвращает HRESULT
+    /// (например, IAudioClient3.InitializeSharedAudioStream). Поток должен быть событийным.
+    /// </summary>
+    public static (CaptureStream? Stream, int Hr) TryCreateWith(string name, IAudioClient client, AudioFormat format,
+        Func<IntPtr, int> initialize, string? wavPath, Stopwatch clock, double maxSeconds = 3600)
+    {
+        int hr;
         IntPtr pFormat = format.AllocCoTaskMem();
         try
         {
-            hr = client.Initialize(AudioConst.AUDCLNT_SHAREMODE_SHARED, streamFlags, BufferDuration100ns, 0, pFormat, IntPtr.Zero);
+            hr = initialize(pFormat);
         }
         finally
         {
@@ -111,6 +144,7 @@ public sealed class CaptureStream : IDisposable
     public void Start()
     {
         if (_wavPath is not null) _wav = new WavWriter(_wavPath, Format);
+        StartedTicks = Stopwatch.GetTimestamp();
         Step("IAudioClient.Start", () => AudioException.Check(_client.Start(), $"{Name}: IAudioClient.Start"));
         _started = true;
         _thread = new Thread(Loop) { IsBackground = true, Name = "capture " + Name, Priority = Priority };
@@ -135,12 +169,13 @@ public sealed class CaptureStream : IDisposable
                     if (hr < 0) { ErrorHr = hr; return; }
                     if (packet == 0) break;
 
-                    hr = _capture.GetBuffer(out IntPtr data, out uint frames, out uint flags, out _, out _);
+                    hr = _capture.GetBuffer(out IntPtr data, out uint frames, out uint flags, out ulong devicePosition, out ulong qpc);
                     if (hr < 0) { ErrorHr = hr; return; }
-                    if (frames > 0) Consume(data, (int)frames, flags);
+                    if (frames > 0) Consume(data, (int)frames, flags, devicePosition, qpc);
                     _capture.ReleaseBuffer(frames);
                     if (first)
                     {
+                        FirstPacketTicks = Stopwatch.GetTimestamp();
                         Trace?.Log($"{Name}: первый пакет, {frames} кадров");
                         first = false;
                     }
@@ -154,7 +189,7 @@ public sealed class CaptureStream : IDisposable
         }
     }
 
-    private void Consume(IntPtr data, int frames, uint flags)
+    private void Consume(IntPtr data, int frames, uint flags, ulong devicePosition, ulong qpc)
     {
         int bytes = frames * Format.BlockAlign;
         int samples = frames * Format.Channels;
@@ -169,6 +204,7 @@ public sealed class CaptureStream : IDisposable
         Format.Decode(_bytes.AsSpan(0, bytes), _floats.AsSpan(0, samples));
         Stats.Add(_clock.Elapsed.TotalSeconds, frames, _floats.AsSpan(0, samples), silent,
             (flags & AudioConst.AUDCLNT_BUFFERFLAGS_DATA_DISCONTINUITY) != 0);
+        OnPacket?.Invoke(new PacketInfo(frames, flags, devicePosition, qpc), _floats.AsSpan(0, samples));
     }
 
     /// <summary>Просит поток захвата выйти и ждёт его. Клиент при этом ещё не остановлен.</summary>

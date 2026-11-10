@@ -56,6 +56,19 @@ public sealed class LevelStats
 
     public int NonFiniteSamples => _nonFinite;
 
+    /// <summary>Сколько корзин окна получили меньше minFrames кадров: провалы поступления звука.</summary>
+    public int StarvedBuckets(double from, double to, long minFrames)
+    {
+        int n = 0;
+        for (int b = 0; b < _frames.Length; b++)
+        {
+            double t = b * BucketSeconds;
+            if (t < from - 1e-9 || t + BucketSeconds > to + 1e-9) continue;
+            if (_frames[b] < minFrames) n++;
+        }
+        return n;
+    }
+
     public Summary Summarize(double from, double to)
     {
         long frames = 0;

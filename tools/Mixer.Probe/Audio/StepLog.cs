@@ -15,6 +15,9 @@ public sealed class StepLog
     private int _next;
     private volatile bool _watching;
 
+    /// <summary>Не печатать шаги, только следить за зависаниями.</summary>
+    public bool Quiet { get; init; }
+
     public void Log(string text)
     {
         lock (_write)
@@ -25,7 +28,7 @@ public sealed class StepLog
     {
         int id = Interlocked.Increment(ref _next);
         _inFlight[id] = (what, _sw.Elapsed.TotalSeconds, Environment.CurrentManagedThreadId);
-        Log("→ " + what);
+        if (!Quiet) Log("→ " + what);
         try
         {
             return f();
@@ -33,7 +36,7 @@ public sealed class StepLog
         finally
         {
             _inFlight.TryRemove(id, out var started);
-            Log($"← {what} ({(_sw.Elapsed.TotalSeconds - started.Since) * 1000:F0} мс)");
+            if (!Quiet) Log($"← {what} ({(_sw.Elapsed.TotalSeconds - started.Since) * 1000:F0} мс)");
         }
     }
 

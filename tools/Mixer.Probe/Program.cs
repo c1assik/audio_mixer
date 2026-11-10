@@ -41,6 +41,10 @@ internal static class Program
                 "tone" => Commands.Tone(a),
                 "wavstat" => Commands.WavStat(a),
                 "multi" => Commands.Multi(a),
+                "many" => Commands.Many(a),
+                "newapp" => Commands.NewApp(a),
+                "direct" => Commands.Direct(a),
+                "lowlat" => Commands.LowLat(a),
                 _ => throw new UsageException($"Неизвестная команда «{a.Command}»."),
             };
         }
@@ -92,6 +96,20 @@ internal static class Program
           redirect --exe <имя> --sink <устройство>   перенаправить приложение (без автосброса)
           reset --exe <имя>                      вернуть приложению устройство по умолчанию
           status --exe <имя>                     текущая привязка приложения
+
+        v2, этап 0 (устройства Voicemeeter VAIO отклоняются):
+          many --device <устройство> [--clients 24] [--steps 0,1,6,12,18,24] [--seconds 20] [--level -70]
+                                                 N генераторов в устройство и N include-захватов ступенями:
+                                                 CPU, память, время открытия, сбои
+          newapp --device <устройство> [--runs 10] [--detect poll|notify|both] [--tick 1]
+                                                 через сколько мс звук нового приложения попадает в захват
+          direct --tone|--exe <имя> --output <выход> --sink <заглушка> [--modes naive,early,session,sink]
+                 [--lead 30] [--cycles 3] [--hold 4] [--signal noise|sine] [--level -70]
+                                                 разрыв при переключении «прямой маршрут ↔ захват»
+          lowlat --list                          периоды движка IAudioClient3 всех устройств (без потоков)
+          lowlat --device <устройство> [--capture] [--seconds 30] [--period min|default|<кадров>]
+                 [--compare] [--level -70]       поток на малом периоде: интервалы, сбои, CPU
+          tone ... [--signal noise] [--device <устройство>] [--wait-stdin]
 
         Общие параметры захвата:
           --format pcm16|float32   (по умолчанию pcm16)
