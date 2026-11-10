@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="Node_StuckFormat" xml:space="preserve">
+    <value>{0} не отвечает {1:F0} с — возможно, зависла служба Windows Audio</value>
+  </data>
+  <data name="Node_Busy" xml:space="preserve">
+    <value>устройство занято другим приложением (эксклюзивный режим)</value>
+  </data>
+  <data name="Node_Gone" xml:space="preserve">
+    <value>устройство отключено</value>
+  </data>
+  <data name="Node_NotFound" xml:space="preserve">
+    <value>устройство не найдено</value>
+  </data>
+  <data name="Node_AppExited" xml:space="preserve">
+    <value>приложение завершилось</value>
+  </data>
+  <data name="Node_UnsupportedFormatFormat" xml:space="preserve">
+    <value>{0}: формат устройства не поддержан ({1})</value>
+  </data>
+  <data name="Phase_Opening" xml:space="preserve">
+    <value>открытие устройства</value>
+  </data>
+  <data name="Stream_Capture" xml:space="preserve">
+    <value>захват</value>
+  </data>
+  <data name="Stream_AppCapture" xml:space="preserve">
+    <value>захват приложения</value>
+  </data>
+  <data name="Stream_SystemCapture" xml:space="preserve">
+    <value>захват звука системы</value>
+  </data>
+  <data name="Stream_Playback" xml:space="preserve">
+    <value>воспроизведение</value>
+  </data>
+  <data name="Stream_KeepAlive" xml:space="preserve">
+    <value>loopback: поток тишины</value>
+  </data>
+  <data name="Stream_KeepAliveBufferSize" xml:space="preserve">
+    <value>loopback: GetBufferSize (тишина)</value>
+  </data>
+  <data name="Stream_KeepAliveStart" xml:space="preserve">
+    <value>loopback: Start (тишина)</value>
+  </data>
+  <data name="Stream_SinkCheck" xml:space="preserve">
+    <value>проверка заглушки</value>
+  </data>
+  <data name="Format_DescriptionFormat" xml:space="preserve">
+    <value>{0} {1} Гц {2} кан.</value>
+  </data>
+  <data name="Loopback_Timeout" xml:space="preserve">
+    <value>ActivateAudioInterfaceAsync не завершилась за отведённое время — возможно, служба Windows Audio нездорова</value>
+  </data>
+  <data name="Loopback_UnavailableFormat" xml:space="preserve">
+    <value>захват звука приложений недоступен в этой версии Windows (нужна сборка 20348+): {0}</value>
+  </data>
+  <data name="Loopback_Result" xml:space="preserve">
+    <value>ActivateAudioInterfaceAsync, результат</value>
+  </data>
+  <data name="Policy_UnavailableFormat" xml:space="preserve">
+    <value>IAudioPolicyConfig недоступен: {0}</value>
+  </data>
+  <data name="Probe_StillRunning" xml:space="preserve">
+    <value>предыдущая проверка этого устройства всё ещё не вернулась из WASAPI</value>
+  </data>
+  <data name="Probe_TimeoutFormat" xml:space="preserve">
+    <value>{0} не ответил за {1:F0} с — устройство не принимает новые потоки</value>
+  </data>
+  <data name="Probe_NotConsuming" xml:space="preserve">
+    <value>устройство приняло поток, но не забирает звук</value>
+  </data>
+</root>

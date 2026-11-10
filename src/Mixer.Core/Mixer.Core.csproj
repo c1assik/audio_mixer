@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Mixer.Core</RootNamespace>
+    <AssemblyName>Mixer.Core</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- строки для пользователя: Resources\CoreStrings.resx (+ .ru.resx), класс — tools/gen-strings.ps1 -->
+    <Using Include="Mixer.Core.Resources" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mixer.Audio\Mixer.Audio.csproj" />
+  </ItemGroup>
+
+</Project>

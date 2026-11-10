@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>Mixer.App</RootNamespace>
+    <AssemblyName>Mixer</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- рисуется tools/make-icon.ps1; WPF берёт его же для окон и панели задач -->
+    <ApplicationIcon>Mixer.ico</ApplicationIcon>
+    <TieredPGO>true</TieredPGO>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- строки интерфейса: Resources\Strings.resx (+ .ru.resx), класс Strings — tools/gen-strings.ps1 -->
+    <Using Include="Mixer.App.Resources" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mixer.Audio\Mixer.Audio.csproj" />
+    <ProjectReference Include="..\Mixer.Core\Mixer.Core.csproj" />
+  </ItemGroup>
+
+</Project>

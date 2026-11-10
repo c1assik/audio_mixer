@@ -1,0 +1,821 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="App_Title" xml:space="preserve">
+    <value>Mixer</value>
+  </data>
+  <data name="App_UiErrorFormat" xml:space="preserve">
+    <value>Interface error: {0}</value>
+    <comment>{0} = exception message</comment>
+  </data>
+  <data name="Header_Saved" xml:space="preserve">
+    <value>Saved</value>
+  </data>
+  <data name="Header_Changed" xml:space="preserve">
+    <value>Edited</value>
+    <comment>Shown until the autosave finishes</comment>
+  </data>
+  <data name="Header_NotSaved" xml:space="preserve">
+    <value>Not saved</value>
+  </data>
+  <data name="Header_SaveFailedFormat" xml:space="preserve">
+    <value>The graph wasn’t saved: {0}</value>
+    <comment>{0} = error message</comment>
+  </data>
+  <data name="Header_LatencyNone" xml:space="preserve">
+    <value>Latency —</value>
+  </data>
+  <data name="Header_LatencyFormat" xml:space="preserve">
+    <value>Latency ≈ {0} ms</value>
+    <comment>{0} = milliseconds</comment>
+  </data>
+  <data name="Header_LatencyTip" xml:space="preserve">
+    <value>The longest path through the engine: capture buffer + wire ring + output buffer. Buffers in the devices and drivers themselves are not included.</value>
+  </data>
+  <data name="Header_CpuNone" xml:space="preserve">
+    <value>CPU —</value>
+  </data>
+  <data name="Header_CpuFormat" xml:space="preserve">
+    <value>CPU {0}%</value>
+    <comment>{0} = percent</comment>
+  </data>
+  <data name="Header_CpuTip" xml:space="preserve">
+    <value>CPU used by the mixer (share of all cores)</value>
+  </data>
+  <data name="Header_DropoutsFormat" xml:space="preserve">
+    <value>Dropouts: {0}</value>
+    <comment>{0} = count</comment>
+  </data>
+  <data name="Header_DropoutsTipInitial" xml:space="preserve">
+    <value>Underruns, overruns and excess drops on all wires since the nodes started</value>
+  </data>
+  <data name="Header_DropoutsTipNone" xml:space="preserve">
+    <value>No underruns, overruns or drops on any wire</value>
+  </data>
+  <data name="Header_DropoutsTipFormat" xml:space="preserve">
+    <value>underrun {0} · overrun {1} · excess drops {2}, on all wires since the nodes started. Details are in the wire tooltip.</value>
+    <comment>counts</comment>
+  </data>
+  <data name="Cmd_Undo" xml:space="preserve">
+    <value>Undo</value>
+    <comment>Accessible name of the undo button</comment>
+  </data>
+  <data name="Cmd_UndoTip" xml:space="preserve">
+    <value>Undo (Ctrl+Z)</value>
+  </data>
+  <data name="Cmd_Redo" xml:space="preserve">
+    <value>Redo</value>
+    <comment>Accessible name of the redo button</comment>
+  </data>
+  <data name="Cmd_RedoTip" xml:space="preserve">
+    <value>Redo (Ctrl+Y)</value>
+  </data>
+  <data name="Cmd_Settings" xml:space="preserve">
+    <value>Settings</value>
+    <comment>Accessible name of the gear button; also the settings panel title</comment>
+  </data>
+  <data name="Cmd_SettingsTip" xml:space="preserve">
+    <value>Settings: language, sink for “Take over”</value>
+  </data>
+  <data name="Cmd_AddSource" xml:space="preserve">
+    <value>Source</value>
+    <comment>Toolbar button with + icon</comment>
+  </data>
+  <data name="Cmd_AddSourceTip" xml:space="preserve">
+    <value>Microphone, app, output audio, system audio</value>
+  </data>
+  <data name="Cmd_AddOutput" xml:space="preserve">
+    <value>Output</value>
+    <comment>Toolbar button with + icon</comment>
+  </data>
+  <data name="Cmd_AddOutputTip" xml:space="preserve">
+    <value>Headphones, speakers, CABLE Input for Discord and OBS</value>
+  </data>
+  <data name="Cmd_ZoomIn" xml:space="preserve">
+    <value>Zoom in</value>
+    <comment>Accessible name</comment>
+  </data>
+  <data name="Cmd_ZoomInTip" xml:space="preserve">
+    <value>Zoom in (Ctrl + scroll)</value>
+  </data>
+  <data name="Cmd_ZoomOut" xml:space="preserve">
+    <value>Zoom out</value>
+    <comment>Accessible name</comment>
+  </data>
+  <data name="Cmd_ZoomOutTip" xml:space="preserve">
+    <value>Zoom out (Ctrl + scroll)</value>
+  </data>
+  <data name="Cmd_ZoomReset" xml:space="preserve">
+    <value>Zoom 100%</value>
+    <comment>Tooltip and accessible name of the zoom percentage button</comment>
+  </data>
+  <data name="Cmd_Close" xml:space="preserve">
+    <value>Close</value>
+    <comment>Accessible name of the × button</comment>
+  </data>
+  <data name="Cmd_CloseTip" xml:space="preserve">
+    <value>Close (Esc)</value>
+  </data>
+  <data name="Cmd_NothingToUndo" xml:space="preserve">
+    <value>Nothing left to undo</value>
+  </data>
+  <data name="Cmd_OpenWindowsMixerFailedFormat" xml:space="preserve">
+    <value>Couldn’t open the Windows volume mixer: {0}</value>
+    <comment>{0} = error message</comment>
+  </data>
+  <data name="Toolbar_Hint" xml:space="preserve">
+    <value>Drag from a source’s dot to an output to connect. Scroll over “dB” on a wire to change its volume.</value>
+  </data>
+  <data name="Graph_SourcesHeader" xml:space="preserve">
+    <value>SOURCES</value>
+  </data>
+  <data name="Graph_OutputsHeader" xml:space="preserve">
+    <value>OUTPUTS</value>
+  </data>
+  <data name="Graph_EmptyTitle" xml:space="preserve">
+    <value>The graph is empty</value>
+  </data>
+  <data name="Graph_EmptyText" xml:space="preserve">
+    <value>Add a source (a microphone, an app or output audio) and an output: headphones, or CABLE Input for Discord and OBS. Then drag a wire from the source’s dot to the output.</value>
+  </data>
+  <data name="Graph_WireDeletedFormat" xml:space="preserve">
+    <value>Wire “{0} → {1}” deleted. Ctrl+Z to bring it back.</value>
+    <comment>{0} source, {1} output</comment>
+  </data>
+  <data name="Graph_WireNotCreated" xml:space="preserve">
+    <value>wire not created</value>
+  </data>
+  <data name="Graph_WireNotMoved" xml:space="preserve">
+    <value>wire not moved</value>
+  </data>
+  <data name="Graph_TakeOverNeedsSinkFormat" xml:space="preserve">
+    <value>For “{0}” to play only through the mixer, set a sink for “Take over” in Settings (⚙).</value>
+    <comment>{0} = node name</comment>
+  </data>
+  <data name="Status_SummaryFormat" xml:space="preserve">
+    <value>{0} · {1} · {2}</value>
+    <comment>{0}-{2} = counts with Plural_* words</comment>
+  </data>
+  <data name="Status_SummaryOffFormat" xml:space="preserve">
+    <value>{0} · {1} · {2} ({3})</value>
+    <comment>{3} = count with Plural_WireOff</comment>
+  </data>
+  <data name="Plural_Source" xml:space="preserve">
+    <value>source|sources</value>
+    <comment>Plural forms separated by |. EN: one|other. RU: one|few|many</comment>
+  </data>
+  <data name="Plural_Output" xml:space="preserve">
+    <value>output|outputs</value>
+    <comment>see Plural_Source</comment>
+  </data>
+  <data name="Plural_Wire" xml:space="preserve">
+    <value>wire|wires</value>
+    <comment>see Plural_Source</comment>
+  </data>
+  <data name="Plural_WireOff" xml:space="preserve">
+    <value>off|off</value>
+    <comment>"3 off" in the status bar; see Plural_Source</comment>
+  </data>
+  <data name="Plural_Process" xml:space="preserve">
+    <value>process|processes</value>
+    <comment>see Plural_Source</comment>
+  </data>
+  <data name="Plural_Instance" xml:space="preserve">
+    <value>instance|instances</value>
+    <comment>Running copies of an app; see Plural_Source</comment>
+  </data>
+  <data name="Plural_Capture" xml:space="preserve">
+    <value>capture|captures</value>
+    <comment>see Plural_Source</comment>
+  </data>
+  <data name="Status_VbCableFound" xml:space="preserve">
+    <value>VB-Cable detected</value>
+  </data>
+  <data name="Status_VbCableFoundTip" xml:space="preserve">
+    <value>Virtual cable: the “CABLE Input” output hands the mix to Discord or OBS, where it shows up as the “CABLE Output” microphone</value>
+  </data>
+  <data name="Status_VbCableMissing" xml:space="preserve">
+    <value>VB-Cable not found</value>
+  </data>
+  <data name="Status_VbCableMissingTip" xml:space="preserve">
+    <value>To hand the mix to Discord or OBS, install VB-Cable (vb-audio.com) and send a wire to “CABLE Input”</value>
+  </data>
+  <data name="Status_NoAudioFormat" xml:space="preserve">
+    <value>{0} · audio off (started with --no-audio)</value>
+    <comment>{0} = Windows version</comment>
+  </data>
+  <data name="Status_NoAudioTip" xml:space="preserve">
+    <value>Interface without the engine: you can edit the graph, but no audio flows</value>
+  </data>
+  <data name="Status_AppCaptureAvailableFormat" xml:space="preserve">
+    <value>{0} · app capture available</value>
+    <comment>{0} = Windows version</comment>
+  </data>
+  <data name="Status_AppCaptureUnavailableFormat" xml:space="preserve">
+    <value>{0} · app capture unavailable</value>
+    <comment>{0} = Windows version</comment>
+  </data>
+  <data name="Status_AppCaptureWorks" xml:space="preserve">
+    <value>Process loopback and “Take over” work</value>
+  </data>
+  <data name="Status_TakeOverUnavailableFormat" xml:space="preserve">
+    <value>“Take over” is unavailable: {0}. You can pick the app’s device in the Windows volume mixer.</value>
+    <comment>{0} = reason</comment>
+  </data>
+  <data name="Status_DeviceWatchFailedFormat" xml:space="preserve">
+    <value>Device change notifications don’t work ({0}): plugging and unplugging devices is noticed by polling every 3 s.</value>
+    <comment>{0} = error</comment>
+  </data>
+  <data name="Unit_dBFormat" xml:space="preserve">
+    <value>{0} dB</value>
+    <comment>{0} = gain formatted with current culture, e.g. −3.0</comment>
+  </data>
+  <data name="NodeSub_RestartPlayback" xml:space="preserve">
+    <value>restart playback</value>
+    <comment>Card subtitle</comment>
+  </data>
+  <data name="NodeSub_AppTakenOver" xml:space="preserve">
+    <value>app · taken over</value>
+    <comment>Card subtitle</comment>
+  </data>
+  <data name="NodeSub_AppWaitingAudio" xml:space="preserve">
+    <value>app · waiting for audio</value>
+    <comment>Card subtitle</comment>
+  </data>
+  <data name="NodeSub_TakeOverFailed" xml:space="preserve">
+    <value>“Take over” failed</value>
+    <comment>Card subtitle</comment>
+  </data>
+  <data name="NodeSub_TakeOverUnavailable" xml:space="preserve">
+    <value>“Take over” unavailable</value>
+    <comment>Card subtitle</comment>
+  </data>
+  <data name="NodeSub_Muted" xml:space="preserve">
+    <value>muted</value>
+    <comment>Card subtitle</comment>
+  </data>
+  <data name="NodeSub_DeviceError" xml:space="preserve">
+    <value>device error</value>
+    <comment>Card subtitle</comment>
+  </data>
+  <data name="NodeSub_Error" xml:space="preserve">
+    <value>error</value>
+    <comment>Card subtitle</comment>
+  </data>
+  <data name="NodeSub_WaitingForAppFormat" xml:space="preserve">
+    <value>waiting for {0}</value>
+    <comment>{0} = exe name</comment>
+  </data>
+  <data name="NodeSub_WaitingVoicemeeter" xml:space="preserve">
+    <value>waiting for Voicemeeter</value>
+  </data>
+  <data name="NodeSub_DeviceBusy" xml:space="preserve">
+    <value>in use by another app</value>
+  </data>
+  <data name="NodeSub_NoDefaultDevice" xml:space="preserve">
+    <value>no default device</value>
+  </data>
+  <data name="NodeSub_DeviceDisconnected" xml:space="preserve">
+    <value>device unplugged</value>
+  </data>
+  <data name="NodeSub_SystemExceptApps" xml:space="preserve">
+    <value>everything except apps with their own node</value>
+  </data>
+  <data name="NodeSub_SystemExceptMixer" xml:space="preserve">
+    <value>everything except the mixer</value>
+  </data>
+  <data name="NodeSub_Default" xml:space="preserve">
+    <value>default</value>
+    <comment>Subtitle of a node that follows the Windows default device</comment>
+  </data>
+  <data name="NodeSub_DefaultComms" xml:space="preserve">
+    <value>communications default</value>
+  </data>
+  <data name="NodeSub_Mono" xml:space="preserve">
+    <value>mono</value>
+  </data>
+  <data name="NodeSub_KhzFormat" xml:space="preserve">
+    <value>{0} kHz</value>
+    <comment>{0} = sample rate, e.g. 48</comment>
+  </data>
+  <data name="NodeSub_CableFormat" xml:space="preserve">
+    <value>cable · {0}</value>
+    <comment>{0} = device name</comment>
+  </data>
+  <data name="NodeSub_Cable" xml:space="preserve">
+    <value>cable</value>
+  </data>
+  <data name="NodeSub_InputDevice" xml:space="preserve">
+    <value>input device</value>
+  </data>
+  <data name="NodeSub_OutputDevice" xml:space="preserve">
+    <value>output device</value>
+  </data>
+  <data name="NodeSub_LoopbackFormat" xml:space="preserve">
+    <value>output audio · {0}</value>
+    <comment>{0} = device name</comment>
+  </data>
+  <data name="NodeSub_AppFormat" xml:space="preserve">
+    <value>app · {0}</value>
+    <comment>{0} = exe name</comment>
+  </data>
+  <data name="NodeWarn_PlaysDirect" xml:space="preserve">
+    <value>The redirect is in place, but the app still plays to its old device: restart playback in it</value>
+  </data>
+  <data name="NodeWarn_NoSink" xml:space="preserve">
+    <value>no sink set</value>
+  </data>
+  <data name="NodeWarn_SetSinkFormat" xml:space="preserve">
+    <value>{0}. You can set a sink in Settings (⚙).</value>
+    <comment>{0} = reason, capitalized</comment>
+  </data>
+  <data name="NodeMsg_UnknownError" xml:space="preserve">
+    <value>unknown error</value>
+  </data>
+  <data name="NodeMsg_RetryFormat" xml:space="preserve">
+    <value>{0}. Retrying in 2 s.</value>
+    <comment>{0} = error text, capitalized</comment>
+  </data>
+  <data name="NodeMsg_SentenceFormat" xml:space="preserve">
+    <value>{0}.</value>
+    <comment>{0} = reason, capitalized</comment>
+  </data>
+  <data name="NodeMsg_Kept" xml:space="preserve">
+    <value>Wires and volume are kept.</value>
+  </data>
+  <data name="NodeMsg_ReconnectApp" xml:space="preserve">
+    <value>Reconnects on its own once the app starts.</value>
+  </data>
+  <data name="NodeMsg_ReconnectBusy" xml:space="preserve">
+    <value>Reconnects on its own once the device is free.</value>
+  </data>
+  <data name="NodeMsg_ReconnectDevice" xml:space="preserve">
+    <value>Reconnects on its own once the device is back.</value>
+  </data>
+  <data name="NodeState_LimiterFormat" xml:space="preserve">
+    <value>limiter −{0} dB</value>
+    <comment>{0} = reduction, e.g. 3</comment>
+  </data>
+  <data name="NodeTip_AppInstancesFormat" xml:space="preserve">
+    <value>{0} · {1}, captures are summed</value>
+    <comment>{0} = exe, {1} = count with Plural_Instance</comment>
+  </data>
+  <data name="NodeTip_System" xml:space="preserve">
+    <value>Everything playing in Windows except the mixer itself</value>
+  </data>
+  <data name="NodeTip_DefaultDevice" xml:space="preserve">
+    <value>The Windows default device</value>
+  </data>
+  <data name="NodeTip_DefaultCommsDevice" xml:space="preserve">
+    <value>The Windows default communications device</value>
+  </data>
+  <data name="NodeTip_DefaultNowNone" xml:space="preserve">
+    <value>none right now</value>
+  </data>
+  <data name="NodeTip_DefaultNowFormat" xml:space="preserve">
+    <value>now “{0}”</value>
+    <comment>{0} = device name</comment>
+  </data>
+  <data name="NodeTip_DefaultFormat" xml:space="preserve">
+    <value>{0}: {1}. Change it in Windows and the node moves to the new one by itself, keeping its wires and volume.</value>
+    <comment>{0} = NodeTip_Default*Device, {1} = NodeTip_DefaultNow*</comment>
+  </data>
+  <data name="NodeTip_SystemPlanFormat" xml:space="preserve">
+    <value>Everything playing in Windows except the mixer and apps with their own node ({0}); otherwise they would be heard twice.</value>
+    <comment>{0} = app names</comment>
+  </data>
+  <data name="NodeTip_SystemNothingPlaying" xml:space="preserve">
+    <value>Nothing is playing audio right now.</value>
+  </data>
+  <data name="NodeTip_SystemCapturedFormat" xml:space="preserve">
+    <value>Captured per process: {0}.</value>
+    <comment>{0} = exe names</comment>
+  </data>
+  <data name="NodeTip_SystemSkippedFormat" xml:space="preserve">
+    <value>Not captured: {0}. Their process tree contains the mixer or an app with its own node, and Windows can’t cut part of a tree out of a capture.</value>
+    <comment>{0} = exe names</comment>
+  </data>
+  <data name="NodeName_DefaultMic" xml:space="preserve">
+    <value>Microphone</value>
+    <comment>Name of a new node that follows the default microphone</comment>
+  </data>
+  <data name="NodeName_DefaultMicComms" xml:space="preserve">
+    <value>Communications mic</value>
+  </data>
+  <data name="NodeName_DefaultLoopback" xml:space="preserve">
+    <value>Audio: default</value>
+  </data>
+  <data name="NodeName_DefaultLoopbackComms" xml:space="preserve">
+    <value>Audio: communications</value>
+  </data>
+  <data name="NodeName_DefaultOutput" xml:space="preserve">
+    <value>Default output</value>
+  </data>
+  <data name="NodeName_DefaultOutputComms" xml:space="preserve">
+    <value>Communications default</value>
+  </data>
+  <data name="NodeName_LoopbackFormat" xml:space="preserve">
+    <value>Audio: {0}</value>
+    <comment>Name of a new loopback node; {0} = device name</comment>
+  </data>
+  <data name="NodeType_SystemAudio" xml:space="preserve">
+    <value>System audio</value>
+    <comment>Palette row and name of a new node</comment>
+  </data>
+  <data name="Node_Menu" xml:space="preserve">
+    <value>Node menu</value>
+    <comment>Tooltip and accessible name of the ⋯ button</comment>
+  </data>
+  <data name="Node_Mute" xml:space="preserve">
+    <value>Mute</value>
+    <comment>Accessible name of the M button</comment>
+  </data>
+  <data name="Node_MuteTip" xml:space="preserve">
+    <value>Mute the node</value>
+  </data>
+  <data name="Node_FaderTip" xml:space="preserve">
+    <value>Node volume: −60…+12 dB. Scroll for 1 dB steps (Shift: 0.1), double-click for 0 dB</value>
+  </data>
+  <data name="Node_LimiterTip" xml:space="preserve">
+    <value>The output limiter is holding back peaks above −1 dBFS. Turn down the sources or the output.</value>
+  </data>
+  <data name="Node_PortTip" xml:space="preserve">
+    <value>Drag to a node in the other column to connect</value>
+  </data>
+  <data name="Node_Rename" xml:space="preserve">
+    <value>Rename</value>
+  </data>
+  <data name="Node_RouteTo" xml:space="preserve">
+    <value>Send to…</value>
+    <comment>Node menu: quick connect (source)</comment>
+  </data>
+  <data name="Node_ReceiveFrom" xml:space="preserve">
+    <value>Receive from…</value>
+    <comment>Node menu: quick connect (output)</comment>
+  </data>
+  <data name="Node_AddOutputFirst" xml:space="preserve">
+    <value>Add an output first</value>
+  </data>
+  <data name="Node_AddSourceFirst" xml:space="preserve">
+    <value>Add a source first</value>
+  </data>
+  <data name="Node_Mono" xml:space="preserve">
+    <value>Mono</value>
+  </data>
+  <data name="Node_MonoTip" xml:space="preserve">
+    <value>Mix the left and right channels together</value>
+  </data>
+  <data name="Node_TakeOver" xml:space="preserve">
+    <value>Take over</value>
+    <comment>Toggle on app nodes</comment>
+  </data>
+  <data name="Node_TakeOverTip" xml:space="preserve">
+    <value>The app plays only through the mixer: Windows redirects it to the sink. Without this, it is heard both directly and through the mixer.</value>
+  </data>
+  <data name="Node_ResetGain" xml:space="preserve">
+    <value>Volume 0 dB</value>
+  </data>
+  <data name="Node_Delete" xml:space="preserve">
+    <value>Delete node</value>
+  </data>
+  <data name="Node_Balance" xml:space="preserve">
+    <value>Balance</value>
+  </data>
+  <data name="Node_BalanceTip" xml:space="preserve">
+    <value>Double-click to center</value>
+  </data>
+  <data name="Node_BalanceCenter" xml:space="preserve">
+    <value>center</value>
+  </data>
+  <data name="Node_BalanceLeftFormat" xml:space="preserve">
+    <value>L {0}%</value>
+    <comment>{0} = percent</comment>
+  </data>
+  <data name="Node_BalanceRightFormat" xml:space="preserve">
+    <value>R {0}%</value>
+    <comment>{0} = percent</comment>
+  </data>
+  <data name="Node_ChooseOtherDevice" xml:space="preserve">
+    <value>Choose another device</value>
+  </data>
+  <data name="Node_DefaultMenu" xml:space="preserve">
+    <value>Windows default</value>
+  </data>
+  <data name="Node_DefaultCommsMenu" xml:space="preserve">
+    <value>Default for communications</value>
+  </data>
+  <data name="Node_DefaultMenuNoneFormat" xml:space="preserve">
+    <value>{0} (none right now)</value>
+    <comment>{0} = Node_Default*Menu</comment>
+  </data>
+  <data name="Node_DefaultMenuNowFormat" xml:space="preserve">
+    <value>{0} (now “{1}”)</value>
+    <comment>{0} = Node_Default*Menu, {1} = device name</comment>
+  </data>
+  <data name="Node_FollowsTip" xml:space="preserve">
+    <value>The node moves to the new device by itself when it changes in Windows</value>
+  </data>
+  <data name="Node_NoDevices" xml:space="preserve">
+    <value>No devices found</value>
+  </data>
+  <data name="Node_Color" xml:space="preserve">
+    <value>Color</value>
+  </data>
+  <data name="Wire_Off" xml:space="preserve">
+    <value>off</value>
+    <comment>Pill label of a disabled wire</comment>
+  </data>
+  <data name="Wire_Loop" xml:space="preserve">
+    <value>loop</value>
+    <comment>Pill label of a forbidden wire</comment>
+  </data>
+  <data name="Wire_Hint" xml:space="preserve">
+    <value>Scroll: 1 dB steps, Shift + scroll: 0.1 dB. Click to turn off, double-click for 0 dB.</value>
+  </data>
+  <data name="Wire_TooltipTitleFormat" xml:space="preserve">
+    <value>{0} → {1}</value>
+  </data>
+  <data name="Wire_TooltipNetFormat" xml:space="preserve">
+    <value>Net at output: {0} ({1})</value>
+    <comment>{0} = total gain, {1} = the sum, e.g. 0 − 6 + 0</comment>
+  </data>
+  <data name="Wire_TooltipRateFormat" xml:space="preserve">
+    <value>{0} → {1} kHz · {2} ms buffered · latency ≈ {3} ms</value>
+  </data>
+  <data name="Wire_TooltipNotWorking" xml:space="preserve">
+    <value>The wire doesn’t work</value>
+  </data>
+  <data name="Wire_TooltipDeleteIt" xml:space="preserve">
+    <value>Delete it: press Delete or right-click → “Delete wire”</value>
+  </data>
+  <data name="Wire_TooltipOff" xml:space="preserve">
+    <value>The wire is off; click the pill to turn it on</value>
+  </data>
+  <data name="Wire_TooltipMutedFormat" xml:space="preserve">
+    <value>Result: silence, “{0}” is muted</value>
+    <comment>{0} = node name</comment>
+  </data>
+  <data name="Wire_TooltipNoAudio" xml:space="preserve">
+    <value>Audio off (--no-audio)</value>
+  </data>
+  <data name="Wire_TooltipErrorFormat" xml:space="preserve">
+    <value>No audio: “{0}” has an error</value>
+    <comment>{0} = node name</comment>
+  </data>
+  <data name="Wire_TooltipWaitingFormat" xml:space="preserve">
+    <value>No audio: “{0}” is waiting</value>
+    <comment>{0} = node name</comment>
+  </data>
+  <data name="Wire_TooltipConnecting" xml:space="preserve">
+    <value>Connecting…</value>
+  </data>
+  <data name="Wire_TooltipDropoutsNone" xml:space="preserve">
+    <value>Dropouts: 0</value>
+  </data>
+  <data name="Wire_TooltipDropoutsFormat" xml:space="preserve">
+    <value>Dropouts: {0} (underrun {1}, overrun {2}, drops {3})</value>
+  </data>
+  <data name="Wire_TooltipGapsFormat" xml:space="preserve">
+    <value>app pauses: {0}</value>
+    <comment>{0} = count</comment>
+  </data>
+  <data name="Wire_TurnOff" xml:space="preserve">
+    <value>Turn wire off</value>
+  </data>
+  <data name="Wire_TurnOn" xml:space="preserve">
+    <value>Turn wire on</value>
+  </data>
+  <data name="Wire_ResetGain" xml:space="preserve">
+    <value>Wire volume 0 dB</value>
+  </data>
+  <data name="Wire_Delete" xml:space="preserve">
+    <value>Delete wire</value>
+  </data>
+  <data name="Palette_Title" xml:space="preserve">
+    <value>Add source</value>
+  </data>
+  <data name="Palette_TitleOutput" xml:space="preserve">
+    <value>Add output</value>
+  </data>
+  <data name="Palette_SearchPlaceholder" xml:space="preserve">
+    <value>Device or app…</value>
+  </data>
+  <data name="Palette_SearchPlaceholderOutput" xml:space="preserve">
+    <value>Playback device…</value>
+  </data>
+  <data name="Palette_DevicesFailedFormat" xml:space="preserve">
+    <value>Couldn’t get the device list: {0}</value>
+    <comment>{0} = error message</comment>
+  </data>
+  <data name="Palette_Loading" xml:space="preserve">
+    <value>Looking for devices and apps…</value>
+  </data>
+  <data name="Palette_NothingFound" xml:space="preserve">
+    <value>Nothing found</value>
+  </data>
+  <data name="Palette_PlayingAudio" xml:space="preserve">
+    <value>Playing audio right now</value>
+    <comment>Tooltip of the level icon</comment>
+  </data>
+  <data name="Palette_KeySelect" xml:space="preserve">
+    <value>↑↓ — select</value>
+  </data>
+  <data name="Palette_KeyAdd" xml:space="preserve">
+    <value>Enter — add</value>
+  </data>
+  <data name="Palette_KeyClose" xml:space="preserve">
+    <value>Esc — close</value>
+  </data>
+  <data name="Palette_GroupPlayingNow" xml:space="preserve">
+    <value>APPS PLAYING AUDIO</value>
+  </data>
+  <data name="Palette_GroupOtherApps" xml:space="preserve">
+    <value>OTHER RUNNING APPS</value>
+  </data>
+  <data name="Palette_GroupInputs" xml:space="preserve">
+    <value>INPUTS</value>
+  </data>
+  <data name="Palette_GroupLoopback" xml:space="preserve">
+    <value>OUTPUT AUDIO (LOOPBACK)</value>
+  </data>
+  <data name="Palette_GroupSpecial" xml:space="preserve">
+    <value>SPECIAL</value>
+  </data>
+  <data name="Palette_GroupOutputs" xml:space="preserve">
+    <value>OUTPUTS</value>
+  </data>
+  <data name="Palette_AlreadyOnGraph" xml:space="preserve">
+    <value>already on the graph · add another</value>
+  </data>
+  <data name="Palette_OnGraph" xml:space="preserve">
+    <value>already on the graph</value>
+    <comment>Suffix after the exe name</comment>
+  </data>
+  <data name="Palette_SilentNow" xml:space="preserve">
+    <value>silent right now</value>
+    <comment>Suffix after the exe name</comment>
+  </data>
+  <data name="Palette_DefaultMic" xml:space="preserve">
+    <value>Default microphone</value>
+  </data>
+  <data name="Palette_DefaultMicComms" xml:space="preserve">
+    <value>Default communications microphone</value>
+  </data>
+  <data name="Palette_DefaultNowNone" xml:space="preserve">
+    <value>none right now; the node will wait</value>
+  </data>
+  <data name="Palette_DefaultNowFormat" xml:space="preserve">
+    <value>now “{0}”</value>
+    <comment>{0} = device name</comment>
+  </data>
+  <data name="Palette_DefaultLoopbackFormat" xml:space="preserve">
+    <value>everything playing on the default device · {0}</value>
+    <comment>{0} = Palette_DefaultNow*</comment>
+  </data>
+  <data name="Palette_DefaultFollowsFormat" xml:space="preserve">
+    <value>{0} · follows Windows</value>
+    <comment>{0} = Palette_DefaultNow*</comment>
+  </data>
+  <data name="Palette_KeywordsDefault" xml:space="preserve">
+    <value>default</value>
+    <comment>Extra search words for the default device rows</comment>
+  </data>
+  <data name="Palette_KeywordsComms" xml:space="preserve">
+    <value>communications</value>
+    <comment>Extra search words for the communications rows</comment>
+  </data>
+  <data name="Palette_VirtualCableInput" xml:space="preserve">
+    <value>VB-Audio virtual cable · whatever reaches its input</value>
+  </data>
+  <data name="Palette_DefaultMicDeviceFormat" xml:space="preserve">
+    <value>Windows default microphone · {0}</value>
+    <comment>{0} = full device name</comment>
+  </data>
+  <data name="Palette_LoopbackHintFormat" xml:space="preserve">
+    <value>everything playing on “{0}” right now</value>
+    <comment>{0} = device name</comment>
+  </data>
+  <data name="Palette_VaioOff" xml:space="preserve">
+    <value>Voicemeeter isn’t running: without it, VAIO devices hang the Windows Audio service</value>
+  </data>
+  <data name="Palette_SystemOnGraph" xml:space="preserve">
+    <value>already on the graph: there can be only one</value>
+  </data>
+  <data name="Palette_SystemHint" xml:space="preserve">
+    <value>everything playing except the mixer and apps with their own node</value>
+  </data>
+  <data name="Palette_SystemOnlyOne" xml:space="preserve">
+    <value>There can be only one “System audio” per graph</value>
+  </data>
+  <data name="Palette_IsSink" xml:space="preserve">
+    <value>this is the “Take over” sink: apps would be heard twice</value>
+  </data>
+  <data name="Palette_CableOutput" xml:space="preserve">
+    <value>virtual cable: Discord and OBS see it as the “CABLE Output” microphone</value>
+  </data>
+  <data name="Palette_DefaultDeviceFormat" xml:space="preserve">
+    <value>default device · {0}</value>
+    <comment>{0} = full device name</comment>
+  </data>
+  <data name="Settings_LanguageHeader" xml:space="preserve">
+    <value>LANGUAGE</value>
+  </data>
+  <data name="Settings_LanguageAuto" xml:space="preserve">
+    <value>Same as Windows</value>
+    <comment>The other options are language names in their own language (English, Русский)</comment>
+  </data>
+  <data name="Settings_LanguageRestartNote" xml:space="preserve">
+    <value>The new language applies after a restart. Audio stops for a moment.</value>
+  </data>
+  <data name="Settings_LanguageRestart" xml:space="preserve">
+    <value>Restart now</value>
+  </data>
+  <data name="Settings_LanguageSaveFailedFormat" xml:space="preserve">
+    <value>Couldn’t save the setting: {0}</value>
+    <comment>{0} = error message</comment>
+  </data>
+  <data name="Settings_SinkHeader" xml:space="preserve">
+    <value>SINK FOR “TAKE OVER”</value>
+  </data>
+  <data name="Settings_Checking" xml:space="preserve">
+    <value>checking…</value>
+  </data>
+  <data name="Settings_ClearSink" xml:space="preserve">
+    <value>Remove sink</value>
+  </data>
+  <data name="Settings_VolumeMixer" xml:space="preserve">
+    <value>Windows volume mixer</value>
+  </data>
+  <data name="Settings_VolumeMixerTip" xml:space="preserve">
+    <value>Fallback: pick the app’s device by hand</value>
+  </data>
+  <data name="Settings_TagCable" xml:space="preserve">
+    <value>virtual cable</value>
+  </data>
+  <data name="Settings_TagVaio" xml:space="preserve">
+    <value>Voicemeeter VAIO: unreliable sink</value>
+  </data>
+  <data name="Settings_TagDefault" xml:space="preserve">
+    <value>default device: people listen to it</value>
+  </data>
+  <data name="Settings_TagOnGraph" xml:space="preserve">
+    <value>output on the graph</value>
+  </data>
+  <data name="Settings_LoopbackAvailable" xml:space="preserve">
+    <value>App audio capture (process loopback) is available.</value>
+  </data>
+  <data name="Settings_PolicyUnavailableFormat" xml:space="preserve">
+    <value>“Take over” is unavailable: {0}. You can pick the app’s device by hand in the Windows volume mixer.</value>
+    <comment>{0} = reason</comment>
+  </data>
+  <data name="Settings_PolicyInfo" xml:space="preserve">
+    <value>“Take over” redirects an app to a sink: a device nobody listens to. A separate VB-Cable works best, not the one that goes to OBS or Discord.</value>
+  </data>
+  <data name="Settings_NoSink" xml:space="preserve">
+    <value>No sink set: apps in “Take over” mode will be heard both directly and through the mixer.</value>
+  </data>
+  <data name="Settings_OfflineNotChecked" xml:space="preserve">
+    <value>Audio is off: the sink isn’t checked.</value>
+  </data>
+  <data name="Settings_WillCheck" xml:space="preserve">
+    <value>The sink will be checked once an app with “Take over” is on the graph.</value>
+  </data>
+  <data name="Settings_SinkOkFormat" xml:space="preserve">
+    <value>“{0}” is checked and fits.</value>
+    <comment>{0} = device name</comment>
+  </data>
+  <data name="Settings_SinkWarningFormat" xml:space="preserve">
+    <value>Fits, but: {0}</value>
+    <comment>{0} = warning</comment>
+  </data>
+  <data name="Settings_SinkRejectedFormat" xml:space="preserve">
+    <value>Doesn’t fit: {0}</value>
+    <comment>{0} = reason</comment>
+  </data>
+  <data name="Settings_OfflineAssigned" xml:space="preserve">
+    <value>Audio is off: the sink is set without a check.</value>
+  </data>
+  <data name="Settings_CheckingFormat" xml:space="preserve">
+    <value>Checking “{0}”: test stream, up to 2 s…</value>
+    <comment>{0} = device name</comment>
+  </data>
+  <data name="Settings_CannotAssignFormat" xml:space="preserve">
+    <value>Can’t set it: {0}</value>
+    <comment>{0} = reason</comment>
+  </data>
+  <data name="Settings_AssignedFormat" xml:space="preserve">
+    <value>“{0}” is checked and set.</value>
+    <comment>{0} = device name</comment>
+  </data>
+  <data name="Settings_AssignedWarningFormat" xml:space="preserve">
+    <value>Set, but: {0}</value>
+    <comment>{0} = warning</comment>
+  </data>
+  <data name="Settings_CheckFailedFormat" xml:space="preserve">
+    <value>The check failed: {0}</value>
+    <comment>{0} = error message</comment>
+  </data>
+</root>

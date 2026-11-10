@@ -1,0 +1,721 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="App_Title" xml:space="preserve">
+    <value>Микшер</value>
+  </data>
+  <data name="App_UiErrorFormat" xml:space="preserve">
+    <value>Ошибка интерфейса: {0}</value>
+  </data>
+  <data name="Header_Saved" xml:space="preserve">
+    <value>Сохранено</value>
+  </data>
+  <data name="Header_Changed" xml:space="preserve">
+    <value>Изменено</value>
+  </data>
+  <data name="Header_NotSaved" xml:space="preserve">
+    <value>Не сохранено</value>
+  </data>
+  <data name="Header_SaveFailedFormat" xml:space="preserve">
+    <value>Схема не сохранена: {0}</value>
+  </data>
+  <data name="Header_LatencyNone" xml:space="preserve">
+    <value>Задержка —</value>
+  </data>
+  <data name="Header_LatencyFormat" xml:space="preserve">
+    <value>Задержка ≈ {0} мс</value>
+  </data>
+  <data name="Header_LatencyTip" xml:space="preserve">
+    <value>Самый долгий путь по движку: буфер захвата + кольцо провода + буфер выхода. Буферы самих устройств и драйверов сюда не входят.</value>
+  </data>
+  <data name="Header_CpuNone" xml:space="preserve">
+    <value>CPU —</value>
+  </data>
+  <data name="Header_CpuFormat" xml:space="preserve">
+    <value>CPU {0}%</value>
+  </data>
+  <data name="Header_CpuTip" xml:space="preserve">
+    <value>Загрузка процессора микшером (доля всех ядер)</value>
+  </data>
+  <data name="Header_DropoutsFormat" xml:space="preserve">
+    <value>Сбоев: {0}</value>
+  </data>
+  <data name="Header_DropoutsTipInitial" xml:space="preserve">
+    <value>Underrun, overrun и сбросы избытка по всем проводам с запуска узлов</value>
+  </data>
+  <data name="Header_DropoutsTipNone" xml:space="preserve">
+    <value>Ни одного underrun, overrun и сброса по всем проводам</value>
+  </data>
+  <data name="Header_DropoutsTipFormat" xml:space="preserve">
+    <value>underrun {0} · overrun {1} · сбросов избытка {2} — по всем проводам с запуска узлов. Подробности — в подсказке провода.</value>
+  </data>
+  <data name="Cmd_Undo" xml:space="preserve">
+    <value>Отменить</value>
+  </data>
+  <data name="Cmd_UndoTip" xml:space="preserve">
+    <value>Отменить (Ctrl+Z)</value>
+  </data>
+  <data name="Cmd_Redo" xml:space="preserve">
+    <value>Повторить</value>
+  </data>
+  <data name="Cmd_RedoTip" xml:space="preserve">
+    <value>Повторить (Ctrl+Y)</value>
+  </data>
+  <data name="Cmd_Settings" xml:space="preserve">
+    <value>Настройки</value>
+  </data>
+  <data name="Cmd_SettingsTip" xml:space="preserve">
+    <value>Настройки: язык, заглушка для «Забрать себе»</value>
+  </data>
+  <data name="Cmd_AddSource" xml:space="preserve">
+    <value>Источник</value>
+  </data>
+  <data name="Cmd_AddSourceTip" xml:space="preserve">
+    <value>Микрофон, приложение, звук выхода, весь звук системы</value>
+  </data>
+  <data name="Cmd_AddOutput" xml:space="preserve">
+    <value>Выход</value>
+  </data>
+  <data name="Cmd_AddOutputTip" xml:space="preserve">
+    <value>Наушники, динамики, CABLE Input для Discord и OBS</value>
+  </data>
+  <data name="Cmd_ZoomIn" xml:space="preserve">
+    <value>Увеличить</value>
+  </data>
+  <data name="Cmd_ZoomInTip" xml:space="preserve">
+    <value>Увеличить (Ctrl + колесо)</value>
+  </data>
+  <data name="Cmd_ZoomOut" xml:space="preserve">
+    <value>Уменьшить</value>
+  </data>
+  <data name="Cmd_ZoomOutTip" xml:space="preserve">
+    <value>Уменьшить (Ctrl + колесо)</value>
+  </data>
+  <data name="Cmd_ZoomReset" xml:space="preserve">
+    <value>Масштаб 100%</value>
+  </data>
+  <data name="Cmd_Close" xml:space="preserve">
+    <value>Закрыть</value>
+  </data>
+  <data name="Cmd_CloseTip" xml:space="preserve">
+    <value>Закрыть (Esc)</value>
+  </data>
+  <data name="Cmd_NothingToUndo" xml:space="preserve">
+    <value>Отменять больше нечего</value>
+  </data>
+  <data name="Cmd_OpenWindowsMixerFailedFormat" xml:space="preserve">
+    <value>Не удалось открыть микшер громкости Windows: {0}</value>
+  </data>
+  <data name="Toolbar_Hint" xml:space="preserve">
+    <value>Потяните от точки источника к выходу, чтобы соединить. Колесо над «дБ» на проводе меняет громкость.</value>
+  </data>
+  <data name="Graph_SourcesHeader" xml:space="preserve">
+    <value>ИСТОЧНИКИ</value>
+  </data>
+  <data name="Graph_OutputsHeader" xml:space="preserve">
+    <value>ВЫХОДЫ</value>
+  </data>
+  <data name="Graph_EmptyTitle" xml:space="preserve">
+    <value>Схема пуста</value>
+  </data>
+  <data name="Graph_EmptyText" xml:space="preserve">
+    <value>Добавьте источник — микрофон, приложение или звук выхода — и выход: наушники или CABLE Input для Discord и OBS. Потом протяните провод от точки источника к выходу.</value>
+  </data>
+  <data name="Graph_WireDeletedFormat" xml:space="preserve">
+    <value>Провод «{0} → {1}» удалён. Ctrl+Z — вернуть.</value>
+  </data>
+  <data name="Graph_WireNotCreated" xml:space="preserve">
+    <value>провод не создан</value>
+  </data>
+  <data name="Graph_WireNotMoved" xml:space="preserve">
+    <value>провод не перенесён</value>
+  </data>
+  <data name="Graph_TakeOverNeedsSinkFormat" xml:space="preserve">
+    <value>Чтобы «{0}» звучало только через микшер, назначьте заглушку для «Забрать себе» в настройках (⚙).</value>
+  </data>
+  <data name="Status_SummaryFormat" xml:space="preserve">
+    <value>{0} · {1} · {2}</value>
+  </data>
+  <data name="Status_SummaryOffFormat" xml:space="preserve">
+    <value>{0} · {1} · {2} ({3})</value>
+  </data>
+  <data name="Plural_Source" xml:space="preserve">
+    <value>источник|источника|источников</value>
+  </data>
+  <data name="Plural_Output" xml:space="preserve">
+    <value>выход|выхода|выходов</value>
+  </data>
+  <data name="Plural_Wire" xml:space="preserve">
+    <value>провод|провода|проводов</value>
+  </data>
+  <data name="Plural_WireOff" xml:space="preserve">
+    <value>выключен|выключено|выключено</value>
+  </data>
+  <data name="Plural_Process" xml:space="preserve">
+    <value>процесс|процесса|процессов</value>
+  </data>
+  <data name="Plural_Instance" xml:space="preserve">
+    <value>экземпляр|экземпляра|экземпляров</value>
+  </data>
+  <data name="Plural_Capture" xml:space="preserve">
+    <value>захват|захвата|захватов</value>
+  </data>
+  <data name="Status_VbCableFound" xml:space="preserve">
+    <value>VB-Cable найден</value>
+  </data>
+  <data name="Status_VbCableFoundTip" xml:space="preserve">
+    <value>Виртуальный кабель: выход «CABLE Input» отдаёт микс в Discord или OBS, где он виден как микрофон «CABLE Output»</value>
+  </data>
+  <data name="Status_VbCableMissing" xml:space="preserve">
+    <value>VB-Cable не найден</value>
+  </data>
+  <data name="Status_VbCableMissingTip" xml:space="preserve">
+    <value>Чтобы отдать микс в Discord или OBS, установите VB-Cable (vb-audio.com) и выведите провод в «CABLE Input»</value>
+  </data>
+  <data name="Status_NoAudioFormat" xml:space="preserve">
+    <value>{0} · звук выключен (запуск с --no-audio)</value>
+  </data>
+  <data name="Status_NoAudioTip" xml:space="preserve">
+    <value>Интерфейс без движка: схему можно править, но звук не идёт</value>
+  </data>
+  <data name="Status_AppCaptureAvailableFormat" xml:space="preserve">
+    <value>{0} · захват приложений доступен</value>
+  </data>
+  <data name="Status_AppCaptureUnavailableFormat" xml:space="preserve">
+    <value>{0} · захват приложений недоступен</value>
+  </data>
+  <data name="Status_AppCaptureWorks" xml:space="preserve">
+    <value>Process loopback и «Забрать себе» работают</value>
+  </data>
+  <data name="Status_TakeOverUnavailableFormat" xml:space="preserve">
+    <value>«Забрать себе» недоступен: {0}. Устройство приложения можно выбрать в микшере громкости Windows.</value>
+  </data>
+  <data name="Status_DeviceWatchFailedFormat" xml:space="preserve">
+    <value>Подписка на изменения устройств не работает ({0}): подключение и отключение устройств замечается опросом раз в 3 с.</value>
+  </data>
+  <data name="Unit_dBFormat" xml:space="preserve">
+    <value>{0} дБ</value>
+  </data>
+  <data name="NodeSub_RestartPlayback" xml:space="preserve">
+    <value>перезапустите воспроизведение</value>
+  </data>
+  <data name="NodeSub_AppTakenOver" xml:space="preserve">
+    <value>приложение · забрано себе</value>
+  </data>
+  <data name="NodeSub_AppWaitingAudio" xml:space="preserve">
+    <value>приложение · ждёт звука</value>
+  </data>
+  <data name="NodeSub_TakeOverFailed" xml:space="preserve">
+    <value>«Забрать себе» не сработал</value>
+  </data>
+  <data name="NodeSub_TakeOverUnavailable" xml:space="preserve">
+    <value>«Забрать себе» недоступен</value>
+  </data>
+  <data name="NodeSub_Muted" xml:space="preserve">
+    <value>звук выключен</value>
+  </data>
+  <data name="NodeSub_DeviceError" xml:space="preserve">
+    <value>ошибка устройства</value>
+  </data>
+  <data name="NodeSub_Error" xml:space="preserve">
+    <value>ошибка</value>
+  </data>
+  <data name="NodeSub_WaitingForAppFormat" xml:space="preserve">
+    <value>ждёт запуска {0}</value>
+  </data>
+  <data name="NodeSub_WaitingVoicemeeter" xml:space="preserve">
+    <value>ждёт Voicemeeter</value>
+  </data>
+  <data name="NodeSub_DeviceBusy" xml:space="preserve">
+    <value>занято другим приложением</value>
+  </data>
+  <data name="NodeSub_NoDefaultDevice" xml:space="preserve">
+    <value>нет устройства по умолчанию</value>
+  </data>
+  <data name="NodeSub_DeviceDisconnected" xml:space="preserve">
+    <value>устройство отключено</value>
+  </data>
+  <data name="NodeSub_SystemExceptApps" xml:space="preserve">
+    <value>всё, кроме приложений со своим узлом</value>
+  </data>
+  <data name="NodeSub_SystemExceptMixer" xml:space="preserve">
+    <value>всё, кроме микшера</value>
+  </data>
+  <data name="NodeSub_Default" xml:space="preserve">
+    <value>по умолчанию</value>
+  </data>
+  <data name="NodeSub_DefaultComms" xml:space="preserve">
+    <value>связь по умолчанию</value>
+  </data>
+  <data name="NodeSub_Mono" xml:space="preserve">
+    <value>моно</value>
+  </data>
+  <data name="NodeSub_KhzFormat" xml:space="preserve">
+    <value>{0} кГц</value>
+  </data>
+  <data name="NodeSub_CableFormat" xml:space="preserve">
+    <value>кабель · {0}</value>
+  </data>
+  <data name="NodeSub_Cable" xml:space="preserve">
+    <value>кабель</value>
+  </data>
+  <data name="NodeSub_InputDevice" xml:space="preserve">
+    <value>вход устройства</value>
+  </data>
+  <data name="NodeSub_OutputDevice" xml:space="preserve">
+    <value>выход устройства</value>
+  </data>
+  <data name="NodeSub_LoopbackFormat" xml:space="preserve">
+    <value>звук выхода · {0}</value>
+  </data>
+  <data name="NodeSub_AppFormat" xml:space="preserve">
+    <value>приложение · {0}</value>
+  </data>
+  <data name="NodeWarn_PlaysDirect" xml:space="preserve">
+    <value>Привязка стоит, но приложение ещё играет в прежнее устройство: перезапустите в нём воспроизведение</value>
+  </data>
+  <data name="NodeWarn_NoSink" xml:space="preserve">
+    <value>заглушка не назначена</value>
+  </data>
+  <data name="NodeWarn_SetSinkFormat" xml:space="preserve">
+    <value>{0}. Заглушку можно назначить в настройках (⚙).</value>
+  </data>
+  <data name="NodeMsg_UnknownError" xml:space="preserve">
+    <value>неизвестная ошибка</value>
+  </data>
+  <data name="NodeMsg_RetryFormat" xml:space="preserve">
+    <value>{0}. Повтор через 2 с.</value>
+  </data>
+  <data name="NodeMsg_SentenceFormat" xml:space="preserve">
+    <value>{0}.</value>
+  </data>
+  <data name="NodeMsg_Kept" xml:space="preserve">
+    <value>Провода и громкость сохранены.</value>
+  </data>
+  <data name="NodeMsg_ReconnectApp" xml:space="preserve">
+    <value>Подключится само, как только приложение запустится.</value>
+  </data>
+  <data name="NodeMsg_ReconnectBusy" xml:space="preserve">
+    <value>Подключится само, как только устройство освободится.</value>
+  </data>
+  <data name="NodeMsg_ReconnectDevice" xml:space="preserve">
+    <value>Подключится само, как только устройство появится.</value>
+  </data>
+  <data name="NodeState_LimiterFormat" xml:space="preserve">
+    <value>лимитер −{0} дБ</value>
+  </data>
+  <data name="NodeTip_AppInstancesFormat" xml:space="preserve">
+    <value>{0} · {1}, захваты суммируются</value>
+  </data>
+  <data name="NodeTip_System" xml:space="preserve">
+    <value>Всё, что играет в Windows, кроме самого микшера</value>
+  </data>
+  <data name="NodeTip_DefaultDevice" xml:space="preserve">
+    <value>Устройство по умолчанию в Windows</value>
+  </data>
+  <data name="NodeTip_DefaultCommsDevice" xml:space="preserve">
+    <value>Устройство связи по умолчанию в Windows</value>
+  </data>
+  <data name="NodeTip_DefaultNowNone" xml:space="preserve">
+    <value>сейчас его нет</value>
+  </data>
+  <data name="NodeTip_DefaultNowFormat" xml:space="preserve">
+    <value>сейчас «{0}»</value>
+  </data>
+  <data name="NodeTip_DefaultFormat" xml:space="preserve">
+    <value>{0}: {1}. Сменят его в Windows — узел перейдёт на новое сам, провода и громкость сохранятся.</value>
+  </data>
+  <data name="NodeTip_SystemPlanFormat" xml:space="preserve">
+    <value>Всё, что играет в Windows, кроме микшера и приложений со своим узлом ({0}) — иначе они прозвучали бы дважды.</value>
+  </data>
+  <data name="NodeTip_SystemNothingPlaying" xml:space="preserve">
+    <value>Сейчас звук никто не выводит.</value>
+  </data>
+  <data name="NodeTip_SystemCapturedFormat" xml:space="preserve">
+    <value>Захвачено по процессам: {0}.</value>
+  </data>
+  <data name="NodeTip_SystemSkippedFormat" xml:space="preserve">
+    <value>Не захвачены: {0} — в дереве их процессов микшер или приложение со своим узлом, а вырезать из захвата часть дерева Windows не умеет.</value>
+  </data>
+  <data name="NodeName_DefaultMic" xml:space="preserve">
+    <value>Микрофон</value>
+  </data>
+  <data name="NodeName_DefaultMicComms" xml:space="preserve">
+    <value>Микрофон связи</value>
+  </data>
+  <data name="NodeName_DefaultLoopback" xml:space="preserve">
+    <value>Звук: по умолчанию</value>
+  </data>
+  <data name="NodeName_DefaultLoopbackComms" xml:space="preserve">
+    <value>Звук: связь</value>
+  </data>
+  <data name="NodeName_DefaultOutput" xml:space="preserve">
+    <value>Выход по умолчанию</value>
+  </data>
+  <data name="NodeName_DefaultOutputComms" xml:space="preserve">
+    <value>Связь по умолчанию</value>
+  </data>
+  <data name="NodeName_LoopbackFormat" xml:space="preserve">
+    <value>Звук: {0}</value>
+  </data>
+  <data name="NodeType_SystemAudio" xml:space="preserve">
+    <value>Весь звук системы</value>
+  </data>
+  <data name="Node_Menu" xml:space="preserve">
+    <value>Меню узла</value>
+  </data>
+  <data name="Node_Mute" xml:space="preserve">
+    <value>Выключить звук</value>
+  </data>
+  <data name="Node_MuteTip" xml:space="preserve">
+    <value>Выключить звук узла</value>
+  </data>
+  <data name="Node_FaderTip" xml:space="preserve">
+    <value>Громкость узла: −60…+12 дБ. Колесо — шаг 1 дБ (Shift — 0,1), двойной клик — 0 дБ</value>
+  </data>
+  <data name="Node_LimiterTip" xml:space="preserve">
+    <value>Ограничитель на выходе срезает пики выше −1 dBFS. Убавьте источники или выход.</value>
+  </data>
+  <data name="Node_PortTip" xml:space="preserve">
+    <value>Потяните к узлу другой колонки, чтобы соединить</value>
+  </data>
+  <data name="Node_Rename" xml:space="preserve">
+    <value>Переименовать</value>
+  </data>
+  <data name="Node_RouteTo" xml:space="preserve">
+    <value>Вывести в…</value>
+  </data>
+  <data name="Node_ReceiveFrom" xml:space="preserve">
+    <value>Принимать из…</value>
+  </data>
+  <data name="Node_AddOutputFirst" xml:space="preserve">
+    <value>Сначала добавьте выход</value>
+  </data>
+  <data name="Node_AddSourceFirst" xml:space="preserve">
+    <value>Сначала добавьте источник</value>
+  </data>
+  <data name="Node_Mono" xml:space="preserve">
+    <value>Моно</value>
+  </data>
+  <data name="Node_MonoTip" xml:space="preserve">
+    <value>Слить левый и правый каналы</value>
+  </data>
+  <data name="Node_TakeOver" xml:space="preserve">
+    <value>Забрать себе</value>
+  </data>
+  <data name="Node_TakeOverTip" xml:space="preserve">
+    <value>Приложение играет только через микшер: Windows перенаправляет его в заглушку. Без этого оно звучит и напрямую, и через микшер.</value>
+  </data>
+  <data name="Node_ResetGain" xml:space="preserve">
+    <value>Громкость 0 дБ</value>
+  </data>
+  <data name="Node_Delete" xml:space="preserve">
+    <value>Удалить узел</value>
+  </data>
+  <data name="Node_Balance" xml:space="preserve">
+    <value>Баланс</value>
+  </data>
+  <data name="Node_BalanceTip" xml:space="preserve">
+    <value>Двойной клик — по центру</value>
+  </data>
+  <data name="Node_BalanceCenter" xml:space="preserve">
+    <value>центр</value>
+  </data>
+  <data name="Node_BalanceLeftFormat" xml:space="preserve">
+    <value>Л {0}%</value>
+  </data>
+  <data name="Node_BalanceRightFormat" xml:space="preserve">
+    <value>П {0}%</value>
+  </data>
+  <data name="Node_ChooseOtherDevice" xml:space="preserve">
+    <value>Выбрать другое устройство</value>
+  </data>
+  <data name="Node_DefaultMenu" xml:space="preserve">
+    <value>По умолчанию в Windows</value>
+  </data>
+  <data name="Node_DefaultCommsMenu" xml:space="preserve">
+    <value>Для связи по умолчанию</value>
+  </data>
+  <data name="Node_DefaultMenuNoneFormat" xml:space="preserve">
+    <value>{0} (сейчас нет)</value>
+  </data>
+  <data name="Node_DefaultMenuNowFormat" xml:space="preserve">
+    <value>{0} (сейчас «{1}»)</value>
+  </data>
+  <data name="Node_FollowsTip" xml:space="preserve">
+    <value>Узел перейдёт на новое устройство сам, когда его сменят в Windows</value>
+  </data>
+  <data name="Node_NoDevices" xml:space="preserve">
+    <value>Устройств не найдено</value>
+  </data>
+  <data name="Node_Color" xml:space="preserve">
+    <value>Цвет</value>
+  </data>
+  <data name="Wire_Off" xml:space="preserve">
+    <value>выкл</value>
+  </data>
+  <data name="Wire_Loop" xml:space="preserve">
+    <value>петля</value>
+  </data>
+  <data name="Wire_Hint" xml:space="preserve">
+    <value>Колесо — шаг 1 дБ, Shift + колесо — 0,1 дБ. Клик — выключить, двойной клик — 0 дБ.</value>
+  </data>
+  <data name="Wire_TooltipTitleFormat" xml:space="preserve">
+    <value>{0} → {1}</value>
+  </data>
+  <data name="Wire_TooltipNetFormat" xml:space="preserve">
+    <value>Итог на выходе: {0} ({1})</value>
+  </data>
+  <data name="Wire_TooltipRateFormat" xml:space="preserve">
+    <value>{0} → {1} кГц · в буфере {2} мс · задержка ≈ {3} мс</value>
+  </data>
+  <data name="Wire_TooltipNotWorking" xml:space="preserve">
+    <value>Провод не работает</value>
+  </data>
+  <data name="Wire_TooltipDeleteIt" xml:space="preserve">
+    <value>Удалите его: Delete или правый клик → «Удалить»</value>
+  </data>
+  <data name="Wire_TooltipOff" xml:space="preserve">
+    <value>Провод выключен — клик по пилюле включит</value>
+  </data>
+  <data name="Wire_TooltipMutedFormat" xml:space="preserve">
+    <value>Итог: тишина — у «{0}» выключен звук</value>
+  </data>
+  <data name="Wire_TooltipNoAudio" xml:space="preserve">
+    <value>Звук выключен (--no-audio)</value>
+  </data>
+  <data name="Wire_TooltipErrorFormat" xml:space="preserve">
+    <value>Звук не идёт: «{0}» в ошибке</value>
+  </data>
+  <data name="Wire_TooltipWaitingFormat" xml:space="preserve">
+    <value>Звук не идёт: «{0}» ждёт</value>
+  </data>
+  <data name="Wire_TooltipConnecting" xml:space="preserve">
+    <value>Подключается…</value>
+  </data>
+  <data name="Wire_TooltipDropoutsNone" xml:space="preserve">
+    <value>Сбоев: 0</value>
+  </data>
+  <data name="Wire_TooltipDropoutsFormat" xml:space="preserve">
+    <value>Сбоев: {0} — underrun {1}, overrun {2}, сбросов {3}</value>
+  </data>
+  <data name="Wire_TooltipGapsFormat" xml:space="preserve">
+    <value>пауз приложения: {0}</value>
+  </data>
+  <data name="Wire_TurnOff" xml:space="preserve">
+    <value>Выключить провод</value>
+  </data>
+  <data name="Wire_TurnOn" xml:space="preserve">
+    <value>Включить провод</value>
+  </data>
+  <data name="Wire_ResetGain" xml:space="preserve">
+    <value>Громкость провода 0 дБ</value>
+  </data>
+  <data name="Wire_Delete" xml:space="preserve">
+    <value>Удалить провод</value>
+  </data>
+  <data name="Palette_Title" xml:space="preserve">
+    <value>Добавить источник</value>
+  </data>
+  <data name="Palette_TitleOutput" xml:space="preserve">
+    <value>Добавить выход</value>
+  </data>
+  <data name="Palette_SearchPlaceholder" xml:space="preserve">
+    <value>Устройство или приложение…</value>
+  </data>
+  <data name="Palette_SearchPlaceholderOutput" xml:space="preserve">
+    <value>Устройство воспроизведения…</value>
+  </data>
+  <data name="Palette_DevicesFailedFormat" xml:space="preserve">
+    <value>Не удалось получить список устройств: {0}</value>
+  </data>
+  <data name="Palette_Loading" xml:space="preserve">
+    <value>Ищу устройства и приложения…</value>
+  </data>
+  <data name="Palette_NothingFound" xml:space="preserve">
+    <value>Ничего не найдено</value>
+  </data>
+  <data name="Palette_PlayingAudio" xml:space="preserve">
+    <value>Сейчас играет звук</value>
+  </data>
+  <data name="Palette_KeySelect" xml:space="preserve">
+    <value>↑↓ — выбрать</value>
+  </data>
+  <data name="Palette_KeyAdd" xml:space="preserve">
+    <value>Enter — добавить</value>
+  </data>
+  <data name="Palette_KeyClose" xml:space="preserve">
+    <value>Esc — закрыть</value>
+  </data>
+  <data name="Palette_GroupPlayingNow" xml:space="preserve">
+    <value>ПРИЛОЖЕНИЯ СО ЗВУКОМ</value>
+  </data>
+  <data name="Palette_GroupOtherApps" xml:space="preserve">
+    <value>ДРУГИЕ ЗАПУЩЕННЫЕ ПРИЛОЖЕНИЯ</value>
+  </data>
+  <data name="Palette_GroupInputs" xml:space="preserve">
+    <value>ВХОДЫ</value>
+  </data>
+  <data name="Palette_GroupLoopback" xml:space="preserve">
+    <value>ЗВУК ВЫХОДОВ (LOOPBACK)</value>
+  </data>
+  <data name="Palette_GroupSpecial" xml:space="preserve">
+    <value>ОСОБЫЕ</value>
+  </data>
+  <data name="Palette_GroupOutputs" xml:space="preserve">
+    <value>ВЫХОДЫ</value>
+  </data>
+  <data name="Palette_AlreadyOnGraph" xml:space="preserve">
+    <value>уже на схеме · добавить ещё раз</value>
+  </data>
+  <data name="Palette_OnGraph" xml:space="preserve">
+    <value>уже на схеме</value>
+  </data>
+  <data name="Palette_SilentNow" xml:space="preserve">
+    <value>сейчас без звука</value>
+  </data>
+  <data name="Palette_DefaultMic" xml:space="preserve">
+    <value>Микрофон по умолчанию</value>
+  </data>
+  <data name="Palette_DefaultMicComms" xml:space="preserve">
+    <value>Микрофон для связи по умолчанию</value>
+  </data>
+  <data name="Palette_DefaultNowNone" xml:space="preserve">
+    <value>сейчас его нет — узел подождёт</value>
+  </data>
+  <data name="Palette_DefaultNowFormat" xml:space="preserve">
+    <value>сейчас «{0}»</value>
+  </data>
+  <data name="Palette_DefaultLoopbackFormat" xml:space="preserve">
+    <value>всё, что играет в устройство по умолчанию · {0}</value>
+  </data>
+  <data name="Palette_DefaultFollowsFormat" xml:space="preserve">
+    <value>{0} · сменится вслед за Windows</value>
+  </data>
+  <data name="Palette_KeywordsDefault" xml:space="preserve">
+    <value>по умолчанию default</value>
+  </data>
+  <data name="Palette_KeywordsComms" xml:space="preserve">
+    <value>связь communications</value>
+  </data>
+  <data name="Palette_VirtualCableInput" xml:space="preserve">
+    <value>виртуальный кабель VB-Audio · то, что пришло в его вход</value>
+  </data>
+  <data name="Palette_DefaultMicDeviceFormat" xml:space="preserve">
+    <value>микрофон по умолчанию в Windows · {0}</value>
+  </data>
+  <data name="Palette_LoopbackHintFormat" xml:space="preserve">
+    <value>всё, что сейчас играет в «{0}»</value>
+  </data>
+  <data name="Palette_VaioOff" xml:space="preserve">
+    <value>Voicemeeter не запущен: устройства VAIO без него вешают службу Windows Audio</value>
+  </data>
+  <data name="Palette_SystemOnGraph" xml:space="preserve">
+    <value>уже на схеме: может быть только один</value>
+  </data>
+  <data name="Palette_SystemHint" xml:space="preserve">
+    <value>всё, что играет, кроме микшера и приложений со своим узлом</value>
+  </data>
+  <data name="Palette_SystemOnlyOne" xml:space="preserve">
+    <value>«Весь звук системы» может быть только один на схему</value>
+  </data>
+  <data name="Palette_IsSink" xml:space="preserve">
+    <value>это заглушка «Забрать себе» — приложения прозвучат дважды</value>
+  </data>
+  <data name="Palette_CableOutput" xml:space="preserve">
+    <value>виртуальный кабель: в Discord или OBS он виден как микрофон «CABLE Output»</value>
+  </data>
+  <data name="Palette_DefaultDeviceFormat" xml:space="preserve">
+    <value>устройство по умолчанию · {0}</value>
+  </data>
+  <data name="Settings_LanguageHeader" xml:space="preserve">
+    <value>ЯЗЫК</value>
+  </data>
+  <data name="Settings_LanguageAuto" xml:space="preserve">
+    <value>Как в Windows</value>
+  </data>
+  <data name="Settings_LanguageRestartNote" xml:space="preserve">
+    <value>Новый язык включится после перезапуска. Звук на мгновение прервётся.</value>
+  </data>
+  <data name="Settings_LanguageRestart" xml:space="preserve">
+    <value>Перезапустить</value>
+  </data>
+  <data name="Settings_LanguageSaveFailedFormat" xml:space="preserve">
+    <value>Не удалось сохранить настройку: {0}</value>
+  </data>
+  <data name="Settings_SinkHeader" xml:space="preserve">
+    <value>ЗАГЛУШКА ДЛЯ «ЗАБРАТЬ СЕБЕ»</value>
+  </data>
+  <data name="Settings_Checking" xml:space="preserve">
+    <value>проверка…</value>
+  </data>
+  <data name="Settings_ClearSink" xml:space="preserve">
+    <value>Снять заглушку</value>
+  </data>
+  <data name="Settings_VolumeMixer" xml:space="preserve">
+    <value>Микшер громкости Windows</value>
+  </data>
+  <data name="Settings_VolumeMixerTip" xml:space="preserve">
+    <value>Запасной путь: выбрать устройство приложения вручную</value>
+  </data>
+  <data name="Settings_TagCable" xml:space="preserve">
+    <value>виртуальный кабель</value>
+  </data>
+  <data name="Settings_TagVaio" xml:space="preserve">
+    <value>Voicemeeter VAIO — ненадёжная заглушка</value>
+  </data>
+  <data name="Settings_TagDefault" xml:space="preserve">
+    <value>устройство по умолчанию — его слушают</value>
+  </data>
+  <data name="Settings_TagOnGraph" xml:space="preserve">
+    <value>выход на схеме</value>
+  </data>
+  <data name="Settings_LoopbackAvailable" xml:space="preserve">
+    <value>Захват звука приложений (process loopback) доступен.</value>
+  </data>
+  <data name="Settings_PolicyUnavailableFormat" xml:space="preserve">
+    <value>«Забрать себе» недоступен: {0}. Устройство приложения можно выбрать вручную в микшере громкости Windows.</value>
+  </data>
+  <data name="Settings_PolicyInfo" xml:space="preserve">
+    <value>«Забрать себе» перенаправляет приложение в заглушку — устройство, которое никто не слушает. Лучше всего — отдельный VB-Cable, не тот, что идёт в OBS или Discord.</value>
+  </data>
+  <data name="Settings_NoSink" xml:space="preserve">
+    <value>Заглушка не назначена: приложения в режиме «Забрать себе» будут звучать и напрямую, и через микшер.</value>
+  </data>
+  <data name="Settings_OfflineNotChecked" xml:space="preserve">
+    <value>Звук выключен: заглушка не проверяется.</value>
+  </data>
+  <data name="Settings_WillCheck" xml:space="preserve">
+    <value>Заглушка будет проверена, когда на схеме появится приложение с «Забрать себе».</value>
+  </data>
+  <data name="Settings_SinkOkFormat" xml:space="preserve">
+    <value>«{0}» проверена и годится.</value>
+  </data>
+  <data name="Settings_SinkWarningFormat" xml:space="preserve">
+    <value>Годится, но: {0}</value>
+  </data>
+  <data name="Settings_SinkRejectedFormat" xml:space="preserve">
+    <value>Не годится: {0}</value>
+  </data>
+  <data name="Settings_OfflineAssigned" xml:space="preserve">
+    <value>Звук выключен: заглушка назначена без проверки.</value>
+  </data>
+  <data name="Settings_CheckingFormat" xml:space="preserve">
+    <value>Проверка «{0}»: пробный поток, до 2 с…</value>
+  </data>
+  <data name="Settings_CannotAssignFormat" xml:space="preserve">
+    <value>Нельзя назначить: {0}</value>
+  </data>
+  <data name="Settings_AssignedFormat" xml:space="preserve">
+    <value>«{0}» проверена и назначена.</value>
+  </data>
+  <data name="Settings_AssignedWarningFormat" xml:space="preserve">
+    <value>Назначена, но: {0}</value>
+  </data>
+  <data name="Settings_CheckFailedFormat" xml:space="preserve">
+    <value>Проверка не удалась: {0}</value>
+  </data>
+</root>

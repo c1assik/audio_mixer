@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Mixer.Run</RootNamespace>
+    <AssemblyName>Mixer.Run</AssemblyName>
+    <TieredPGO>true</TieredPGO>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Mixer.Audio\Mixer.Audio.csproj" />
+    <ProjectReference Include="..\..\src\Mixer.Core\Mixer.Core.csproj" />
+  </ItemGroup>
+
+</Project>

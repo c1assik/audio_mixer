@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="Node_StuckFormat" xml:space="preserve">
+    <value>{0} hasn’t responded for {1:F0} s; the Windows Audio service may be hung</value>
+    <comment>{0} = WASAPI call, {1} = seconds</comment>
+  </data>
+  <data name="Node_Busy" xml:space="preserve">
+    <value>the device is in use by another app (exclusive mode)</value>
+  </data>
+  <data name="Node_Gone" xml:space="preserve">
+    <value>device unplugged</value>
+  </data>
+  <data name="Node_NotFound" xml:space="preserve">
+    <value>device not found</value>
+  </data>
+  <data name="Node_AppExited" xml:space="preserve">
+    <value>the app has exited</value>
+  </data>
+  <data name="Node_UnsupportedFormatFormat" xml:space="preserve">
+    <value>{0}: the device format isn’t supported ({1})</value>
+    <comment>{0} = Stream_*, {1} = format</comment>
+  </data>
+  <data name="Phase_Opening" xml:space="preserve">
+    <value>opening the device</value>
+    <comment>Shown if the call hangs</comment>
+  </data>
+  <data name="Stream_Capture" xml:space="preserve">
+    <value>capture</value>
+    <comment>Stream name in error messages</comment>
+  </data>
+  <data name="Stream_AppCapture" xml:space="preserve">
+    <value>app capture</value>
+    <comment>Stream name in error messages</comment>
+  </data>
+  <data name="Stream_SystemCapture" xml:space="preserve">
+    <value>system audio capture</value>
+    <comment>Stream name in error messages</comment>
+  </data>
+  <data name="Stream_Playback" xml:space="preserve">
+    <value>playback</value>
+    <comment>Stream name in error messages</comment>
+  </data>
+  <data name="Stream_KeepAlive" xml:space="preserve">
+    <value>loopback: silent stream</value>
+    <comment>Stream name in error messages</comment>
+  </data>
+  <data name="Stream_KeepAliveBufferSize" xml:space="preserve">
+    <value>loopback: GetBufferSize (silence)</value>
+  </data>
+  <data name="Stream_KeepAliveStart" xml:space="preserve">
+    <value>loopback: Start (silence)</value>
+  </data>
+  <data name="Stream_SinkCheck" xml:space="preserve">
+    <value>sink check</value>
+    <comment>Stream name in error messages</comment>
+  </data>
+  <data name="Format_DescriptionFormat" xml:space="preserve">
+    <value>{0} {1} Hz {2} ch.</value>
+    <comment>{0} = sample type, {1} = rate, {2} = channels</comment>
+  </data>
+  <data name="Loopback_Timeout" xml:space="preserve">
+    <value>ActivateAudioInterfaceAsync didn’t finish in time; the Windows Audio service may be unhealthy</value>
+  </data>
+  <data name="Loopback_UnavailableFormat" xml:space="preserve">
+    <value>app audio capture isn’t available in this version of Windows (build 20348 or later is needed): {0}</value>
+    <comment>{0} = error</comment>
+  </data>
+  <data name="Loopback_Result" xml:space="preserve">
+    <value>ActivateAudioInterfaceAsync, result</value>
+  </data>
+  <data name="Policy_UnavailableFormat" xml:space="preserve">
+    <value>IAudioPolicyConfig is unavailable: {0}</value>
+    <comment>{0} = errors</comment>
+  </data>
+  <data name="Probe_StillRunning" xml:space="preserve">
+    <value>the previous check of this device still hasn’t returned from WASAPI</value>
+  </data>
+  <data name="Probe_TimeoutFormat" xml:space="preserve">
+    <value>{0} didn’t respond within {1:F0} s: the device doesn’t accept new streams</value>
+    <comment>{0} = WASAPI call, {1} = seconds</comment>
+  </data>
+  <data name="Probe_NotConsuming" xml:space="preserve">
+    <value>the device accepted the stream but doesn’t take the audio</value>
+  </data>
+</root>

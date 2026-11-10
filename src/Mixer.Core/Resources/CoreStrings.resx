@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="Issue_SubjectFormat" xml:space="preserve">
+    <value>“{0}”: {1}</value>
+    <comment>Node message prefix; {0} = node name, {1} = message. The UI strips this prefix on the node card</comment>
+  </data>
+  <data name="Issue_DuplicateIdFormat" xml:space="preserve">
+    <value>node id “{0}” appears twice</value>
+  </data>
+  <data name="Issue_SystemOnlyOne" xml:space="preserve">
+    <value>There can be only one “System audio” per graph</value>
+  </data>
+  <data name="Issue_NoExe" xml:space="preserve">
+    <value>the “App” node has no exe</value>
+  </data>
+  <data name="Issue_AppNotRunningFormat" xml:space="preserve">
+    <value>app {0} isn’t running, the node is waiting</value>
+    <comment>{0} = exe name</comment>
+  </data>
+  <data name="Issue_NoDefaultFormat" xml:space="preserve">
+    <value>Windows has no {0}, the node is waiting</value>
+    <comment>{0} = Issue_Default* (RU: genitive)</comment>
+  </data>
+  <data name="Issue_DefaultCapture" xml:space="preserve">
+    <value>default recording device</value>
+    <comment>RU: genitive case</comment>
+  </data>
+  <data name="Issue_DefaultCaptureComms" xml:space="preserve">
+    <value>default communications recording device</value>
+    <comment>RU: genitive case</comment>
+  </data>
+  <data name="Issue_DefaultRender" xml:space="preserve">
+    <value>default playback device</value>
+    <comment>RU: genitive case</comment>
+  </data>
+  <data name="Issue_DefaultRenderComms" xml:space="preserve">
+    <value>default communications playback device</value>
+    <comment>RU: genitive case</comment>
+  </data>
+  <data name="Issue_DeviceNotFoundFormat" xml:space="preserve">
+    <value>device “{0}” not found, the node is waiting</value>
+    <comment>{0} = device name</comment>
+  </data>
+  <data name="Issue_VoicemeeterOffFormat" xml:space="preserve">
+    <value>“{0}” is a Voicemeeter device, and Voicemeeter isn’t running. Without it, such a device hangs the Windows Audio service; the node is waiting for Voicemeeter</value>
+    <comment>{0} = device name</comment>
+  </data>
+  <data name="Issue_WireMissingNode" xml:space="preserve">
+    <value>the wire refers to a node that doesn’t exist</value>
+  </data>
+  <data name="Issue_WireDirection" xml:space="preserve">
+    <value>a wire only goes from a source to an output</value>
+  </data>
+  <data name="Issue_WireDuplicate" xml:space="preserve">
+    <value>there can be only one wire between a pair of nodes</value>
+  </data>
+  <data name="Issue_DoubleSoundFormat" xml:space="preserve">
+    <value>“{0}” already contains {1}: where both nodes go to the same output, they will be heard twice</value>
+    <comment>{0} = system audio node, {1} = app node names</comment>
+  </data>
+  <data name="Issue_SinkOutputFormat" xml:space="preserve">
+    <value>“{0}” is the “Take over” sink: redirected apps play there too, so they will be heard twice</value>
+    <comment>{0} = node name</comment>
+  </data>
+  <data name="Issue_SinkLoopbackFormat" xml:space="preserve">
+    <value>“{0}” listens to the sink “{1}”: it carries the original audio of apps in “Take over” mode</value>
+    <comment>{0} = node name, {1} = sink device</comment>
+  </data>
+  <data name="Issue_SinkInputFormat" xml:space="preserve">
+    <value>“{0}” hears the sink “{1}”: it carries the original audio of apps in “Take over” mode</value>
+    <comment>{0} = node name, {1} = sink device</comment>
+  </data>
+  <data name="Feedback_LoopbackFormat" xml:space="preserve">
+    <value>“{0}” is the audio of the output “{1}” itself: the wire would close a feedback loop</value>
+    <comment>{0} = source, {1} = output device</comment>
+  </data>
+  <data name="Feedback_CableFormat" xml:space="preserve">
+    <value>“{0}” sends audio back to “{1}”: the wire would close a loop through the cable</value>
+    <comment>{0} = output device, {1} = source</comment>
+  </data>
+  <data name="Connect_NodeNotFound" xml:space="preserve">
+    <value>node not found</value>
+  </data>
+  <data name="Connect_TwoSources" xml:space="preserve">
+    <value>a wire goes from a source to an output, and these are two sources</value>
+  </data>
+  <data name="Connect_TwoOutputs" xml:space="preserve">
+    <value>a wire goes from a source to an output, and these are two outputs</value>
+  </data>
+  <data name="Connect_ExistsFormat" xml:space="preserve">
+    <value>“{0}” and “{1}” are already connected</value>
+  </data>
+  <data name="Connect_CableLoopFormat" xml:space="preserve">
+    <value>Loop through a cable: “{0}” ({1}) sends audio back to “{2}”</value>
+    <comment>{0} = output node, {1} = its device, {2} = source node</comment>
+  </data>
+  <data name="Connect_LoopFormat" xml:space="preserve">
+    <value>Loop: “{0}” is the audio of the output “{1}” itself, so it can’t be sent back there</value>
+    <comment>{0} = source node, {1} = output node</comment>
+  </data>
+  <data name="Sink_NotSet" xml:space="preserve">
+    <value>no sink set: in Settings, pick a device nobody listens to (a separate VB-Cable is recommended)</value>
+  </data>
+  <data name="Sink_NotPlayback" xml:space="preserve">
+    <value>only a playback device can be a sink</value>
+  </data>
+  <data name="Sink_NotFound" xml:space="preserve">
+    <value>the sink device wasn’t found (unplugged or removed)</value>
+  </data>
+  <data name="Sink_VaioOffFormat" xml:space="preserve">
+    <value>“{0}” is a Voicemeeter VAIO input, and Voicemeeter isn’t running: such an input doesn’t accept streams and hangs the Windows Audio service</value>
+    <comment>{0} = device name</comment>
+  </data>
+  <data name="Sink_ProbeFailedFormat" xml:space="preserve">
+    <value>“{0}” failed the check: {1}</value>
+    <comment>{0} = device name, {1} = reason</comment>
+  </data>
+  <data name="Sink_IsDefaultFormat" xml:space="preserve">
+    <value>“{0}” is the default device: people listen to it, and apps in “Take over” mode will be heard directly</value>
+    <comment>{0} = device name</comment>
+  </data>
+  <data name="Sink_VaioUnreliableFormat" xml:space="preserve">
+    <value>“{0}” is an unreliable sink: it works only while Voicemeeter is running. A separate VB-Cable is recommended</value>
+    <comment>{0} = device name</comment>
+  </data>
+  <data name="Sink_FewerChannelsFormat" xml:space="preserve">
+    <value>the sink has {0} ch. and the default device “{1}” has {2}: if an app doesn’t reopen its stream when the device changes, Windows downmixes it to {0} ch. with normalization, and it gets quieter (by up to {3:0.0} dB). Setting the sink format to {2} ch. helps (“Sound” → device → “Configure”), or restarting playback in the app</value>
+    <comment>{0} = sink channels, {1} = default device, {2} = its channels, {3} = loss in dB</comment>
+  </data>
+  <data name="Bind_NoSink" xml:space="preserve">
+    <value>no sink set</value>
+  </data>
+  <data name="Bind_DisabledByOption" xml:space="preserve">
+    <value>turned off by a startup option</value>
+  </data>
+  <data name="Bind_PolicyUnavailableFormat" xml:space="preserve">
+    <value>IAudioPolicyConfig is unavailable: {0}. Pick the app’s device by hand in the Windows volume mixer</value>
+    <comment>{0} = error</comment>
+  </data>
+  <data name="Bind_NotRunning" xml:space="preserve">
+    <value>the app isn’t running</value>
+  </data>
+  <data name="Bind_JournalWriteFailedFormat" xml:space="preserve">
+    <value>couldn’t write the redirect journal: {0}</value>
+    <comment>{0} = error message</comment>
+  </data>
+  <data name="Bind_FailedFormat" xml:space="preserve">
+    <value>redirecting to the sink didn’t take: {0}</value>
+    <comment>{0} = technical detail</comment>
+  </data>
+  <data name="Bind_NoAudioYet" xml:space="preserve">
+    <value>the app hasn’t used audio yet</value>
+  </data>
+  <data name="Bind_PlaysDirect" xml:space="preserve">
+    <value>audio still goes directly: restart playback in the app</value>
+  </data>
+  <data name="Bind_ResetOnNextStart" xml:space="preserve">
+    <value>the redirect will be removed the next time the app starts</value>
+  </data>
+  <data name="Bind_ReleaseFailedFormat" xml:space="preserve">
+    <value>couldn’t remove the redirect: {0}</value>
+    <comment>{0} = technical detail</comment>
+  </data>
+  <data name="Bind_ResetOnAudio" xml:space="preserve">
+    <value>the redirect will be removed when the app uses audio</value>
+  </data>
+  <data name="Bind_ReleasedJournalFailedFormat" xml:space="preserve">
+    <value>the redirect is removed, but the journal wasn’t written: {0}</value>
+    <comment>{0} = error message</comment>
+  </data>
+  <data name="Bind_DefaultEndpoint" xml:space="preserve">
+    <value>default</value>
+    <comment>Technical detail: the app plays to the default device</comment>
+  </data>
+  <data name="Bind_StateBound" xml:space="preserve">
+    <value>“Take over”: audio only through the mixer</value>
+  </data>
+  <data name="Bind_StateBoundFormat" xml:space="preserve">
+    <value>“Take over”: audio only through the mixer ({0})</value>
+    <comment>{0} = note</comment>
+  </data>
+  <data name="Bind_StateNotRunning" xml:space="preserve">
+    <value>not running</value>
+  </data>
+  <data name="Bind_StateWaitingAudio" xml:space="preserve">
+    <value>waiting for the app to use audio</value>
+  </data>
+  <data name="Bind_StateResetPending" xml:space="preserve">
+    <value>the redirect will be removed</value>
+  </data>
+  <data name="Bind_StateUnavailableFormat" xml:space="preserve">
+    <value>“Take over” is unavailable: {0}</value>
+    <comment>{0} = reason</comment>
+  </data>
+  <data name="Bind_StateErrorFormat" xml:space="preserve">
+    <value>error: {0}</value>
+    <comment>{0} = reason</comment>
+  </data>
+  <data name="System_CaptureLimitFormat" xml:space="preserve">
+    <value>{0} (capture limit)</value>
+    <comment>{0} = exe name</comment>
+  </data>
+  <data name="Config_Empty" xml:space="preserve">
+    <value>graph.json is empty</value>
+  </data>
+  <data name="Config_NewerVersionFormat" xml:space="preserve">
+    <value>graph.json version {0} is newer than this program (it supports {1})</value>
+  </data>
+  <data name="Store_UnreadableMovedFormat" xml:space="preserve">
+    <value>The graph couldn’t be read ({0}). The file was saved as {1}</value>
+    <comment>{0} = error, {1} = file name</comment>
+  </data>
+  <data name="Store_UnreadableNotMovedFormat" xml:space="preserve">
+    <value>The graph couldn’t be read ({0}), and setting the file aside failed ({1})</value>
+    <comment>{0}, {1} = errors</comment>
+  </data>
+  <data name="Store_BackupRestoredFormat" xml:space="preserve">
+    <value>{0}. Restored the backup from {1:MMMM d, HH:mm}.</value>
+    <comment>{0} = Store_Unreadable*, {1} = backup time</comment>
+  </data>
+  <data name="Store_NoBackupsFormat" xml:space="preserve">
+    <value>{0}. There are no backups, so the graph starts empty.</value>
+    <comment>{0} = Store_Unreadable*</comment>
+  </data>
+</root>

@@ -1,0 +1,284 @@
+using System.Collections.ObjectModel;
+using System.Windows.Media;
+using CommunityToolkit.Mvvm.ComponentModel;
+using Mixer.App.Ui;
+using Mixer.Audio.Interop;
+using Mixer.Core.Apps;
+using Mixer.Core.Config;
+using Mixer.Core.Graph;
+using Mixer.Core.Sys;
+
+namespace Mixer.App.ViewModels;
+
+public enum PaletteMode { Sources, Outputs }
+
+/// <summary>Строка палитры: заголовок раздела или то, что можно добавить.</summary>
+public sealed class PaletteRow
+{
+    public string? Header { get; init; }
+    public string Title { get; init; } = "";
+    public string Subtitle { get; init; } = "";
+    public string GlyphKey { get; init; } = "IconApp";
+    public ImageSource? Icon { get; init; }
+    public bool Playing { get; init; }
+    public bool Enabled { get; init; } = true;
+    /// <summary>Почему нельзя добавить (подсказка у недоступной строки).</summary>
+    public string? Reason { get; init; }
+    public NodeConfig? Template { get; init; }
+    /// <summary>Что ещё находит строку поиском: полное имя устройства, exe.</summary>
+    public string Keywords { get; init; } = "";
+
+    public bool IsHeader => Header is not null;
+    public bool HasIcon => Icon is not null;
+    public Geometry Glyph => (Geometry)System.Windows.Application.Current.Resources[GlyphKey];
+    internal string Search => $"{Title} {Subtitle} {Keywords}";
+}
+
+/// <summary>
+/// Палитра «Добавить источник / выход» (макет «Палитра»): поиск по устройствам и приложениям, сверху приложения,
+/// у которых сейчас есть звук. ↑↓ — выбрать, Enter — добавить, Esc — закрыть.
+/// </summary>
+public sealed partial class PaletteViewModel : ObservableObject
+{
+    private readonly MainViewModel _owner;
+    private readonly double? _atY;
+    private List<PaletteRow> _all = [];
+
+    public PaletteViewModel(MainViewModel owner, PaletteMode mode, double? atY, Task<SourceCatalog> catalog)
+    {
+        _owner = owner;
+        Mode = mode;
+        _atY = atY;
+        Load(catalog);
+    }
+
+    public PaletteMode Mode { get; }
+    public string Title => Mode == PaletteMode.Sources ? Strings.Palette_Title : Strings.Palette_TitleOutput;
+    public string Placeholder => Mode == PaletteMode.Sources ? Strings.Palette_SearchPlaceholder : Strings.Palette_SearchPlaceholderOutput;
+    public ObservableCollection<PaletteRow> Rows { get; } = new();
+
+    [ObservableProperty] private string _query = "";
+    [ObservableProperty] private int _selectedIndex = -1;
+    [ObservableProperty] private bool _loading = true;
+    [ObservableProperty] private string? _error;
+
+    public bool IsEmpty => !Loading && Error is null && !Rows.Any(r => !r.IsHeader);
+
+    partial void OnQueryChanged(string value) => Filter();
+
+    private async void Load(Task<SourceCatalog> task)
+    {
+        try
+        {
+            var c = await task;
+            foreach (var a in c.Apps) AppIcons.Remember(a.Exe, a.Path);
+            _all = Mode == PaletteMode.Sources ? SourceRows(c) : OutputRows(c);
+        }
+        catch (Exception ex)
+        {
+            Error = Fmt.F(Strings.Palette_DevicesFailedFormat, ex.Message);
+        }
+        finally
+        {
+            Loading = false;
+        }
+        Filter();
+    }
+
+    private bool OnGraph(string? endpointId, NodeKind kind) =>
+        endpointId is not null && _owner.Graph.Nodes.Any(n => n.Kind == kind && string.Equals(n.EndpointId, endpointId, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Строки «Устройство по умолчанию»: узел следует за Windows. «Для связи» — только если это другое устройство
+    /// (или такой узел уже есть), иначе в палитре две одинаковые строки.
+    /// </summary>
+    private IEnumerable<PaletteRow> DefaultRows(SourceCatalog c, NodeKind kind, string glyph)
+    {
+        var flow = kind == NodeKind.DeviceInput ? EDataFlow.Capture : EDataFlow.Render;
+        var console = c.Devices.FirstOrDefault(d => d.Flow == flow && d.IsDefault);
+        var comms = c.Devices.FirstOrDefault(d => d.Flow == flow && d.IsDefaultComms);
+        bool OnGraph(DefaultRole r) => _owner.Graph.Nodes.Any(n => n.Kind == kind && n.DefaultRole == r);
+
+        PaletteRow Row(DefaultRole role, EndpointInfo? now)
+        {
+            string current = now is null ? Strings.Palette_DefaultNowNone : Fmt.F(Strings.Palette_DefaultNowFormat, Fmt.ShortDevice(now.Name));
+            return new PaletteRow
+            {
+                Title = kind == NodeKind.DeviceInput
+                    ? role == DefaultRole.Communications ? Strings.Palette_DefaultMicComms : Strings.Palette_DefaultMic
+                    : Fmt.DefaultNodeName(NodeKind.DeviceOutput, role),
+                Subtitle = OnGraph(role) ? Strings.Palette_AlreadyOnGraph
+                    : kind == NodeKind.Loopback ? Fmt.F(Strings.Palette_DefaultLoopbackFormat, current)
+                    : Fmt.F(Strings.Palette_DefaultFollowsFormat, current),
+                GlyphKey = glyph,
+                // без имени устройства: поиск по нему должен находить само устройство, а не ещё и эту строку
+                Keywords = Strings.Palette_KeywordsDefault + (role == DefaultRole.Communications ? " " + Strings.Palette_KeywordsComms : ""),
+                Template = new NodeConfig { Id = "", Kind = kind, Name = Fmt.DefaultNodeName(kind, role), DefaultRole = role },
+            };
+        }
+
+        yield return Row(DefaultRole.Console, console);
+        if (comms is not null && !string.Equals(comms.Id, console?.Id, StringComparison.OrdinalIgnoreCase) || OnGraph(DefaultRole.Communications))
+            yield return Row(DefaultRole.Communications, comms);
+    }
+
+    private List<PaletteRow> SourceRows(SourceCatalog c)
+    {
+        var rows = new List<PaletteRow>();
+        string? pl = c.ProcessLoopbackError;
+        var graphExes = _owner.Graph.Nodes.Where(n => n.Kind == NodeKind.App && n.Exe is not null)
+            .Select(n => ProcessSnapshot.NormalizeExe(n.Exe!)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        PaletteRow App(AppEntry a) => new()
+        {
+            Title = a.Name,
+            Subtitle = a.Exe + (a.Processes > 1 ? " · " + Fmt.Plural(a.Processes, Strings.Plural_Process) : "")
+                       + (graphExes.Contains(a.Exe) ? " · " + Strings.Palette_OnGraph : a.HasSession && !a.Playing ? " · " + Strings.Palette_SilentNow : ""),
+            GlyphKey = "IconApp",
+            Keywords = a.Exe,
+            Icon = AppIcons.FromPath(a.Path),
+            Playing = a.Playing,
+            Enabled = pl is null,
+            Reason = pl,
+            Template = new NodeConfig { Id = "", Kind = NodeKind.App, Name = a.Name, Exe = a.Exe, TakeOver = true },
+        };
+
+        var withAudio = c.Apps.Where(a => a.HasSession).ToList();
+        var other = c.Apps.Where(a => !a.HasSession).ToList();
+        if (withAudio.Count > 0)
+        {
+            rows.Add(new PaletteRow { Header = Strings.Palette_GroupPlayingNow });
+            rows.AddRange(withAudio.Select(App));
+        }
+        if (other.Count > 0)
+        {
+            rows.Add(new PaletteRow { Header = Strings.Palette_GroupOtherApps });
+            rows.AddRange(other.Select(App));
+        }
+
+        var inputs = c.Devices.Where(d => d.Flow == EDataFlow.Capture).OrderByDescending(d => d.IsDefault).ThenBy(d => d.Name).ToList();
+        rows.Add(new PaletteRow { Header = Strings.Palette_GroupInputs });
+        rows.AddRange(DefaultRows(c, NodeKind.DeviceInput, "IconMic"));
+        {
+            foreach (var d in inputs)
+            {
+                bool cable = FeedbackRules.IsVirtualCable(d.Name);
+                rows.Add(new PaletteRow
+                {
+                    Title = Fmt.ShortDevice(d.Name),
+                    Subtitle = OnGraph(d.Id, NodeKind.DeviceInput) ? Strings.Palette_AlreadyOnGraph
+                        : cable ? Strings.Palette_VirtualCableInput
+                        : d.IsDefault ? Fmt.F(Strings.Palette_DefaultMicDeviceFormat, d.Name) : d.Name,
+                    GlyphKey = cable ? "IconPlug" : "IconMic",
+                    Keywords = d.Name,
+                    Template = new NodeConfig { Id = "", Kind = NodeKind.DeviceInput, Name = Fmt.ShortDevice(d.Name), EndpointId = d.Id, EndpointName = d.Name },
+                });
+            }
+        }
+
+        var outputs = c.Devices.Where(d => d.Flow == EDataFlow.Render).OrderByDescending(d => d.IsDefault).ThenBy(d => d.Name).ToList();
+        rows.Add(new PaletteRow { Header = Strings.Palette_GroupLoopback });
+        rows.AddRange(DefaultRows(c, NodeKind.Loopback, "IconSpeaker"));
+        {
+            foreach (var d in outputs)
+            {
+                bool vaioOff = d.IsVoicemeeter && !c.VoicemeeterRunning;
+                rows.Add(new PaletteRow
+                {
+                    Title = Fmt.ShortDevice(d.Name),
+                    Subtitle = OnGraph(d.Id, NodeKind.Loopback) ? Strings.Palette_AlreadyOnGraph : Fmt.F(Strings.Palette_LoopbackHintFormat, Fmt.ShortDevice(d.Name)),
+                    GlyphKey = "IconSpeaker",
+                    Keywords = d.Name,
+                    Enabled = !vaioOff,
+                    Reason = vaioOff ? Strings.Palette_VaioOff : null,
+                    Template = new NodeConfig { Id = "", Kind = NodeKind.Loopback, Name = Fmt.F(Strings.NodeName_LoopbackFormat, Fmt.ShortDevice(d.Name)), EndpointId = d.Id, EndpointName = d.Name },
+                });
+            }
+        }
+
+        bool hasSystem = _owner.Graph.Nodes.Any(n => n.Kind == NodeKind.System);
+        rows.Add(new PaletteRow { Header = Strings.Palette_GroupSpecial });
+        rows.Add(new PaletteRow
+        {
+            Title = Strings.NodeType_SystemAudio,
+            Subtitle = hasSystem ? Strings.Palette_SystemOnGraph : Strings.Palette_SystemHint,
+            GlyphKey = "IconSystem",
+            Enabled = pl is null && !hasSystem,
+            Reason = pl ?? (hasSystem ? Strings.Palette_SystemOnlyOne : null),
+            Template = new NodeConfig { Id = "", Kind = NodeKind.System, Name = Strings.NodeType_SystemAudio },
+        });
+        return rows;
+    }
+
+    private List<PaletteRow> OutputRows(SourceCatalog c)
+    {
+        var rows = new List<PaletteRow> { new() { Header = Strings.Palette_GroupOutputs } };
+        rows.AddRange(DefaultRows(c, NodeKind.DeviceOutput, "IconHeadphones"));
+        string? sink = _owner.Graph.SinkEndpoint;
+        foreach (var d in c.Devices.Where(d => d.Flow == EDataFlow.Render).OrderByDescending(d => d.IsDefault).ThenBy(d => d.Name))
+        {
+            bool cable = FeedbackRules.IsVirtualCable(d.Name);
+            bool vaioOff = d.IsVoicemeeter && !c.VoicemeeterRunning;
+            bool isSink = string.Equals(d.Id, sink, StringComparison.OrdinalIgnoreCase);
+            rows.Add(new PaletteRow
+            {
+                Title = Fmt.ShortDevice(d.Name),
+                Subtitle = isSink ? Strings.Palette_IsSink
+                    : OnGraph(d.Id, NodeKind.DeviceOutput) ? Strings.Palette_AlreadyOnGraph
+                    : cable ? Strings.Palette_CableOutput
+                    : d.IsDefault ? Fmt.F(Strings.Palette_DefaultDeviceFormat, d.Name) : d.Name,
+                GlyphKey = cable ? "IconBroadcast" : "IconHeadphones",
+                Keywords = d.Name,
+                Enabled = !vaioOff,
+                Reason = vaioOff ? Strings.Palette_VaioOff : null,
+                Template = new NodeConfig { Id = "", Kind = NodeKind.DeviceOutput, Name = Fmt.ShortDevice(d.Name), EndpointId = d.Id, EndpointName = d.Name },
+            });
+        }
+        return rows;
+    }
+
+    private void Filter()
+    {
+        string q = Query.Trim();
+        Rows.Clear();
+        PaletteRow? header = null;
+        foreach (var r in _all)
+        {
+            if (r.IsHeader)
+            {
+                header = r;
+                continue;
+            }
+            if (q.Length > 0 && !r.Search.Contains(q, StringComparison.CurrentCultureIgnoreCase)) continue;
+            if (header is not null)
+            {
+                Rows.Add(header);
+                header = null;
+            }
+            Rows.Add(r);
+        }
+        SelectedIndex = FirstSelectable(0, +1);
+        OnPropertyChanged(nameof(IsEmpty));
+    }
+
+    private int FirstSelectable(int from, int step)
+    {
+        for (int i = from; i >= 0 && i < Rows.Count; i += step)
+            if (!Rows[i].IsHeader && Rows[i].Enabled) return i;
+        return -1;
+    }
+
+    public void Move(int step)
+    {
+        int next = FirstSelectable(SelectedIndex < 0 ? 0 : SelectedIndex + step, step);
+        if (next >= 0) SelectedIndex = next;
+    }
+
+    public void Commit(PaletteRow? row = null)
+    {
+        row ??= SelectedIndex >= 0 && SelectedIndex < Rows.Count ? Rows[SelectedIndex] : null;
+        if (row?.Template is null || !row.Enabled) return;
+        _owner.CloseOverlay();
+        _owner.AddNode(row.Template, _atY);
+    }
+}

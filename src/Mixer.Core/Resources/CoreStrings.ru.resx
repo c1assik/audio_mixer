@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="Issue_SubjectFormat" xml:space="preserve">
+    <value>«{0}»: {1}</value>
+  </data>
+  <data name="Issue_DuplicateIdFormat" xml:space="preserve">
+    <value>узел с id «{0}» встречается дважды</value>
+  </data>
+  <data name="Issue_SystemOnlyOne" xml:space="preserve">
+    <value>«Весь звук системы» может быть только один на схему</value>
+  </data>
+  <data name="Issue_NoExe" xml:space="preserve">
+    <value>у узла «Приложение» не указан exe</value>
+  </data>
+  <data name="Issue_AppNotRunningFormat" xml:space="preserve">
+    <value>приложение {0} не запущено, узел ждёт</value>
+  </data>
+  <data name="Issue_NoDefaultFormat" xml:space="preserve">
+    <value>в Windows нет {0}, узел ждёт</value>
+  </data>
+  <data name="Issue_DefaultCapture" xml:space="preserve">
+    <value>устройства записи по умолчанию</value>
+  </data>
+  <data name="Issue_DefaultCaptureComms" xml:space="preserve">
+    <value>устройства связи для записи по умолчанию</value>
+  </data>
+  <data name="Issue_DefaultRender" xml:space="preserve">
+    <value>устройства воспроизведения по умолчанию</value>
+  </data>
+  <data name="Issue_DefaultRenderComms" xml:space="preserve">
+    <value>устройства связи для воспроизведения по умолчанию</value>
+  </data>
+  <data name="Issue_DeviceNotFoundFormat" xml:space="preserve">
+    <value>устройство «{0}» не найдено, узел ждёт</value>
+  </data>
+  <data name="Issue_VoicemeeterOffFormat" xml:space="preserve">
+    <value>«{0}» — устройство Voicemeeter, а Voicemeeter не запущен. Без него такое устройство вешает службу Windows Audio, узел ждёт запуска Voicemeeter</value>
+  </data>
+  <data name="Issue_WireMissingNode" xml:space="preserve">
+    <value>провод ссылается на несуществующий узел</value>
+  </data>
+  <data name="Issue_WireDirection" xml:space="preserve">
+    <value>провод идёт только от источника к выходу</value>
+  </data>
+  <data name="Issue_WireDuplicate" xml:space="preserve">
+    <value>между парой узлов может быть только один провод</value>
+  </data>
+  <data name="Issue_DoubleSoundFormat" xml:space="preserve">
+    <value>«{0}» уже содержит {1}: там, где оба узла ведут в один выход, они прозвучат дважды</value>
+  </data>
+  <data name="Issue_SinkOutputFormat" xml:space="preserve">
+    <value>«{0}» — это заглушка «Забрать себе»: туда же играют перенаправленные приложения, они прозвучат дважды</value>
+  </data>
+  <data name="Issue_SinkLoopbackFormat" xml:space="preserve">
+    <value>«{0}» слушает заглушку «{1}»: в нём исходный звук приложений в режиме «Забрать себе»</value>
+  </data>
+  <data name="Issue_SinkInputFormat" xml:space="preserve">
+    <value>«{0}» слышит заглушку «{1}»: в нём исходный звук приложений в режиме «Забрать себе»</value>
+  </data>
+  <data name="Feedback_LoopbackFormat" xml:space="preserve">
+    <value>«{0}» — это звук самого выхода «{1}»: провод замкнёт петлю обратной связи</value>
+  </data>
+  <data name="Feedback_CableFormat" xml:space="preserve">
+    <value>«{0}» передаёт звук обратно в «{1}»: провод замкнёт петлю через кабель</value>
+  </data>
+  <data name="Connect_NodeNotFound" xml:space="preserve">
+    <value>узел не найден</value>
+  </data>
+  <data name="Connect_TwoSources" xml:space="preserve">
+    <value>провод идёт от источника к выходу, а это два источника</value>
+  </data>
+  <data name="Connect_TwoOutputs" xml:space="preserve">
+    <value>провод идёт от источника к выходу, а это два выхода</value>
+  </data>
+  <data name="Connect_ExistsFormat" xml:space="preserve">
+    <value>«{0}» и «{1}» уже соединены</value>
+  </data>
+  <data name="Connect_CableLoopFormat" xml:space="preserve">
+    <value>Петля через кабель: «{0}» ({1}) передаёт звук обратно в «{2}»</value>
+  </data>
+  <data name="Connect_LoopFormat" xml:space="preserve">
+    <value>Петля: «{0}» — это звук самого выхода «{1}», вывести его обратно туда нельзя</value>
+  </data>
+  <data name="Sink_NotSet" xml:space="preserve">
+    <value>заглушка не назначена: выберите в настройках устройство, которое никто не слушает (рекомендуется отдельный VB-Cable)</value>
+  </data>
+  <data name="Sink_NotPlayback" xml:space="preserve">
+    <value>заглушкой может быть только устройство воспроизведения</value>
+  </data>
+  <data name="Sink_NotFound" xml:space="preserve">
+    <value>устройство заглушки не найдено (отключено или удалено)</value>
+  </data>
+  <data name="Sink_VaioOffFormat" xml:space="preserve">
+    <value>«{0}» — вход Voicemeeter VAIO, а Voicemeeter не запущен: такой вход не принимает потоки и вешает службу Windows Audio</value>
+  </data>
+  <data name="Sink_ProbeFailedFormat" xml:space="preserve">
+    <value>«{0}» не прошла проверку: {1}</value>
+  </data>
+  <data name="Sink_IsDefaultFormat" xml:space="preserve">
+    <value>«{0}» — устройство по умолчанию: его слушают, и приложения в режиме «Забрать себе» будут слышны напрямую</value>
+  </data>
+  <data name="Sink_VaioUnreliableFormat" xml:space="preserve">
+    <value>«{0}» — ненадёжная заглушка: работает, только пока запущен Voicemeeter. Рекомендуется отдельный VB-Cable</value>
+  </data>
+  <data name="Sink_FewerChannelsFormat" xml:space="preserve">
+    <value>у заглушки {0} кан., а у устройства по умолчанию «{1}» {2}: приложение, которое не переоткрывает поток при смене устройства, Windows сведёт в {0} кан. с нормировкой, и оно станет тише (до {3:0.0} дБ). Помогает формат заглушки {2} кан. («Звук» → устройство → «Настроить») или перезапуск воспроизведения в приложении</value>
+  </data>
+  <data name="Bind_NoSink" xml:space="preserve">
+    <value>заглушка не назначена</value>
+  </data>
+  <data name="Bind_DisabledByOption" xml:space="preserve">
+    <value>отключён параметром запуска</value>
+  </data>
+  <data name="Bind_PolicyUnavailableFormat" xml:space="preserve">
+    <value>IAudioPolicyConfig недоступен: {0}. Выберите устройство приложения в микшере громкости Windows вручную</value>
+  </data>
+  <data name="Bind_NotRunning" xml:space="preserve">
+    <value>приложение не запущено</value>
+  </data>
+  <data name="Bind_JournalWriteFailedFormat" xml:space="preserve">
+    <value>не удалось записать журнал привязок: {0}</value>
+  </data>
+  <data name="Bind_FailedFormat" xml:space="preserve">
+    <value>привязка к заглушке не встала: {0}</value>
+  </data>
+  <data name="Bind_NoAudioYet" xml:space="preserve">
+    <value>приложение ещё не обращалось к звуку</value>
+  </data>
+  <data name="Bind_PlaysDirect" xml:space="preserve">
+    <value>звук ещё идёт напрямую — перезапустите воспроизведение в приложении</value>
+  </data>
+  <data name="Bind_ResetOnNextStart" xml:space="preserve">
+    <value>привязка снимется при следующем запуске приложения</value>
+  </data>
+  <data name="Bind_ReleaseFailedFormat" xml:space="preserve">
+    <value>не удалось снять привязку: {0}</value>
+  </data>
+  <data name="Bind_ResetOnAudio" xml:space="preserve">
+    <value>привязка снимется, когда приложение обратится к звуку</value>
+  </data>
+  <data name="Bind_ReleasedJournalFailedFormat" xml:space="preserve">
+    <value>привязка снята, но журнал не записан: {0}</value>
+  </data>
+  <data name="Bind_DefaultEndpoint" xml:space="preserve">
+    <value>по умолчанию</value>
+  </data>
+  <data name="Bind_StateBound" xml:space="preserve">
+    <value>«Забрать себе»: звук только через микшер</value>
+  </data>
+  <data name="Bind_StateBoundFormat" xml:space="preserve">
+    <value>«Забрать себе»: звук только через микшер ({0})</value>
+  </data>
+  <data name="Bind_StateNotRunning" xml:space="preserve">
+    <value>не запущено</value>
+  </data>
+  <data name="Bind_StateWaitingAudio" xml:space="preserve">
+    <value>ждёт, пока приложение обратится к звуку</value>
+  </data>
+  <data name="Bind_StateResetPending" xml:space="preserve">
+    <value>привязка будет снята</value>
+  </data>
+  <data name="Bind_StateUnavailableFormat" xml:space="preserve">
+    <value>«Забрать себе» недоступен: {0}</value>
+  </data>
+  <data name="Bind_StateErrorFormat" xml:space="preserve">
+    <value>ошибка: {0}</value>
+  </data>
+  <data name="System_CaptureLimitFormat" xml:space="preserve">
+    <value>{0} (лимит захватов)</value>
+  </data>
+  <data name="Config_Empty" xml:space="preserve">
+    <value>graph.json пуст</value>
+  </data>
+  <data name="Config_NewerVersionFormat" xml:space="preserve">
+    <value>graph.json версии {0} новее программы (поддерживается {1})</value>
+  </data>
+  <data name="Store_UnreadableMovedFormat" xml:space="preserve">
+    <value>Схема не прочитана ({0}). Файл сохранён как {1}</value>
+  </data>
+  <data name="Store_UnreadableNotMovedFormat" xml:space="preserve">
+    <value>Схема не прочитана ({0}), и отложить файл не удалось ({1})</value>
+  </data>
+  <data name="Store_BackupRestoredFormat" xml:space="preserve">
+    <value>{0}. Восстановлена резервная копия от {1:d MMMM, HH:mm}.</value>
+  </data>
+  <data name="Store_NoBackupsFormat" xml:space="preserve">
+    <value>{0}, резервных копий нет — начата пустая схема.</value>
+  </data>
+</root>

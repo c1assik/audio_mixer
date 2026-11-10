@@ -1,0 +1,7 @@
+bin/
+obj/
+probe-out/
+*.user
+.vs/
+TestResults/
+dist/
