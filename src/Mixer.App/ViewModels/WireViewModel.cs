@@ -43,13 +43,17 @@ public sealed partial class WireViewModel : ObservableObject
     [ObservableProperty] private bool _hasFailures;
     /// <summary>Звук по проводу сейчас не идёт: один из концов ждёт или в ошибке.</summary>
     [ObservableProperty] private bool _isIdle;
+    /// <summary>Провод прямого маршрута: приложение играет в выход само, мимо микшера.</summary>
+    [ObservableProperty] private bool _isDirect;
 
     public MeterState Meter { get; } = new();
     internal Wire[] EngineWires = [];
     /// <summary>Провода из шины в движке (по экземпляру на выход).</summary>
     internal BusLink[] EngineLinks = [];
 
-    public string PillText => Forbidden is not null ? Strings.Wire_Loop : Enabled ? Fmt.Pill(GainDb) : Strings.Wire_Off;
+    public string PillText => Forbidden is not null ? Strings.Wire_Loop : !Enabled ? Strings.Wire_Off : IsDirect ? Strings.Wire_Direct : Fmt.Pill(GainDb);
+    /// <summary>На пилюле значок «напрямую» вместо дБ.</summary>
+    public bool ShowDirect => IsDirect && Enabled && Forbidden is null;
     public bool IsPillOff => !Enabled || Forbidden is not null;
     public string TipHint => Strings.Wire_Hint;
 
@@ -65,15 +69,23 @@ public sealed partial class WireViewModel : ObservableObject
 
     partial void OnGainDbChanged(double value) => OnPropertyChanged(nameof(PillText));
 
+    partial void OnIsDirectChanged(bool value)
+    {
+        OnPropertyChanged(nameof(PillText));
+        OnPropertyChanged(nameof(ShowDirect));
+    }
+
     partial void OnEnabledChanged(bool value)
     {
         OnPropertyChanged(nameof(PillText));
         OnPropertyChanged(nameof(IsPillOff));
+        OnPropertyChanged(nameof(ShowDirect));
     }
 
     partial void OnForbiddenChanged(string? value)
     {
         OnPropertyChanged(nameof(PillText));
         OnPropertyChanged(nameof(IsPillOff));
+        OnPropertyChanged(nameof(ShowDirect));
     }
 }

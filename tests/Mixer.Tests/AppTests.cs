@@ -380,7 +380,7 @@ public class SystemCaptureTests
         var p = Plan(w, "discord.exe");
         Assert.Equal([200u], p.Targets.Select(t => t.Pid));
         Assert.Equal("chrome.exe", p.Targets[0].Exe);
-        Assert.Equal(["explorer.exe"], p.Skipped);
+        Assert.Equal([new SkippedProcess("explorer.exe", SkipReason.ContainsMixer)], p.Skipped); // микшер важнее Discord
         Assert.Equal(["discord.exe"], p.Excluded);
     }
 
@@ -425,5 +425,6 @@ public class SystemCaptureTests
         Assert.Equal(SystemCapture.MaxCaptures, p.Targets.Count);
         Assert.All(Enumerable.Range(SystemCapture.MaxCaptures, 5), i => Assert.Contains(p.Targets, t => t.Pid == 5000 + i));
         Assert.Equal(5, p.Skipped.Count);
+        Assert.All(p.Skipped, s => Assert.Equal(SkipReason.CaptureLimit, s.Reason));
     }
 }

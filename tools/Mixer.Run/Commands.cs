@@ -23,7 +23,7 @@ public static class Commands
           example <graph.json> [--in <имя> | --no-mic] [--app <exe>] [--system] [--out <имя>] [--out2 <имя>]
                                [--sink <имя>] [--no-takeover]
                                               записать пример графа на устройствах этой машины
-          run <graph.json> [--seconds N] [--report S] [--csv файл]
+          run <graph.json> [--seconds N] [--report S] [--csv файл] [--watch] [--envelope <узел> [--envelope-csv файл]]
                            [--resampler sinc|cubic] [--render-ms M] [--queue-ms Q] [--target-periods P] [--max-ppm E] [--max-drift-ppm D]
                            [--allow-feedback] [--allow-voicemeeter] [--no-takeover]
                                               запустить граф; Ctrl+C — остановить (привязки приложений снимаются)
@@ -190,7 +190,11 @@ public static class Commands
 
         var sw = Stopwatch.StartNew();
         var host = new MixerHost(graph, g => GraphSerializer.Save(path, g), options,
-            new MixerHostOptions { AllowFeedback = cli.Has("allow-feedback"), DisableTakeOver = cli.Has("no-takeover") });
+            new MixerHostOptions
+            {
+                AllowFeedback = cli.Has("allow-feedback"),
+                DisableTakeOver = cli.Has("no-takeover"),
+            });
         host.Log += m => Console.WriteLine($"[{sw.Elapsed.TotalSeconds,6:F1} с] {m}");
         int exit;
         try
@@ -206,9 +210,39 @@ public static class Commands
                 foreach (var w in host.Engine.Wires) w.Trace = new WireTrace(200_000);
             var monitor = new StatusMonitor(host);
             double next = report;
+            // --watch: правка файла на ходу применяется как правка из интерфейса (проверка переключений на устройствах)
+            bool watch = cli.Has("watch");
+            var stamp = File.GetLastWriteTimeUtc(path);
+            // --envelope <узел>: огибающая этого источника (loopback выхода) и разрывы вокруг каждой правки графа
+            string? envNode = cli.Get("envelope");
+            EnvelopeRecorder? env = null;
             while (!cancel.IsCancellationRequested && sw.Elapsed.TotalSeconds < seconds)
             {
-                cancel.WaitHandle.WaitOne(200);
+                cancel.WaitHandle.WaitOne(watch ? 50 : 200);
+                if (envNode is not null && env is null && host.Engine.FindSource(envNode) is { Format: not null } envSrc)
+                {
+                    env = new EnvelopeRecorder(envSrc, sw);
+                    Console.WriteLine($"[{sw.Elapsed.TotalSeconds,6:F1} с] огибающая «{envNode}» пишется");
+                }
+                if (watch && File.GetLastWriteTimeUtc(path) != stamp)
+                {
+                    stamp = File.GetLastWriteTimeUtc(path);
+                    try
+                    {
+                        var edited = GraphSerializer.Load(path);
+                        if (GraphChange.Classify(host.Graph, edited) is not (GraphChangeKind.None or GraphChangeKind.Layout))
+                        {
+                            Console.WriteLine($"[{sw.Elapsed.TotalSeconds,6:F1} с] граф перечитан из файла");
+                            env?.Mark(DescribeEdit(host.Graph, edited));
+                            host.Update(edited);
+                        }
+                    }
+                    catch (Exception ex) when (ex is IOException or System.Text.Json.JsonException or InvalidDataException)
+                    {
+                        // файл пишется — следующая попытка через 50 мс
+                        stamp = default;
+                    }
+                }
                 double t = sw.Elapsed.TotalSeconds;
                 if (t < next && t < seconds && !cancel.IsCancellationRequested) continue;
                 next += report;
@@ -216,6 +250,7 @@ public static class Commands
             }
 
             if (tracePath is not null) TraceDump.Save(tracePath, host.Engine);
+            env?.Report(cli.Get("envelope-csv"));
 
             Console.WriteLine();
             Console.WriteLine($"── Итог за {sw.Elapsed.TotalSeconds:F0} с ──");
@@ -227,6 +262,17 @@ public static class Commands
             host.Dispose();
         }
         return exit;
+    }
+
+    /// <summary>Что поменялось в правке (для отметки на огибающей): провода и усиления узлов.</summary>
+    private static string DescribeEdit(GraphConfig a, GraphConfig b)
+    {
+        var parts = new List<string>();
+        foreach (var w in b.Wires.Where(w => !a.Wires.Any(x => x.From == w.From && x.To == w.To))) parts.Add($"+провод {w.From}→{w.To}");
+        foreach (var w in a.Wires.Where(w => !b.Wires.Any(x => x.From == w.From && x.To == w.To))) parts.Add($"−провод {w.From}→{w.To}");
+        foreach (var n in b.Nodes)
+            if (a.Nodes.FirstOrDefault(x => x.Id == n.Id) is { } old && old.GainDb != n.GainDb) parts.Add($"{n.Id}: {old.GainDb:+0.#;−0.#;0} → {n.GainDb:+0.#;−0.#;0} дБ");
+        return parts.Count == 0 ? "правка" : string.Join(", ", parts);
     }
 }
 
@@ -300,6 +346,17 @@ public sealed class StatusMonitor(MixerHost host)
             Console.WriteLine($"  ⇄ {exe,-24} {MixerHost.Describe(b)}");
         if (st.BoundApps.Count > 0)
             Console.WriteLine($"  журнал привязок: {string.Join(", ", st.BoundApps)}");
+        foreach (var (id, route) in st.Build?.DirectRoutes ?? new Dictionary<string, DirectRoute>())
+        {
+            var (l, r) = st.DirectMeters.TryGetValue(id, out var m) ? m.Take() : (0f, 0f);
+            Console.WriteLine($"  ⚡ {Name(id),-24} напрямую в «{Name(route.OutputId)}», {route.GainDb:F1} дБ{(route.Muted ? ", mute" : "")}, " +
+                              $"сессий {st.DirectSessions.GetValueOrDefault(id)}, пик сессии {Dbfs(l)} / {Dbfs(r)} dBFS");
+        }
+        if (st.VolumeApps.Count > 0)
+            Console.WriteLine($"  журнал громкостей: {string.Join(", ", st.VolumeApps)}");
+        foreach (var (id, plan) in st.Build?.SystemPlans ?? new Dictionary<string, SystemPlan>())
+            if (plan.Skipped.Count > 0)
+                Console.WriteLine($"  ⊘ {Name(id),-24} пропущено: {string.Join(", ", plan.Skipped.Select(s => s.Reason == SkipReason.ContainsExcluded ? $"{s.Exe} ({s.Reason}: {s.Because})" : $"{s.Exe} ({s.Reason})"))}");
         foreach (var o in engine.Outputs)
         {
             var (l, r) = o.Peak.Take();

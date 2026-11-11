@@ -151,6 +151,33 @@ internal interface IAudioSessionManager2
     [PreserveSig] int GetAudioSessionControl(IntPtr audioSessionGuid, uint streamFlags, out IntPtr sessionControl);
     [PreserveSig] int GetSimpleAudioVolume(IntPtr audioSessionGuid, uint streamFlags, out IntPtr audioVolume);
     [PreserveSig] int GetSessionEnumerator(out IAudioSessionEnumerator sessionEnum);
+    [PreserveSig] int RegisterSessionNotification(IAudioSessionNotification notification);
+    [PreserveSig] int UnregisterSessionNotification(IAudioSessionNotification notification);
+}
+
+/// <summary>Уведомление о новой аудиосессии на эндпоинте. Приходит в потоке MTA аудиослужбы. Публичный ради CCW.</summary>
+[ComImport, Guid("641DD20B-4D41-49CC-ABA3-174B9477BB08"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+public interface IAudioSessionNotification
+{
+    [PreserveSig] int OnSessionCreated([MarshalAs(UnmanagedType.IUnknown)] object newSession);
+}
+
+[ComImport, Guid("87CE5498-68D6-44E5-9215-6DA47EF883D8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+internal interface ISimpleAudioVolume
+{
+    [PreserveSig] int SetMasterVolume(float level, IntPtr eventContext);
+    [PreserveSig] int GetMasterVolume(out float level);
+    [PreserveSig] int SetMute([MarshalAs(UnmanagedType.Bool)] bool mute, IntPtr eventContext);
+    [PreserveSig] int GetMute([MarshalAs(UnmanagedType.Bool)] out bool mute);
+}
+
+[ComImport, Guid("C02216F6-8C67-4B5B-9D00-D008E73E0064"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+internal interface IAudioMeterInformation
+{
+    [PreserveSig] int GetPeakValue(out float peak);
+    [PreserveSig] int GetMeteringChannelCount(out uint channelCount);
+    [PreserveSig] int GetChannelsPeakValues(uint channelCount, [Out, MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 0)] float[] peakValues);
+    [PreserveSig] int QueryHardwareSupport(out uint hardwareSupportMask);
 }
 
 [ComImport, Guid("E2F5BB11-0570-40CA-ACDD-3AA01277DEE8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]

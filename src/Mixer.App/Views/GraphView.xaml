@@ -60,7 +60,7 @@
                     </ItemsControl.ItemContainerStyle>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Border Width="56" Height="22" Margin="-28,-11,0,0" CornerRadius="11" Background="{StaticResource Bg}" Cursor="SizeNS"
+                            <Border Height="22" CornerRadius="11" Background="{StaticResource Bg}" Cursor="SizeNS"
                                     ui:Ui.Role="pill" ToolTipService.InitialShowDelay="250" ToolTipService.ShowDuration="60000">
                                 <Border.ToolTip>
                                     <ToolTip Content="{Binding}" ContentTemplate="{StaticResource WireTip}" />
@@ -70,6 +70,8 @@
                                         <Setter Property="BorderBrush" Value="{Binding Source.ColorBrush}" />
                                         <Setter Property="BorderThickness" Value="1" />
                                         <Setter Property="Visibility" Value="Visible" />
+                                        <Setter Property="Width" Value="56" />
+                                        <Setter Property="Margin" Value="-28,-11,0,0" />
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsPillOff}" Value="True">
                                                 <Setter Property="BorderBrush" Value="#5F656D" />
@@ -83,9 +85,17 @@
                                             <DataTrigger Binding="{Binding IsDetached}" Value="True">
                                                 <Setter Property="Visibility" Value="Hidden" />
                                             </DataTrigger>
+                                            <!-- прямой маршрут: шире, со значком молнии -->
+                                            <DataTrigger Binding="{Binding ShowDirect}" Value="True">
+                                                <Setter Property="Width" Value="84" />
+                                                <Setter Property="Margin" Value="-42,-11,0,0" />
+                                            </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </Border.Style>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <ui:Icon Data="{StaticResource IconBolt}" Width="11" Height="11" Margin="0,0,4,0" StrokeThickness="2.5" Foreground="{Binding Source.ColorBrush}"
+                                         Visibility="{Binding ShowDirect, Converter={StaticResource Vis}}" />
                                 <TextBlock Text="{Binding PillText}" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
@@ -102,6 +112,7 @@
                                         </Style>
                                     </TextBlock.Style>
                                 </TextBlock>
+                                </StackPanel>
                             </Border>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>

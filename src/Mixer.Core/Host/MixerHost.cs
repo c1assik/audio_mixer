@@ -41,6 +41,15 @@ public sealed record HostStatus
     public GraphConfig? Graph { get; init; }
     /// <summary>Подписка на изменения устройств не работает (null — работает): устройства опрашиваются по таймеру.</summary>
     public string? DeviceWatchError { get; init; }
+    /// <summary>Индикаторы узлов на прямом маршруте (по ID узла): пики сессий приложения.</summary>
+    public IReadOnlyDictionary<string, Mixer.Audio.Dsp.PeakMeter> DirectMeters { get; init; } = new Dictionary<string, Mixer.Audio.Dsp.PeakMeter>();
+    /// <summary>Сколько сессий приложения на выходе прямого маршрута (по ID узла).</summary>
+    public IReadOnlyDictionary<string, int> DirectSessions { get; init; } = new Dictionary<string, int>();
+    /// <summary>Ошибки громкости прямого маршрута по exe.</summary>
+    public IReadOnlyDictionary<string, string> DirectErrors { get; init; } = new Dictionary<string, string>();
+    public IReadOnlyList<string> VolumeApps { get; init; } = [];
+    /// <summary>exe процессов с аудиосессией (кроме микшера) на последнем такте: кандидаты в исключения «Весь звук системы».</summary>
+    public IReadOnlyList<string> PlayingApps { get; init; } = [];
 }
 
 /// <summary>
@@ -90,6 +99,19 @@ public sealed class MixerHost : IDisposable
     private double _nextDevicePoll;
     private readonly Dictionary<string, (NodeState State, string? Message)> _nodeStates = new();
 
+    // ── прямые маршруты, новые сессии ──
+    private DirectVolumes? _direct;
+    private SessionNotifier? _notifier;
+    private string _notifierKey = "";
+    private int _sessionPending;
+    /// <summary>Stopwatch-отметка первого уведомления из текущей пачки (для журнала: сколько ушло до захвата).</summary>
+    private long _sessionAt;
+    private double _meterDue;
+    /// <summary>Цели привязок, поставленные последним полным сведением (exe → заглушка или выход).</summary>
+    private Dictionary<string, string?> _lastDesired = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>Индикатор сессии опрашивается с частотой кадров интерфейса.</summary>
+    private const double MeterPeriod = 1.0 / 30;
+
     public AudioEngine Engine { get; }
     public HostStatus Status => _status;
 
@@ -136,7 +158,7 @@ public sealed class MixerHost : IDisposable
         var next = Interlocked.Exchange(ref _pendingGraph, null);
         if (next is null) return;
         var prev = _graph;
-        Volatile.Write(ref _graph, next with { BoundApps = prev.BoundApps });
+        Volatile.Write(ref _graph, next with { BoundApps = prev.BoundApps, VolumeApps = prev.VolumeApps });
         var change = GraphChange.Classify(prev, _graph);
         if (change is GraphChangeKind.None or GraphChangeKind.Layout)
         {
@@ -154,9 +176,8 @@ public sealed class MixerHost : IDisposable
         {
             world = _world ?? TakeWorld();
         }
-        Rebuild(world, "graph changed");
-        // «Забрать себе» включили или выключили — привязка меняется сразу, а не на следующем такте
-        if (change == GraphChangeKind.Structure) ReconcileBindings(world);
+        // привязки («Забрать себе», прямой маршрут) и громкость сессий меняются в Rebuild сразу, а не на следующем такте
+        Rebuild(world, "graph changed", reopenSessions: change == GraphChangeKind.Structure);
         Publish();
     }
 
@@ -246,6 +267,7 @@ public sealed class MixerHost : IDisposable
                 double now = Now;
                 if (now >= nextTick) break;
                 double wake = Math.Min(nextTick, Math.Min(_deviceEvents.Due ?? double.MaxValue, _resume.Due ?? double.MaxValue));
+                if (_direct?.Any == true) wake = Math.Min(wake, _meterDue);
                 int left = (int)Math.Clamp(Math.Ceiling((wake - now) * 1000), 1, int.MaxValue);
                 if (_queue.TryTake(out var action, left)) Guard(action);
             }
@@ -276,6 +298,11 @@ public sealed class MixerHost : IDisposable
         double now = Now;
         if (_resume.TryFire(now)) Resume();
         if (_deviceEvents.TryFire(now)) RefreshDevices("devices changed");
+        if (_direct?.Any == true && now >= _meterDue)
+        {
+            _direct.PollMeters();
+            _meterDue = now + MeterPeriod;
+        }
     }
 
     private void Init()
@@ -294,7 +321,11 @@ public sealed class MixerHost : IDisposable
         if (!_opt.DisableTakeOver)
         {
             _policy = WindowsEndpointPolicy.TryCreate(out _policyError);
-            if (_policy is not null) _takeOver = new TakeOverManager(_policy, new Journal(this));
+            if (_policy is not null)
+            {
+                _takeOver = new TakeOverManager(_policy, new Journal(this));
+                _direct = new DirectVolumes(AppSession.Open, new VolumeJournal(this));
+            }
             else
                 Emit("Take over unavailable: " + _policyError + ". Fallback: pick the app's device in the Windows volume mixer");
         }
@@ -302,15 +333,17 @@ public sealed class MixerHost : IDisposable
         var world = TakeWorld();
         if (_graph.BoundApps.Count > 0)
             Emit($"redirect journal from the last run: {string.Join(", ", _graph.BoundApps)}");
+        if (_graph.VolumeApps.Count > 0)
+            Emit($"session volume journal from the last run: {string.Join(", ", _graph.VolumeApps)}");
         CheckSink(world);
-        Rebuild(world, "start");
-        ReconcileBindings(world);
+        Rebuild(world, "start", reopenSessions: true);
+        EnsureNotifier();
         Publish();
     }
 
     /// <summary>Процессы и сессии нужны, только если в графе есть приложения или в журнале остались привязки.</summary>
     private bool NeedsWorld =>
-        _graph.BoundApps.Count > 0 || _graph.Nodes.Any(n => n.Kind is NodeKind.App or NodeKind.System) || UsesVoicemeeter;
+        _graph.BoundApps.Count > 0 || _graph.VolumeApps.Count > 0 || _graph.Nodes.Any(n => n.Kind is NodeKind.App or NodeKind.System) || UsesVoicemeeter;
 
     /// <summary>Узлы на эндпоинтах Voicemeeter ждут его запуска — за процессами надо следить.</summary>
     private bool UsesVoicemeeter =>
@@ -334,15 +367,74 @@ public sealed class MixerHost : IDisposable
 
         // Снимок процессов и сессий аллоцирует (~60 КБ за такт, строки имён процессов): в управляющем потоке это
         // допустимо, но без нужды его не делаем.
+        EnsureNotifier();
         if (!NeedsWorld)
         {
             Publish();
             return;
         }
         var world = TakeWorld();
-        if (RootsKey(world) != _rootsKey) Rebuild(world, "apps started or exited");
-        ReconcileBindings(world);
+        if (RootsKey(world) != _rootsKey) Rebuild(world, "apps started or exited", reopenSessions: true);
+        else
+        {
+            ReconcileBindings(world);
+            UpdateDirect(world, reopen: true);
+        }
         RunWatchdog(world);
+        Publish();
+    }
+
+    // ── новые аудиосессии (OnSessionCreated) ──
+
+    /// <summary>
+    /// Подписка на новые сессии всех устройств воспроизведения, пока на схеме есть приложения: новое приложение
+    /// попадает в «Весь звук системы» сразу при Initialize, а не на следующем такте (этап 0 v2: ~35 мс вместо ~0,5 с).
+    /// Такт остаётся запасным путём. Устройства сменились — подписка пересоздаётся.
+    /// </summary>
+    private void EnsureNotifier()
+    {
+        if (!NeedsWorld)
+        {
+            _notifier?.Dispose();
+            _notifier = null;
+            _notifierKey = "";
+            return;
+        }
+        var render = _devices.Where(d => d.Flow == EDataFlow.Render).OrderBy(d => d.Id, StringComparer.OrdinalIgnoreCase).ToList();
+        string key = string.Join("|", render.Select(d => d.Id));
+        if (_notifier is not null && key == _notifierKey) return;
+        _notifier?.Dispose();
+        _notifierKey = key;
+        _notifier = SessionNotifier.Subscribe(render);
+        uint self = (uint)Environment.ProcessId;
+        _notifier.Created += (pid, _) =>
+        {
+            // поток аудиослужбы: только разбудить управляющий поток, всплеск уведомлений — один пересчёт
+            if (pid == 0 || pid == self) return;
+            if (Interlocked.Exchange(ref _sessionPending, 1) != 0) return;
+            Volatile.Write(ref _sessionAt, Stopwatch.GetTimestamp());
+            Post(OnSessionCreated);
+        };
+        if (_notifier.Errors.Count > 0)
+            Emit("new-session notifications unavailable on: " + string.Join("; ", _notifier.Errors) + " (polled once a second)");
+    }
+
+    private void OnSessionCreated()
+    {
+        Volatile.Write(ref _sessionPending, 0);
+        long at = Volatile.Read(ref _sessionAt);
+        if (!NeedsWorld) return;
+        var world = TakeWorld();
+        if (RootsKey(world) != _rootsKey)
+        {
+            Rebuild(world, "new audio session", reopenSessions: true);
+            Emit($"new audio session handled in {Stopwatch.GetElapsedTime(at).TotalMilliseconds:F0} ms from the notification");
+        }
+        else
+        {
+            ReconcileBindings(world);
+            UpdateDirect(world, reopen: true);
+        }
         Publish();
     }
 
@@ -370,11 +462,11 @@ public sealed class MixerHost : IDisposable
     /// </summary>
     private string SystemKey(AppSnapshot world)
     {
-        if (_plError is not null || !_graph.Nodes.Any(n => n.Kind == NodeKind.System)) return "";
-        var exes = AppExes().ToList();
+        if (_plError is not null || _graph.Nodes.FirstOrDefault(n => n.Kind == NodeKind.System) is not { } sys) return "";
+        var exes = GraphBuilder.SystemExclusions(sys, AppExes());
         if (exes.Count == 0) return "";
         var plan = SystemCapture.Plan(world, exes);
-        return "|sys:" + string.Join(",", plan.Targets.Select(t => t.Pid)) + "/" + string.Join(",", plan.Skipped);
+        return "|sys:" + string.Join(",", plan.Targets.Select(t => t.Pid)) + "/" + string.Join(",", plan.Skipped.Select(s => $"{s.Exe}:{s.Reason}:{s.Because}"));
     }
 
     // ── заглушка ──
@@ -415,8 +507,14 @@ public sealed class MixerHost : IDisposable
 
     // ── граф ──
 
+    /// <summary>
+    /// Пересобрать граф, применить к движку и свести привязки и громкость сессий. Переход на прямой маршрут: сначала
+    /// приложение привязывается к выходу, потом гаснет его захват; уход с прямого маршрута — наоборот, сначала
+    /// открывается захват, потом приложение уходит в заглушку (этап 0 v2: так разрыв 0–15 мс и 25–45 мс, без двойного звука).
+    /// </summary>
     /// <param name="restart">Узлы движка, которые надо пересоздать, даже если они не изменились.</param>
-    private void Rebuild(AppSnapshot world, string reason, Func<string, bool>? restart = null)
+    /// <param name="reopenSessions">Перечитать сессии приложений на прямом маршруте (иначе только громкость).</param>
+    private void Rebuild(AppSnapshot world, string reason, Func<string, bool>? restart = null, bool reopenSessions = false)
     {
         CheckSink(world);
         var ctx = new RuntimeContext
@@ -428,10 +526,38 @@ public sealed class MixerHost : IDisposable
             ActiveSinkEndpointId = ActiveSink,
             VoicemeeterRunning = SinkValidator.IsVoicemeeterRunning(world.Processes),
             PlanSystem = exes => SystemCapture.Plan(world, exes),
+            DirectRoutes = _takeOver is not null,
         };
         var build = GraphBuilder.Build(_graph, _devices, _opt.AllowFeedback, ctx);
+        if (_takeOver is not null)
+        {
+            var toDirect = DesiredBindings(build)
+                .Where(kv => build.DirectRoutes.Values.Any(r => r.EndpointId == kv.Value && r.Exe == kv.Key)
+                             && !string.Equals(_lastDesired.GetValueOrDefault(kv.Key), kv.Value, StringComparison.OrdinalIgnoreCase))
+                .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
+            if (toDirect.Count > 0) _takeOver.Reconcile(toDirect, world, partial: true);
+        }
         var before = Engine.Sources.Select(s => s.Id).ToHashSet();
-        Engine.Apply(build.Graph, restart);
+        // уход с прямого маршрута: захваты этих узлов открываются сейчас
+        var leaving = _takeOver is null ? [] : (_build?.DirectRoutes.Keys ?? []).Where(id => !build.DirectRoutes.ContainsKey(id))
+            .SelectMany(id => build.EngineSources.GetValueOrDefault(id, [])).ToHashSet();
+        if (leaving.Count > 0)
+        {
+            // Сначала захват с выключенными проводами: выход их читает, кольца заполняются, но в выход ничего не идёт
+            // (приложение пока играет туда само). Когда провода разогрелись, приложение переносится в заглушку и
+            // провода включаются в тот же миг — как в замере этапа 0, где захват уже работал к моменту Set.
+            var warm = build.Graph with { Wires = build.Graph.Wires.Select(w => leaving.Contains(w.From) ? w with { Enabled = false } : w).ToList() };
+            Engine.Apply(warm, restart);
+            _build = build;
+            long ms = WaitWarm(leaving);
+            ReconcileBindings(world);
+            Engine.Apply(build.Graph);
+            Emit($"direct route left: capture warm after {ms} ms, app moved to the sink and wires turned on");
+        }
+        else
+        {
+            Engine.Apply(build.Graph, restart);
+        }
         _build = build;
         _rootsKey = RootsKey(world);
         _watchdog.Retain(build.Graph.Sources.Select(s => s.Id));
@@ -446,6 +572,53 @@ public sealed class MixerHost : IDisposable
                 added.Count > 0 ? "started " + Names(added) : null,
                 removed.Count > 0 ? "stopped " + Names(removed) : null,
             }.Where(s => s is not null)));
+        ReconcileBindings(world);
+        UpdateDirect(world, reopenSessions);
+    }
+
+    /// <summary>Сколько ждать разогрева захвата при уходе с прямого маршрута, мс. Приложение, которое молчит, пакетов не даёт — тогда переносится по таймауту.</summary>
+    public const int WarmTimeoutMs = 300;
+
+    /// <summary>
+    /// Ждать, пока у каждого источника хотя бы один провод заработает (первые пакеты пришли, кольцо заполнено до цели).
+    /// Проверка 11 ноября 2026: без этого разрыв при уходе с прямого маршрута был 95 мс — к моменту Set захват только
+    /// открывался, и до звука из него были ещё первый пакет, заполнение кольца и очередь выхода.
+    /// </summary>
+    private long WaitWarm(IReadOnlySet<string> sources)
+    {
+        var sw = Stopwatch.StartNew();
+        while (sw.ElapsedMilliseconds < WarmTimeoutMs)
+        {
+            var wires = Engine.Wires;
+            if (sources.All(id => wires.Any(w => w.FromId == id && w.State == WireState.Running))) break;
+            Thread.Sleep(2);
+        }
+        return sw.ElapsedMilliseconds;
+    }
+
+    /// <summary>Куда привязать каждое приложение в режиме «Забрать себе»: выход прямого маршрута или заглушка (null — недоступна).</summary>
+    private Dictionary<string, string?> DesiredBindings(BuildResult? build)
+    {
+        var d = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var n in _graph.Nodes.Where(GraphBuilder.TakesOver))
+        {
+            string exe = ProcessSnapshot.NormalizeExe(n.Exe!);
+            if (build?.DirectRoutes.TryGetValue(n.Id, out var r) == true) d.TryAdd(exe, r.EndpointId);
+            else d[exe] = ActiveSink; // два узла одного exe: захват важнее прямого маршрута
+        }
+        return d;
+    }
+
+    private void UpdateDirect(AppSnapshot world, bool reopen)
+    {
+        if (_direct is null) return;
+        var routes = _build?.DirectRoutes ?? new Dictionary<string, DirectRoute>();
+        var before = _graph.VolumeApps.ToList();
+        _direct.Update(routes, world, reopen, _devices.Where(d => d.Flow == EDataFlow.Render).Select(d => d.Id));
+        foreach (string exe in before.Except(_graph.VolumeApps, StringComparer.OrdinalIgnoreCase))
+            Emit($"{exe}: session volume restored to 100%");
+        foreach (var (exe, error) in _direct.Errors) Emit($"{exe}: {error}");
+        if (_direct.Any && _meterDue < Now) _meterDue = Now;
     }
 
     public string DescribeSource(string engineId)
@@ -509,8 +682,8 @@ public sealed class MixerHost : IDisposable
         // а у нового узла формата ещё нет — частота прочитается у устройства заново.
         if (formats.Count > 0) Engine.Restart(n => formats.Contains(n.EndpointId));
         var world = TakeWorld();
-        Rebuild(world, reason);
-        ReconcileBindings(world);
+        Rebuild(world, reason, reopenSessions: true);
+        EnsureNotifier();
         Publish();
     }
 
@@ -540,9 +713,11 @@ public sealed class MixerHost : IDisposable
         _rateCache.Clear();
         if (DeviceDiff.Describe(before, _devices) is { } diff) Emit("after sleep: " + diff);
         var world = TakeWorld();
-        Rebuild(world, "wake-up", _ => true);
+        _notifier?.Dispose(); // подписки после сна тоже могли умереть
+        _notifier = null;
+        Rebuild(world, "wake-up", _ => true, reopenSessions: true);
+        EnsureNotifier();
         Emit($"wake-up: streams recreated ({Engine.Sources.Count} sources, {Engine.Outputs.Count} outputs)");
-        ReconcileBindings(world);
         Publish();
     }
 
@@ -576,18 +751,27 @@ public sealed class MixerHost : IDisposable
     private void ReconcileBindings(AppSnapshot world)
     {
         if (_takeOver is null) return;
-        var desired = _graph.Nodes.Where(GraphBuilder.TakesOver).Select(n => n.Exe!);
+        var desired = DesiredBindings(_build);
         var journalBefore = _graph.BoundApps.ToList();
-        _takeOver.Reconcile(desired, ActiveSink, world, TakeOverUnavailableReason);
+        _takeOver.Reconcile(desired, world, TakeOverUnavailableReason);
+        _lastDesired = desired;
         foreach (var (exe, b) in _takeOver.Status)
         {
-            if (_lastBindings.TryGetValue(exe, out var prev) && prev.State == b.State && prev.PlaysDirect == b.PlaysDirect) continue;
-            Emit($"{exe}: {Describe(b)}");
+            if (_lastBindings.TryGetValue(exe, out var prev) && prev.State == b.State && prev.PlaysDirect == b.PlaysDirect
+                && string.Equals(prev.Target, b.Target, StringComparison.OrdinalIgnoreCase)) continue;
+            Emit($"{exe}: {DescribeForLog(b)}");
         }
         foreach (string exe in journalBefore.Except(_graph.BoundApps, StringComparer.OrdinalIgnoreCase))
             Emit($"{exe}: redirect removed, the app plays to its own device again");
         _lastBindings = new Dictionary<string, AppBinding>(_takeOver.Status, StringComparer.OrdinalIgnoreCase);
     }
+
+    /// <summary>Для журнала: прямой маршрут называет выход.</summary>
+    private string DescribeForLog(AppBinding b) =>
+        b.State == BindingState.Bound && b.Target is { } t && !string.Equals(t, ActiveSink, StringComparison.OrdinalIgnoreCase)
+            ? $"direct route to \"{_devices.FirstOrDefault(d => string.Equals(d.Id, t, StringComparison.OrdinalIgnoreCase))?.Name ?? t}\""
+              + (b.PlaysDirect ? ", but the app still plays to its old device: restart playback" : "")
+            : Describe(b);
 
     public static string Describe(AppBinding b) => b.State switch
     {
@@ -630,7 +814,22 @@ public sealed class MixerHost : IDisposable
             Devices = _devices,
             Graph = _graph,
             DeviceWatchError = _watcher is null ? _watchError : null,
+            DirectMeters = _direct?.Meters ?? new Dictionary<string, Mixer.Audio.Dsp.PeakMeter>(),
+            DirectSessions = _direct?.SessionCounts ?? new Dictionary<string, int>(),
+            DirectErrors = _direct is null ? new Dictionary<string, string>() : new Dictionary<string, string>(_direct.Errors, StringComparer.OrdinalIgnoreCase),
+            VolumeApps = _graph.VolumeApps.ToList(),
+            PlayingApps = PlayingApps(_world),
         };
+    }
+
+    private static List<string> PlayingApps(AppSnapshot? world)
+    {
+        if (world is null) return [];
+        var self = world.Processes.Tree([world.Processes.SelfPid]);
+        return world.Sessions
+            .Where(s => s.Pid != 0 && s.State != AudioSessionState.Expired && !self.Contains(s.Pid) && world.Processes.ByPid.ContainsKey(s.Pid))
+            .Select(s => ProcessSnapshot.NormalizeExe(world.Processes.ExeOf(s.Pid)))
+            .Distinct().Order(StringComparer.Ordinal).ToList();
     }
 
     // ── журнал boundApps в конфиге ──
@@ -651,9 +850,27 @@ public sealed class MixerHost : IDisposable
         }
     }
 
+    /// <summary>Журнал volumeApps в конфиге: приложения, которым микшер уменьшил громкость сессии.</summary>
+    private sealed class VolumeJournal(MixerHost host) : IBindingJournal
+    {
+        public IReadOnlyCollection<string> Apps => host._graph.VolumeApps;
+
+        public void Add(string exe) => Commit(host._graph.VolumeApps.Append(exe).Distinct(StringComparer.OrdinalIgnoreCase).ToList());
+
+        public void Remove(string exe) => Commit(host._graph.VolumeApps.Where(a => !a.Equals(exe, StringComparison.OrdinalIgnoreCase)).ToList());
+
+        private void Commit(List<string> apps)
+        {
+            var g = host._graph with { VolumeApps = apps };
+            host._save?.Invoke(g); // сначала на диск: при ошибке громкость не меняется
+            Volatile.Write(ref host._graph, g);
+        }
+    }
+
     /// <summary>
     /// Штатный выход: остановить звук, затем снять привязки у живых приложений (сначала тишина, а не двойной звук),
-    /// сохранить журнал. Приложения, которые сейчас не запущены, остаются в журнале до следующего запуска.
+    /// вернуть громкость сессий прямых маршрутов, сохранить журналы. Приложения, которые сейчас не запущены,
+    /// остаются в журналах до следующего запуска.
     /// </summary>
     public void Dispose()
     {
@@ -667,6 +884,7 @@ public sealed class MixerHost : IDisposable
                 {
                     _watcher?.Dispose(); // до остановки движка: новые события больше не нужны
                     _power?.Dispose();
+                    _notifier?.Dispose();
                     Engine.Dispose();
                     if (_takeOver is not null)
                     {
@@ -675,6 +893,11 @@ public sealed class MixerHost : IDisposable
                         foreach (var (exe, b) in _takeOver.Status) Emit($"{exe}: {Describe(b)}");
                         var left = _graph.BoundApps;
                         Emit(left.Count == 0 ? "all redirects removed" : $"left in the journal: {string.Join(", ", left)}; they will be removed on the next start");
+                        // привязки сняты — теперь вернуть громкость: приложение не прозвучит на миг громко в прежнем выходе
+                        _direct?.RestoreAll(world, _devices.Where(d => d.Flow == EDataFlow.Render).Select(d => d.Id));
+                        if (_graph.VolumeApps.Count > 0)
+                            Emit($"session volume left in the journal: {string.Join(", ", _graph.VolumeApps)}; restored on the next start");
+                        _direct?.Dispose();
                     }
                 }
                 finally

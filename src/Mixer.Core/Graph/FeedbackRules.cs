@@ -43,6 +43,16 @@ public static class FeedbackRules
         }
     }
 
+    /// <summary>
+    /// Два разных входа одного виртуального кабеля («CABLE Input» и «CABLE In 16ch»). Проверка 11 ноября 2026: пока один
+    /// открыт, второй отвечает «занято» (эксклюзивный режим), а поток приложения, перенесённый в него, обрывается
+    /// (AUDCLNT_E_NOT_INITIALIZED).
+    /// </summary>
+    public static bool SameCable(EndpointInfo a, EndpointInfo b) =>
+        a.Flow == EDataFlow.Render && b.Flow == EDataFlow.Render
+        && !string.Equals(a.Id, b.Id, StringComparison.OrdinalIgnoreCase)
+        && IsVirtualCable(a.Name) && string.Equals(DriverName(a.Name), DriverName(b.Name), StringComparison.OrdinalIgnoreCase);
+
     /// <summary>ID эндпоинтов воспроизведения, из которых источник берёт звук.</summary>
     public static HashSet<string> SourceTaps(NodeConfig source, EndpointInfo? resolved, IReadOnlyList<EndpointInfo> devices)
     {

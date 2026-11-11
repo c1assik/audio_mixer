@@ -15,13 +15,26 @@ public enum IssueKind
     Unsupported,
     Invalid,
     Feedback,
-    /// <summary>«Весь звук системы» и приложение в режиме «Забрать себе» ведут в один выход: приложение прозвучит дважды.</summary>
+    /// <summary>«Весь звук системы» и приложение со своим узлом ведут в один выход: приложение прозвучит дважды.</summary>
     DoubleSound,
     /// <summary>Узел графа слышит заглушку или играет в неё.</summary>
     SinkConflict,
 }
 
 public sealed record GraphIssue(IssueKind Kind, string Subject, string Message);
+
+/// <summary>
+/// Прямой маршрут узла «Приложение»: звук не захватывается, приложению назначен выход (IAudioPolicyConfig), уровень и
+/// mute — громкостью его сессии. GainDb — итог: узел + провод + выход (не выше 0 дБ).
+/// </summary>
+public sealed record DirectRoute(string NodeId, string Exe, string OutputId, string EndpointId, float GainDb, bool Muted)
+{
+    /// <summary>Громкость сессии, 0…1 (mute ставится отдельно).</summary>
+    public float Level => MathF.Min(1f, MathF.Pow(10f, GainDb / 20f));
+
+    /// <summary>Громкость сессии надо менять: не 100% или mute.</summary>
+    public bool Attenuates => Muted || Level < 1f - 1e-4f;
+}
 
 public sealed record BuildResult(
     EngineGraph Graph,
@@ -45,6 +58,9 @@ public sealed record BuildResult(
     /// «Весь звук системы» с обработкой — неявная шина «id#fx» (захваты сводятся в неё, обработка и фейдер — там).
     /// </summary>
     public IReadOnlyDictionary<string, string> EngineBuses { get; init; } = new Dictionary<string, string>();
+
+    /// <summary>Узлы «Приложение» на прямом маршруте (по ID узла): захватов и проводов в движке у них нет.</summary>
+    public IReadOnlyDictionary<string, DirectRoute> DirectRoutes { get; init; } = new Dictionary<string, DirectRoute>();
 }
 
 /// <summary>Состояние системы, нужное для узлов «Приложение» и «Весь звук системы».</summary>
@@ -70,6 +86,8 @@ public sealed record RuntimeContext
     /// exclude-захват, и приложения со своим узлом в нём звучат второй раз (предупреждение DoubleSound).
     /// </summary>
     public Func<IReadOnlyCollection<string>, SystemPlan>? PlanSystem { get; init; }
+    /// <summary>Прямые маршруты возможны: IAudioPolicyConfig доступен и привязки разрешены.</summary>
+    public bool DirectRoutes { get; init; }
 }
 
 /// <summary>Граф из конфига → снимок маршрутизации для движка: поиск устройств, процессов, проверка проводов.</summary>
@@ -140,6 +158,7 @@ public static class GraphBuilder
         // узлы process loopback: PID захватов (у «Весь звук системы» — PID микшера для exclude)
         var procNodes = new Dictionary<string, IReadOnlyList<uint>>();
         var systemPlans = new Dictionary<string, SystemPlan>();
+        var noCapture = new Dictionary<string, string>(); // приложения без process loopback → причина
         bool systemSeen = false;
         // приложения со своим узлом: «Весь звук системы» их не повторяет
         var appExes = graph.Nodes.Where(n => n.Kind == NodeKind.App && !string.IsNullOrWhiteSpace(n.Exe))
@@ -164,7 +183,9 @@ public static class GraphBuilder
             {
                 if (apps.ProcessLoopbackUnavailable is { } why)
                 {
-                    issues.Add(new GraphIssue(IssueKind.Unsupported, n.Id, Loc.Subject(n.Name, why)));
+                    // прямому маршруту захват не нужен: решится, когда будут известны провода и выходы
+                    if (n.Kind == NodeKind.App) noCapture[n.Id] = why;
+                    else issues.Add(new GraphIssue(IssueKind.Unsupported, n.Id, Loc.Subject(n.Name, why)));
                     continue;
                 }
                 if (n.Kind == NodeKind.System)
@@ -175,9 +196,10 @@ public static class GraphBuilder
                         continue;
                     }
                     systemSeen = true;
-                    if (appExes.Count > 0 && apps.PlanSystem is { } plan)
+                    var exclusions = SystemExclusions(n, appExes);
+                    if (exclusions.Count > 0 && apps.PlanSystem is { } plan)
                     {
-                        var sp = plan(appExes);
+                        var sp = plan(exclusions);
                         systemPlans[n.Id] = sp;
                         procNodes[n.Id] = sp.Targets.Select(t => t.Pid).ToList();
                     }
@@ -263,12 +285,23 @@ public static class GraphBuilder
         }
 
         var paths = new GraphPaths(nodes.Values, accepted);
+
+        // прямые маршруты: такой узел не захватывается, его провод в движок не идёт
+        var direct = new Dictionary<string, DirectRoute>();
+        foreach (var n in nodes.Values)
+            if (DirectRouteOf(n, accepted, nodes, resolved, apps) is { } route)
+                direct[n.Id] = route;
+        foreach (var (id, why) in noCapture)
+            if (!direct.ContainsKey(id))
+                issues.Add(new GraphIssue(IssueKind.Unsupported, id, Loc.Subject(nodes[id].Name, why)));
+
         var valid = new List<WireConfig>();
         foreach (var w in accepted)
         {
             string subject = $"{w.From} → {w.To}";
             var from = nodes[w.From];
             var to = nodes[w.To];
+            if (direct.ContainsKey(w.From)) continue;
             resolved.TryGetValue(w.From, out var epFrom);
             if (from.IsSource)
             {
@@ -301,6 +334,11 @@ public static class GraphBuilder
         // ── источники process loopback: частота по выходам их проводов ──
         foreach (var (id, pids) in procNodes)
         {
+            if (direct.ContainsKey(id))
+            {
+                engineSources[id] = [];
+                continue;
+            }
             if (pids.Count == 0) continue;
             var n = nodes[id];
             int rate = CaptureRate(paths.Downstream(id).Where(o => resolved.ContainsKey(o.Id)).Select(o => apps.OutputRate(resolved[o.Id].Id)));
@@ -336,7 +374,7 @@ public static class GraphBuilder
                 wires.Add(new WireSpec(src, w.To, w.GainDb, w.Enabled));
         }
 
-        AddDoubleSoundWarnings(new GraphPaths(nodes.Values, accepted.Where(w => w.Enabled)), nodes, systemPlans, issues);
+        AddDoubleSoundWarnings(new GraphPaths(nodes.Values, accepted.Where(w => w.Enabled)), nodes, systemPlans, appExes, issues);
         AddTakeOverWarnings(graph, nodes, resolved, devices, apps, issues);
 
         return new BuildResult(new EngineGraph(sources, outputs, wires) { Buses = buses }, issues, resolved)
@@ -344,7 +382,50 @@ public static class GraphBuilder
             EngineSources = engineSources,
             SystemPlans = systemPlans,
             EngineBuses = engineBuses,
+            DirectRoutes = direct,
         };
+    }
+
+    /// <summary>
+    /// Что исключено из «Весь звук системы»: приложения со своим узлом (если узел не просит их оставить) и его список
+    /// исключений. Пусто — узел остаётся одним exclude-захватом по PID микшера.
+    /// </summary>
+    public static IReadOnlyCollection<string> SystemExclusions(NodeConfig system, IEnumerable<string> appExes)
+    {
+        var set = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (system.IncludeOwnNodes != true) set.UnionWith(appExes.Select(ProcessSnapshot.NormalizeExe));
+        foreach (string exe in system.Exclude ?? [])
+            if (!string.IsNullOrWhiteSpace(exe)) set.Add(ProcessSnapshot.NormalizeExe(exe));
+        return set;
+    }
+
+    /// <summary>Громкость сессии не поднимается выше 100%: прямой маршрут — только при итоге не выше 0 дБ (запас на округление).</summary>
+    public const float MaxDirectGainDb = 0.001f;
+
+    /// <summary>
+    /// Прямой маршрут (спецификация v2, «Прямые маршруты»): узел приложения в режиме «Забрать себе» ведёт ровно одним
+    /// включённым проводом в выход (не в шину), обработки нет, итоговое усиление не выше 0 дБ. Сверх спецификации:
+    /// у узла нет моно и баланса, у выхода нет обработки — громкость сессии их не повторит, а обработку выхода
+    /// приложение обошло бы.
+    /// </summary>
+    public static DirectRoute? DirectRouteOf(NodeConfig n, IEnumerable<WireConfig> wires, IReadOnlyDictionary<string, NodeConfig> nodes,
+        IReadOnlyDictionary<string, EndpointInfo> resolved, RuntimeContext ctx)
+    {
+        if (!ctx.DirectRoutes || !TakesOver(n) || n.DirectRoute == false) return null;
+        if (n.HasChain || n.Mono == true || (n.Balance ?? 0) != 0) return null;
+        WireConfig? only = null;
+        foreach (var w in wires)
+        {
+            if (w.From != n.Id || !w.Enabled) continue;
+            if (only is not null) return null;
+            only = w;
+        }
+        if (only is null || !nodes.TryGetValue(only.To, out var o) || !o.IsOutput || o.HasChain) return null;
+        if (!resolved.TryGetValue(o.Id, out var ep)) return null;
+        if (string.Equals(ep.Id, ctx.ActiveSinkEndpointId, StringComparison.OrdinalIgnoreCase)) return null;
+        float gain = n.GainDb + only.GainDb + o.GainDb;
+        if (gain > MaxDirectGainDb) return null;
+        return new DirectRoute(n.Id, ProcessSnapshot.NormalizeExe(n.Exe!), o.Id, ep.Id, gain, n.Muted || o.Muted);
     }
 
     /// <summary>«устройства записи по умолчанию», «устройства связи для воспроизведения по умолчанию» и т. п. (родительный падеж).</summary>
@@ -361,18 +442,23 @@ public static class GraphBuilder
     public static bool TakesOver(NodeConfig n) => n.Kind == NodeKind.App && (n.TakeOver ?? true) && !string.IsNullOrWhiteSpace(n.Exe);
 
     /// <summary>
-    /// «Весь звук системы» в обычном режиме (один exclude-захват) содержит и приложения со своим узлом: если оба
-    /// узла ведут в один выход, приложение прозвучит дважды. Режим без приложений (<see cref="SystemCapture"/>) этого не делает.
+    /// «Весь звук системы» содержит приложение со своим узлом, если не исключает его: обычный режим (один exclude-захват)
+    /// или «не исключать приложения со своим узлом». Если оба узла ведут в один выход, приложение прозвучит дважды.
     /// </summary>
-    private static void AddDoubleSoundWarnings(GraphPaths paths, Dictionary<string, NodeConfig> nodes, Dictionary<string, SystemPlan> plans, List<GraphIssue> issues)
+    private static void AddDoubleSoundWarnings(GraphPaths paths, Dictionary<string, NodeConfig> nodes, Dictionary<string, SystemPlan> plans,
+        IReadOnlyList<string> appExes, List<GraphIssue> issues)
     {
         HashSet<string> OutputsOf(string nodeId) => paths.Downstream(nodeId).Select(o => o.Id).ToHashSet();
 
         var appNodes = nodes.Values.Where(n => n.Kind == NodeKind.App && !string.IsNullOrWhiteSpace(n.Exe)).ToList();
-        foreach (var sys in nodes.Values.Where(n => n.Kind == NodeKind.System && !plans.ContainsKey(n.Id)))
+        foreach (var sys in nodes.Values.Where(n => n.Kind == NodeKind.System))
         {
+            var excluded = plans.ContainsKey(sys.Id)
+                ? SystemExclusions(sys, appExes).ToHashSet(StringComparer.OrdinalIgnoreCase)
+                : new HashSet<string>();
             var sysOut = OutputsOf(sys.Id);
-            var twice = appNodes.Where(a => OutputsOf(a.Id).Overlaps(sysOut)).Select(a => a.Name).Distinct().ToList();
+            var twice = appNodes.Where(a => !excluded.Contains(ProcessSnapshot.NormalizeExe(a.Exe!)) && OutputsOf(a.Id).Overlaps(sysOut))
+                .Select(a => a.Name).Distinct().ToList();
             if (twice.Count > 0)
                 issues.Add(new GraphIssue(IssueKind.DoubleSound, sys.Id,
                     Loc.F(CoreStrings.Issue_DoubleSoundFormat, sys.Name, string.Join(", ", twice))));
@@ -394,6 +480,9 @@ public static class GraphBuilder
             if (n.Kind == NodeKind.DeviceOutput && string.Equals(ep.Id, sink, StringComparison.OrdinalIgnoreCase))
                 issues.Add(new GraphIssue(IssueKind.SinkConflict, id,
                     Loc.F(CoreStrings.Issue_SinkOutputFormat, n.Name)));
+            else if (n.Kind == NodeKind.DeviceOutput && sinkEp is not null && FeedbackRules.SameCable(ep, sinkEp))
+                issues.Add(new GraphIssue(IssueKind.SinkConflict, id,
+                    Loc.F(CoreStrings.Issue_SinkSameCableFormat, n.Name, sinkName)));
             else if (n.Kind == NodeKind.Loopback && string.Equals(ep.Id, sink, StringComparison.OrdinalIgnoreCase))
                 issues.Add(new GraphIssue(IssueKind.SinkConflict, id,
                     Loc.F(CoreStrings.Issue_SinkLoopbackFormat, n.Name, sinkName)));

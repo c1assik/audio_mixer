@@ -200,10 +200,6 @@
     <value>error: {0}</value>
     <comment>{0} = reason</comment>
   </data>
-  <data name="System_CaptureLimitFormat" xml:space="preserve">
-    <value>{0} (capture limit)</value>
-    <comment>{0} = exe name</comment>
-  </data>
   <data name="Config_Empty" xml:space="preserve">
     <value>graph.json is empty</value>
   </data>
@@ -252,5 +248,13 @@
   </data>
   <data name="Preset_MusicSmooth" xml:space="preserve">
     <value>Music — quieter and smoother</value>
+  </data>
+  <data name="Direct_VolumeFailedFormat" xml:space="preserve">
+    <value>couldn’t set the app’s volume: {0}</value>
+    <comment>{0} = HRESULT</comment>
+  </data>
+  <data name="Issue_SinkSameCableFormat" xml:space="preserve">
+    <value>“{0}” and the “Take over” sink “{1}” are two inputs of the same virtual cable, and only one of them can be open at a time: while this output plays, apps moved to the sink fall silent or stop. Pick another sink or another output</value>
+    <comment>{0} = output node name, {1} = sink device name</comment>
   </data>
 </root>

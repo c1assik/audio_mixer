@@ -38,6 +38,13 @@ public sealed class PeakMeter
         Max(ref _r, pr * gain);
     }
 
+    /// <summary>Учесть готовые пики (индикатор сессии Windows у прямого маршрута).</summary>
+    public void Push(float l, float r)
+    {
+        Max(ref _l, MathF.Abs(l));
+        Max(ref _r, MathF.Abs(r));
+    }
+
     private static void Max(ref int slot, float value)
     {
         // для неотрицательных float порядок битов совпадает с порядком чисел

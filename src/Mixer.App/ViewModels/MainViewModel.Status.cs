@@ -55,7 +55,9 @@ public sealed partial class MainViewModel
     private void UpdateCounts()
     {
         int src = Nodes.Count(n => n.IsSource), buses = Nodes.Count(n => n.IsBus), outs = Nodes.Count(n => n.IsOutput), off = Wires.Count(w => !w.Enabled);
+        int direct = Wires.Count(x => x.ShowDirect);
         string s = Fmt.Plural(src, Strings.Plural_Source), o = Fmt.Plural(outs, Strings.Plural_Output), w = Fmt.Plural(Wires.Count, Strings.Plural_Wire);
+        if (direct > 0) w = Fmt.F(Strings.Status_WiresDirectFormat, w, direct);
         if (buses > 0) s += " · " + Fmt.Plural(buses, Strings.Plural_Bus);
         CountsText = off > 0
             ? Fmt.F(Strings.Status_SummaryOffFormat, s, o, w, Fmt.Plural(off, Strings.Plural_WireOff))
@@ -74,7 +76,9 @@ public sealed partial class MainViewModel
 
         foreach (var n in Nodes) PollNode(n, st, snap, build, issues);
         var paths = devices.Count > 0 ? new GraphPaths(Graph) : null;
-        foreach (var w in Wires) PollWire(w, snap, devices, paths);
+        int directBefore = Wires.Count(x => x.ShowDirect);
+        foreach (var w in Wires) PollWire(w, snap, devices, paths, build);
+        if (Wires.Count(x => x.ShowDirect) != directBefore) UpdateCounts();
 
         // ── шапка ──
         double latency = 0;
@@ -149,6 +153,9 @@ public sealed partial class MainViewModel
     private void PollNode(NodeViewModel n, HostStatus? st, EngineSnapshot snap, BuildResult? build, IReadOnlyList<GraphIssue> issues)
     {
         var c = n.Config;
+        var direct = build?.DirectRoutes.GetValueOrDefault(n.Id);
+        n.IsDirect = direct is not null && _host is not null;
+        n.DirectMeter = direct is not null ? st?.DirectMeters.GetValueOrDefault(n.Id) : null;
         // узлы движка
         if (n.IsSource)
         {
@@ -209,6 +216,11 @@ public sealed partial class MainViewModel
                         warn = true;
                         warnings.Add(Strings.NodeWarn_PlaysDirect);
                         break;
+                    case BindingState.Bound when direct is not null:
+                        string to = Devices.FirstOrDefault(d => string.Equals(d.Id, direct.EndpointId, StringComparison.OrdinalIgnoreCase))?.Name
+                                    ?? Nodes.FirstOrDefault(x => x.Id == direct.OutputId)?.Name ?? "";
+                        sub = Fmt.F(Strings.NodeSub_AppDirectFormat, Fmt.ShortDevice(to));
+                        break;
                     case BindingState.Bound:
                         sub = Strings.NodeSub_AppTakenOver;
                         break;
@@ -226,6 +238,11 @@ public sealed partial class MainViewModel
                         warnings.Add(Fmt.F(Strings.NodeWarn_SetSinkFormat, Capitalize(b.Message ?? Strings.NodeWarn_NoSink)));
                         break;
                 }
+            }
+            if (direct is not null && st.DirectErrors.TryGetValue(exe, out string? volumeError))
+            {
+                warn = true;
+                warnings.Add(Capitalize(volumeError));
             }
         }
         if (c.Muted && error is null && wait is null) sub = Strings.NodeSub_Muted;
@@ -285,13 +302,24 @@ public sealed partial class MainViewModel
         n.Warnings = warnings.Count == 0 ? null : string.Join("\n\n", warnings.Distinct());
         n.LimiterText = n.Meter.ReductionDb > 0.1f ? Fmt.F(Strings.NodeState_LimiterFormat, Fmt.Term(n.Meter.ReductionDb)) : null;
         var plan = c.Kind == NodeKind.System ? build?.SystemPlans.GetValueOrDefault(n.Id) : null;
-        if (plan is not null && n.Look == NodeLook.Normal && !c.Muted && !warn) n.Subtitle = Strings.NodeSub_SystemExceptApps;
+        if (plan is not null && n.Look == NodeLook.Normal && !c.Muted && !warn && SystemExceptNames(c) is { Count: > 0 } except)
+            n.Subtitle = Fmt.F(Strings.NodeSub_SystemExceptFormat, string.Join(", ", except));
+        if (plan is { Skipped.Count: > 0 } && _host is not null)
+        {
+            n.SkippedText = Fmt.F(Strings.Node_SkippedFormat, plan.Skipped.Count);
+            n.SkippedTip = SkippedTooltip(plan);
+        }
+        else
+        {
+            n.SkippedText = null;
+            n.SkippedTip = null;
+        }
         n.Tooltip = c.Kind switch
         {
             NodeKind.App => n.EngineNodes.Length > 1
                 ? Fmt.F(Strings.NodeTip_AppInstancesFormat, ProcessSnapshot.NormalizeExe(c.Exe ?? ""), Fmt.Plural(n.EngineNodes.Length, Strings.Plural_Instance))
                 : ProcessSnapshot.NormalizeExe(c.Exe ?? ""),
-            NodeKind.System when plan is not null => SystemTooltip(plan),
+            NodeKind.System when plan is not null => SystemTooltip(c, plan),
             NodeKind.System => Strings.NodeTip_System,
             NodeKind.Bus => n.IsSilent ? Strings.NodeTip_BusSilent : Strings.NodeTip_Bus,
             _ when c.DefaultRole is { } role => Fmt.F(Strings.NodeTip_DefaultFormat,
@@ -307,15 +335,40 @@ public sealed partial class MainViewModel
         }
     }
 
-    private string SystemTooltip(Mixer.Core.Apps.SystemPlan plan)
+    /// <summary>Кого «Весь звук системы» не слышит по настройке: узлы приложений (если их не оставили) и исключённые exe.</summary>
+    private List<string> SystemExceptNames(NodeConfig sys)
     {
+        var names = new List<string>();
+        if (sys.IncludeOwnNodes != true) names.AddRange(Nodes.Where(x => x.Kind == NodeKind.App).Select(x => x.Name));
+        names.AddRange(sys.Exclude ?? []);
+        return names.Distinct().ToList();
+    }
+
+    private string SystemTooltip(NodeConfig sys, SystemPlan plan)
+    {
+        var sb = new StringBuilder();
         var apps = Nodes.Where(x => x.Kind == NodeKind.App).Select(x => x.Name).Distinct().ToList();
-        var sb = new StringBuilder(Fmt.F(Strings.NodeTip_SystemPlanFormat, string.Join(", ", apps)));
+        if (sys.IncludeOwnNodes == true) sb.Append(Strings.NodeTip_System).Append(' ').Append(Strings.NodeTip_SystemIncludesOwnNodes);
+        else if (apps.Count > 0) sb.Append(Fmt.F(Strings.NodeTip_SystemPlanFormat, string.Join(", ", apps)));
+        else sb.Append(Strings.NodeTip_System);
+        if (sys.Exclude is { Count: > 0 } ex) sb.Append("\n\n").Append(Fmt.F(Strings.NodeTip_SystemUserExcludedFormat, string.Join(", ", ex)));
         sb.Append("\n\n").Append(plan.Targets.Count == 0
             ? Strings.NodeTip_SystemNothingPlaying
             : Fmt.F(Strings.NodeTip_SystemCapturedFormat, string.Join(", ", plan.Targets.Select(t => t.Exe).Distinct())));
-        if (plan.Skipped.Count > 0)
-            sb.Append("\n\n").Append(Fmt.F(Strings.NodeTip_SystemSkippedFormat, string.Join(", ", plan.Skipped)));
+        return sb.ToString();
+    }
+
+    /// <summary>Список пропущенных процессов с причиной для каждого (значок «пропущено: N»).</summary>
+    public static string SkippedTooltip(SystemPlan plan)
+    {
+        var sb = new StringBuilder(Strings.NodeTip_SkippedHeader);
+        foreach (var s in plan.Skipped)
+            sb.Append("\n• ").Append(s.Reason switch
+            {
+                SkipReason.ContainsMixer => Fmt.F(Strings.Skip_ContainsMixerFormat, s.Exe),
+                SkipReason.ContainsExcluded => Fmt.F(Strings.Skip_ContainsExcludedFormat, s.Exe, s.Because ?? "?"),
+                _ => Fmt.F(Strings.Skip_CaptureLimitFormat, s.Exe, SystemCapture.MaxCaptures),
+            });
         return sb.ToString();
     }
 
@@ -356,8 +409,14 @@ public sealed partial class MainViewModel
         };
     }
 
-    private void PollWire(WireViewModel w, EngineSnapshot snap, IReadOnlyList<Mixer.Audio.Interop.EndpointInfo> devices, GraphPaths? paths)
+    private void PollWire(WireViewModel w, EngineSnapshot snap, IReadOnlyList<Mixer.Audio.Interop.EndpointInfo> devices, GraphPaths? paths, BuildResult? build)
     {
+        bool direct = _host is not null && build?.DirectRoutes.GetValueOrDefault(w.From) is { } route && route.OutputId == w.To;
+        if (direct != w.IsDirect)
+        {
+            w.IsDirect = direct;
+            WiresInvalidated?.Invoke();
+        }
         var list = new List<Wire>(1);
         foreach (var (key, wire) in snap.Wires)
             if (key.To == w.To && GraphBuilder.NodeIdOf(key.From) == w.From) list.Add(wire);
@@ -373,7 +432,7 @@ public sealed partial class MainViewModel
             w.Forbidden = forbidden;
             WiresInvalidated?.Invoke();
         }
-        bool idle = _host is not null && (w.Source.Look != NodeLook.Normal || w.Target.Look != NodeLook.Normal || list.Count + links.Count == 0);
+        bool idle = _host is not null && (w.Source.Look != NodeLook.Normal || w.Target.Look != NodeLook.Normal || list.Count + links.Count == 0 && !direct);
         if (idle != w.IsIdle)
         {
             w.IsIdle = idle;
@@ -401,6 +460,14 @@ public sealed partial class MainViewModel
             foreach (double v in new double[] { w.GainDb, o.GainDb })
                 terms.Append(v < 0 ? " − " : " + ").Append(Fmt.Term(v));
             w.TipGain = Fmt.F(Strings.Wire_TooltipNetFormat, Fmt.Pill(total), terms);
+        }
+
+        if (direct && w.Enabled)
+        {
+            w.TipFormat = Strings.Wire_TooltipDirect;
+            w.TipFailures = Fmt.F(Strings.Wire_TooltipDirectFormat, s.Name, o.Name);
+            w.HasFailures = false;
+            return;
         }
 
         var running = list.FirstOrDefault(x => x.State == WireState.Running) ?? list.FirstOrDefault();
@@ -445,6 +512,13 @@ public sealed partial class MainViewModel
         _now = now;
         foreach (var n in Nodes)
         {
+            if (n.DirectMeter is { } dm)
+            {
+                // прямой маршрут: индикатор сессии приложения у Windows (опрашивает хост)
+                n.DirectPeak = dm.Take();
+                n.Meter.Push(n.DirectPeak.L, n.DirectPeak.R, now, dt);
+                continue;
+            }
             if (n.EngineBuses.Length > 0)
             {
                 // фейдер и обработка у такого узла — на шине: индикатор после них
@@ -484,6 +558,11 @@ public sealed partial class MainViewModel
         {
             var wires = w.EngineWires;
             var links = w.EngineLinks;
+            if (w.IsDirect && w.Source.DirectMeter is not null)
+            {
+                w.Meter.Push(w.Source.DirectPeak.L, w.Source.DirectPeak.R, now, dt);
+                continue;
+            }
             if (wires.Length == 0 && links.Length == 0)
             {
                 w.Meter.Reset();

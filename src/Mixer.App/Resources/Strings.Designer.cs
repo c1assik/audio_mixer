@@ -250,9 +250,6 @@ public static class Strings
     /// <summary>device unplugged</summary>
     public static string NodeSub_DeviceDisconnected => Get("NodeSub_DeviceDisconnected");
 
-    /// <summary>everything except apps with their own node</summary>
-    public static string NodeSub_SystemExceptApps => Get("NodeSub_SystemExceptApps");
-
     /// <summary>everything except the mixer</summary>
     public static string NodeSub_SystemExceptMixer => Get("NodeSub_SystemExceptMixer");
 
@@ -348,9 +345,6 @@ public static class Strings
 
     /// <summary>Captured per process: {0}.</summary>
     public static string NodeTip_SystemCapturedFormat => Get("NodeTip_SystemCapturedFormat");
-
-    /// <summary>Not captured: {0}. Their process tree contains the mixer or an app with its own node, and Windows can’t cut part of a tree out of a capture.</summary>
-    public static string NodeTip_SystemSkippedFormat => Get("NodeTip_SystemSkippedFormat");
 
     /// <summary>Microphone</summary>
     public static string NodeName_DefaultMic => Get("NodeName_DefaultMic");
@@ -969,4 +963,73 @@ public static class Strings
 
     /// <summary>Off</summary>
     public static string Fx_TypeOff => Get("Fx_TypeOff");
+
+    /// <summary>Direct route</summary>
+    public static string Node_DirectRoute => Get("Node_DirectRoute");
+
+    /// <summary>When the node goes to exactly one output and does nothing to the audio, the mixer doesn’t capture it: it sends the app straight to that output and sets its volume. No added latency or CPU. A second wire, processing or a level above 0 dB switch the node back to capture.</summary>
+    public static string Node_DirectRouteTip => Get("Node_DirectRouteTip");
+
+    /// <summary>Exclude apps</summary>
+    public static string Node_Exclude => Get("Node_Exclude");
+
+    /// <summary>These apps don’t get into All system audio, even without a node of their own</summary>
+    public static string Node_ExcludeTip => Get("Node_ExcludeTip");
+
+    /// <summary>Playing now</summary>
+    public static string Node_ExcludeNowPlaying => Get("Node_ExcludeNowPlaying");
+
+    /// <summary>Nothing else is playing right now</summary>
+    public static string Node_ExcludeNothing => Get("Node_ExcludeNothing");
+
+    /// <summary>Other app:</summary>
+    public static string Node_ExcludeOther => Get("Node_ExcludeOther");
+
+    /// <summary>Type the exe name, for example telegram.exe, and press Enter</summary>
+    public static string Node_ExcludeOtherTip => Get("Node_ExcludeOtherTip");
+
+    /// <summary>Keep apps that have their own node</summary>
+    public static string Node_IncludeOwnNodes => Get("Node_IncludeOwnNodes");
+
+    /// <summary>Off by default: an app with its own node is removed from All system audio so you don’t hear it twice. Turn this on when the app’s node and All system audio go to different outputs.</summary>
+    public static string Node_IncludeOwnNodesTip => Get("Node_IncludeOwnNodesTip");
+
+    /// <summary>everything except {0}</summary>
+    public static string NodeSub_SystemExceptFormat => Get("NodeSub_SystemExceptFormat");
+
+    /// <summary>app · direct to {0}</summary>
+    public static string NodeSub_AppDirectFormat => Get("NodeSub_AppDirectFormat");
+
+    /// <summary>skipped: {0}</summary>
+    public static string Node_SkippedFormat => Get("Node_SkippedFormat");
+
+    /// <summary>Not captured:</summary>
+    public static string NodeTip_SkippedHeader => Get("NodeTip_SkippedHeader");
+
+    /// <summary>{0}: the mixer runs inside its process tree, so capturing it would feed the mixer back into itself</summary>
+    public static string Skip_ContainsMixerFormat => Get("Skip_ContainsMixerFormat");
+
+    /// <summary>{0}: {1} runs inside its process tree and is excluded, and Windows can’t cut part of a tree out of a capture</summary>
+    public static string Skip_ContainsExcludedFormat => Get("Skip_ContainsExcludedFormat");
+
+    /// <summary>{0}: already {1} captures, no more are opened</summary>
+    public static string Skip_CaptureLimitFormat => Get("Skip_CaptureLimitFormat");
+
+    /// <summary>Excluded by you: {0}.</summary>
+    public static string NodeTip_SystemUserExcludedFormat => Get("NodeTip_SystemUserExcludedFormat");
+
+    /// <summary>Apps with their own node are heard here too.</summary>
+    public static string NodeTip_SystemIncludesOwnNodes => Get("NodeTip_SystemIncludesOwnNodes");
+
+    /// <summary>direct</summary>
+    public static string Wire_Direct => Get("Wire_Direct");
+
+    /// <summary>Direct route · 0 ms</summary>
+    public static string Wire_TooltipDirect => Get("Wire_TooltipDirect");
+
+    /// <summary>{0} plays straight to {1}, bypassing the mixer; the mixer only sets its device and volume.</summary>
+    public static string Wire_TooltipDirectFormat => Get("Wire_TooltipDirectFormat");
+
+    /// <summary>{0} ({1} direct)</summary>
+    public static string Status_WiresDirectFormat => Get("Status_WiresDirectFormat");
 }

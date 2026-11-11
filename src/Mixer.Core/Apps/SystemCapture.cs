@@ -5,10 +5,24 @@ namespace Mixer.Core.Apps;
 /// <summary>Процесс, чьё дерево захватывает «Весь звук системы» (process loopback, INCLUDE_TARGET_PROCESS_TREE).</summary>
 public sealed record SystemTarget(uint Pid, string Exe);
 
+public enum SkipReason
+{
+    /// <summary>В дереве процесса микшер: захват дерева дал бы петлю.</summary>
+    ContainsMixer,
+    /// <summary>В дереве процесса исключённое приложение (своим узлом или списком исключений).</summary>
+    ContainsExcluded,
+    /// <summary>Захватов уже <see cref="SystemCapture.MaxCaptures"/>.</summary>
+    CaptureLimit,
+}
+
+/// <summary>Процесс со звуком, который «Весь звук системы» не захватывает, и почему.</summary>
+/// <param name="Because">Для <see cref="SkipReason.ContainsExcluded"/> — exe исключённого приложения в дереве.</param>
+public sealed record SkippedProcess(string Exe, SkipReason Reason, string? Because = null);
+
 /// <param name="Targets">Что захватывать: по захвату на дерево.</param>
-/// <param name="Excluded">Приложения со своим узлом, которые сейчас запущены и из «Весь звук системы» убраны.</param>
-/// <param name="Skipped">Процессы со звуком, которые захватить нельзя: в их дереве микшер или приложение со своим узлом.</param>
-public sealed record SystemPlan(IReadOnlyList<SystemTarget> Targets, IReadOnlyList<string> Excluded, IReadOnlyList<string> Skipped);
+/// <param name="Excluded">Исключённые приложения (свой узел или список исключений), которые сейчас запущены.</param>
+/// <param name="Skipped">Процессы со звуком, которые не захвачены, с причиной.</param>
+public sealed record SystemPlan(IReadOnlyList<SystemTarget> Targets, IReadOnlyList<string> Excluded, IReadOnlyList<SkippedProcess> Skipped);
 
 /// <summary>
 /// «Весь звук системы» без приложений, у которых на схеме свой узел. Режим exclude у process loopback принимает
@@ -23,34 +37,46 @@ public sealed record SystemPlan(IReadOnlyList<SystemTarget> Targets, IReadOnlyLi
 /// </summary>
 public static class SystemCapture
 {
-    /// <summary>Больше захватов не открываем: на этапе 0 проверено до 12 клиентов в одном процессе.</summary>
+    /// <summary>Больше захватов не открываем: на этапе 0 v2 проверено 24 захвата в одном процессе.</summary>
     public const int MaxCaptures = 24;
 
-    /// <param name="excludedExes">Нормализованные exe узлов «Приложение» на схеме.</param>
+    /// <param name="excludedExes">Исключённые exe: приложения со своим узлом и список исключений узла.</param>
     public static SystemPlan Plan(AppSnapshot world, IReadOnlyCollection<string> excludedExes)
     {
         var procs = world.Processes;
-        var banned = procs.Tree([procs.SelfPid]);
+        var self = procs.Tree([procs.SelfPid]);
+        var banned = new HashSet<uint>(self);
         var excluded = new List<string>();
-        foreach (string exe in excludedExes.Select(ProcessSnapshot.NormalizeExe).Distinct(StringComparer.OrdinalIgnoreCase))
+        var owner = new Dictionary<uint, string>(); // PID исключённого дерева → его exe
+        foreach (string exe in excludedExes.Select(ProcessSnapshot.NormalizeExe).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.Ordinal))
         {
             var tree = world.TreeOf(exe);
             if (tree.Count == 0) continue;
             excluded.Add(exe);
             banned.UnionWith(tree);
+            foreach (uint pid in tree) owner.TryAdd(pid, exe);
         }
 
         bool Clean(uint pid) => !procs.Tree([pid]).Overlaps(banned);
 
+        // почему дерево процесса нельзя захватить: микшер важнее (петля), иначе — первое исключённое приложение в нём
+        SkippedProcess Why(uint pid, string exe)
+        {
+            var tree = procs.Tree([pid]);
+            if (tree.Overlaps(self)) return new SkippedProcess(exe, SkipReason.ContainsMixer);
+            string? by = tree.Where(owner.ContainsKey).Select(p => owner[p]).Order(StringComparer.Ordinal).FirstOrDefault();
+            return new SkippedProcess(exe, SkipReason.ContainsExcluded, by);
+        }
+
         var picked = new Dictionary<uint, bool>(); // корень захвата → есть ли активная сессия
-        var skipped = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+        var skipped = new List<SkippedProcess>();
         foreach (var s in world.Sessions)
         {
             if (s.Pid == 0 || s.State == Mixer.Audio.Interop.AudioSessionState.Expired) continue;
             if (!procs.ByPid.TryGetValue(s.Pid, out var p) || banned.Contains(s.Pid)) continue;
             if (!Clean(s.Pid))
             {
-                skipped.Add(ProcessSnapshot.NormalizeExe(p.Exe));
+                skipped.Add(Why(s.Pid, ProcessSnapshot.NormalizeExe(p.Exe)));
                 continue;
             }
             // поднимаемся к корню того же exe (у Chrome звук идёт из дочернего процесса), пока дерево чистое
@@ -75,10 +101,10 @@ public static class SystemCapture
         var targets = roots.Where(r => !nested.Contains(r))
             .OrderByDescending(r => picked[r]).ThenBy(r => r)
             .ToList();
-        foreach (uint r in targets.Skip(MaxCaptures)) skipped.Add(Loc.F(CoreStrings.System_CaptureLimitFormat, ProcessSnapshot.NormalizeExe(procs.ExeOf(r))));
+        foreach (uint r in targets.Skip(MaxCaptures)) skipped.Add(new SkippedProcess(ProcessSnapshot.NormalizeExe(procs.ExeOf(r)), SkipReason.CaptureLimit));
         return new SystemPlan(
             targets.Take(MaxCaptures).OrderBy(r => r).Select(r => new SystemTarget(r, ProcessSnapshot.NormalizeExe(procs.ExeOf(r)))).ToList(),
             excluded,
-            skipped.ToList());
+            skipped.Distinct().OrderBy(x => x.Exe, StringComparer.Ordinal).ThenBy(x => x.Reason).ToList());
     }
 }
