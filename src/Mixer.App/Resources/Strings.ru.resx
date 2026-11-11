@@ -238,9 +238,6 @@
   <data name="NodeSub_DeviceDisconnected" xml:space="preserve">
     <value>устройство отключено</value>
   </data>
-  <data name="NodeSub_SystemExceptApps" xml:space="preserve">
-    <value>всё, кроме приложений со своим узлом</value>
-  </data>
   <data name="NodeSub_SystemExceptMixer" xml:space="preserve">
     <value>всё, кроме микшера</value>
   </data>
@@ -336,9 +333,6 @@
   </data>
   <data name="NodeTip_SystemCapturedFormat" xml:space="preserve">
     <value>Захвачено по процессам: {0}.</value>
-  </data>
-  <data name="NodeTip_SystemSkippedFormat" xml:space="preserve">
-    <value>Не захвачены: {0} — в дереве их процессов микшер или приложение со своим узлом, а вырезать из захвата часть дерева Windows не умеет.</value>
   </data>
   <data name="NodeName_DefaultMic" xml:space="preserve">
     <value>Микрофон</value>
@@ -957,5 +951,74 @@
   </data>
   <data name="Fx_TypeOff" xml:space="preserve">
     <value>Выкл</value>
+  </data>
+  <data name="Node_DirectRoute" xml:space="preserve">
+    <value>Прямой маршрут</value>
+  </data>
+  <data name="Node_DirectRouteTip" xml:space="preserve">
+    <value>Если узел ведёт ровно в один выход и ничего не делает со звуком, микшер не захватывает его, а отправляет приложение прямо в этот выход и задаёт его громкость. Ни задержки, ни нагрузки. Второй провод, обработка или уровень выше 0 дБ возвращают узел на захват.</value>
+  </data>
+  <data name="Node_Exclude" xml:space="preserve">
+    <value>Исключить приложения</value>
+  </data>
+  <data name="Node_ExcludeTip" xml:space="preserve">
+    <value>Эти приложения не попадают во «Весь звук системы», даже если у них нет своего узла</value>
+  </data>
+  <data name="Node_ExcludeNowPlaying" xml:space="preserve">
+    <value>Сейчас играют</value>
+  </data>
+  <data name="Node_ExcludeNothing" xml:space="preserve">
+    <value>Больше ничего сейчас не играет</value>
+  </data>
+  <data name="Node_ExcludeOther" xml:space="preserve">
+    <value>Другое приложение:</value>
+  </data>
+  <data name="Node_ExcludeOtherTip" xml:space="preserve">
+    <value>Введите имя exe, например telegram.exe, и нажмите Enter</value>
+  </data>
+  <data name="Node_IncludeOwnNodes" xml:space="preserve">
+    <value>Не исключать приложения со своим узлом</value>
+  </data>
+  <data name="Node_IncludeOwnNodesTip" xml:space="preserve">
+    <value>По умолчанию выключено: приложение со своим узлом убирается из «Весь звук системы», чтобы не звучать дважды. Включите, если узел приложения и «Весь звук системы» ведут в разные выходы.</value>
+  </data>
+  <data name="NodeSub_SystemExceptFormat" xml:space="preserve">
+    <value>всё, кроме {0}</value>
+  </data>
+  <data name="NodeSub_AppDirectFormat" xml:space="preserve">
+    <value>приложение · напрямую в {0}</value>
+  </data>
+  <data name="Node_SkippedFormat" xml:space="preserve">
+    <value>пропущено: {0}</value>
+  </data>
+  <data name="NodeTip_SkippedHeader" xml:space="preserve">
+    <value>Не захвачены:</value>
+  </data>
+  <data name="Skip_ContainsMixerFormat" xml:space="preserve">
+    <value>{0}: в его дереве процессов работает микшер, захват дал бы петлю</value>
+  </data>
+  <data name="Skip_ContainsExcludedFormat" xml:space="preserve">
+    <value>{0}: в его дереве процессов работает исключённое {1}, а вырезать часть дерева из захвата Windows не умеет</value>
+  </data>
+  <data name="Skip_CaptureLimitFormat" xml:space="preserve">
+    <value>{0}: захватов уже {1}, больше не открываем</value>
+  </data>
+  <data name="NodeTip_SystemUserExcludedFormat" xml:space="preserve">
+    <value>Исключены вами: {0}.</value>
+  </data>
+  <data name="NodeTip_SystemIncludesOwnNodes" xml:space="preserve">
+    <value>Приложения со своим узлом тоже звучат здесь.</value>
+  </data>
+  <data name="Wire_Direct" xml:space="preserve">
+    <value>напрямую</value>
+  </data>
+  <data name="Wire_TooltipDirect" xml:space="preserve">
+    <value>Прямой маршрут · 0 мс</value>
+  </data>
+  <data name="Wire_TooltipDirectFormat" xml:space="preserve">
+    <value>{0} играет прямо в «{1}», мимо микшера; микшер задаёт только устройство и громкость.</value>
+  </data>
+  <data name="Status_WiresDirectFormat" xml:space="preserve">
+    <value>{0} ({1} напрямую)</value>
   </data>
 </root>

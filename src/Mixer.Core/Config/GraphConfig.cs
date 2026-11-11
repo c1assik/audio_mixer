@@ -46,6 +46,19 @@ public sealed record NodeConfig
     /// <summary>Для узла «Приложение» (этап 2).</summary>
     public string? Exe { get; init; }
     public bool? TakeOver { get; init; }
+    /// <summary>
+    /// Узел «Приложение»: прямой маршрут — если узел ведёт ровно в один выход и ничего со звуком не делает, микшер
+    /// не захватывает звук, а назначает приложению этот выход (v2, «Прямые маршруты»). null — включён.
+    /// </summary>
+    public bool? DirectRoute { get; init; }
+
+    /// <summary>Узел «Весь звук системы»: exe, которые в него не попадают, даже без своего узла.</summary>
+    public List<string>? Exclude { get; init; }
+    /// <summary>
+    /// Узел «Весь звук системы»: не исключать приложения, у которых на схеме свой узел (по умолчанию исключаются,
+    /// иначе их слышно дважды). Нужен, когда узел приложения и «Весь звук системы» ведут в разные выходы.
+    /// </summary>
+    public bool? IncludeOwnNodes { get; init; }
 
     public float GainDb { get; init; }
     public bool Muted { get; init; }
@@ -95,6 +108,11 @@ public sealed record GraphConfig
     public string? SinkEndpoint { get; init; }
     /// <summary>Журнал приложений с привязкой к заглушке (этап 2).</summary>
     public List<string> BoundApps { get; init; } = [];
+    /// <summary>
+    /// Журнал приложений, которым микшер менял громкость сессии (прямой маршрут). Windows хранит её за приложением и
+    /// устройством, поэтому после сбоя микшера громкость возвращается на 100% при следующем запуске.
+    /// </summary>
+    public List<string> VolumeApps { get; init; } = [];
     public List<NodeConfig> Nodes { get; init; } = [];
     public List<WireConfig> Wires { get; init; } = [];
 }

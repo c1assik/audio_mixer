@@ -21,6 +21,7 @@ public sealed class GraphStore : IDisposable
     private readonly Timer _timer;
     private GraphConfig _ui;
     private List<string> _journal;
+    private List<string> _volumeJournal;
     private bool _dirty;
     private bool _disposed;
 
@@ -36,6 +37,7 @@ public sealed class GraphStore : IDisposable
         Path = System.IO.Path.GetFullPath(path);
         _ui = loaded;
         _journal = loaded.BoundApps.ToList();
+        _volumeJournal = loaded.VolumeApps.ToList();
         _timer = new Timer(_ => Flush(), null, Timeout.Infinite, Timeout.Infinite);
     }
 
@@ -132,20 +134,24 @@ public sealed class GraphStore : IDisposable
         }
     }
 
-    /// <summary>Журнал привязок от хоста: пишется сразу, ошибка уходит вызывающему (привязка тогда не ставится).</summary>
+    /// <summary>
+    /// Журналы хоста (привязки и громкости сессий): пишутся сразу, ошибка уходит вызывающему (привязка или громкость
+    /// тогда не ставится).
+    /// </summary>
     public void SaveJournal(GraphConfig hostGraph)
     {
         lock (_gate)
         {
-            var before = _journal;
+            var before = (_journal, _volumeJournal);
             _journal = hostGraph.BoundApps.ToList();
+            _volumeJournal = hostGraph.VolumeApps.ToList();
             try
             {
                 Write();
             }
             catch
             {
-                _journal = before; // хост не примет журнал — и на диске его быть не должно
+                (_journal, _volumeJournal) = before; // хост не примет журнал — и на диске его быть не должно
                 throw;
             }
         }
@@ -175,7 +181,7 @@ public sealed class GraphStore : IDisposable
         string? backup = null;
         if (File.Exists(Path) && (_lastBackup is not { } last || now - last >= BackupInterval || now < last))
             backup = $"{Path}{BackupMarker}{now:yyyyMMdd-HHmmss}";
-        GraphSerializer.Save(Path, _ui with { BoundApps = _journal }, backup);
+        GraphSerializer.Save(Path, _ui with { BoundApps = _journal, VolumeApps = _volumeJournal }, backup);
         _dirty = false;
         if (backup is not null)
         {

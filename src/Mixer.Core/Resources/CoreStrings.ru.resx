@@ -169,9 +169,6 @@
   <data name="Bind_StateErrorFormat" xml:space="preserve">
     <value>ошибка: {0}</value>
   </data>
-  <data name="System_CaptureLimitFormat" xml:space="preserve">
-    <value>{0} (лимит захватов)</value>
-  </data>
   <data name="Config_Empty" xml:space="preserve">
     <value>graph.json пуст</value>
   </data>
@@ -216,5 +213,11 @@
   </data>
   <data name="Preset_MusicSmooth" xml:space="preserve">
     <value>Музыка потише и ровнее</value>
+  </data>
+  <data name="Direct_VolumeFailedFormat" xml:space="preserve">
+    <value>не удалось задать громкость приложения: {0}</value>
+  </data>
+  <data name="Issue_SinkSameCableFormat" xml:space="preserve">
+    <value>«{0}» и заглушка «Забрать себе» «{1}» — два входа одного виртуального кабеля, а открыт может быть только один: пока этот выход играет, перенесённые в заглушку приложения молчат или останавливаются. Выберите другую заглушку или другой выход</value>
   </data>
 </root>

@@ -1,6 +1,6 @@
 # Mixer for Windows: developer notes
 
-The user guide is in the [README](../README.md). The specification and plan (in Russian) is `Микшер для Windows спецификация и план.md` in the repository root; section names from it are quoted below in Russian. Stage 0 (risk check): [tools/Mixer.Probe](../tools/Mixer.Probe/README.md). The v2 specification is `Микшер для Windows v2 спецификация и план.md`; its stage 0 results (captures, new applications, direct route, `IAudioClient3`) are in the same Mixer.Probe README; stages 1 (buses) and 2 (processing) are described below in «v2 stage 1» and «v2 stage 2».
+The user guide is in the [README](../README.md). The specification and plan (in Russian) is `Микшер для Windows спецификация и план.md` in the repository root; section names from it are quoted below in Russian. Stage 0 (risk check): [tools/Mixer.Probe](../tools/Mixer.Probe/README.md). The v2 specification is `Микшер для Windows v2 спецификация и план.md`; its stage 0 results (captures, new applications, direct route, `IAudioClient3`) are in the same Mixer.Probe README; stages 1 (buses), 2 (processing) and 3 (applications) are described below in «v2 stage 1», «v2 stage 2» and «v2 stage 3».
 
 The UI is in English, or in Russian when Windows is in Russian (see "Localization"). Log messages are in English; code comments are in Russian. Russian strings quoted below are shown as they appear in the Russian UI.
 
@@ -8,7 +8,7 @@ The UI is in English, or in Russian when Windows is in Russian (see "Localizatio
 
 | Project | Contents |
 | --- | --- |
-| `src/Mixer.Audio` | Audio engine and WASAPI interop, no WPF: source and output nodes, wires, buses (per-output instances and mix plans), resamplers, PI controller, ramps, limiter, processing chain (gate, EQ, compressor), peak meters; process loopback, `IAudioPolicyConfig`, audio sessions, probe stream, device change notifications (`IMMNotificationClient`) |
+| `src/Mixer.Audio` | Audio engine and WASAPI interop, no WPF: source and output nodes, wires, buses (per-output instances and mix plans), resamplers, PI controller, ramps, limiter, processing chain (gate, EQ, compressor), peak meters; process loopback, `IAudioPolicyConfig`, audio sessions with their volume, meter and new-session notifications, probe stream, device change notifications (`IMMNotificationClient`) |
 | `src/Mixer.Core` | Graph model and `graph.json`, device lookup by ID, name and default role, the feedback rule, paths through buses, building the engine snapshot; process snapshot, Take over with the `boundApps` journal, sink validation, watchdog, the `MixerHost` control layer with hot-plug and sleep handling; a WPF-free editor: history, edits (including grouping into a bus), wire validation, layout, store with backups, chain presets, application catalog; file log |
 | `src/Mixer.App` | UI (WPF, CommunityToolkit.Mvvm): graph canvas, cards, wires, palette, sink settings, processing side panel with the EQ curve. Builds `Mixer.exe` |
 | `tools/Mixer.Run` | Console host for stages 1–2: runs a JSON graph through `MixerHost` with statistics, lists applications, checks a sink, measures loop latency |
@@ -410,6 +410,88 @@ A new `Mixer.exe` switch: `--log-dir <folder>`, a custom log folder. `Mixer.Run 
 - Checked: the look of the canvas with buses and of the side panel, from snapshots in `--no-audio` mode with the streamer layout from the v2 mockup (`--open fx:<node>[:gate|eq|comp]` opens the panel on start). The user's own v1 graph was upgraded by the new build (`graph.v1.json` written) and played through it without errors in the log.
 - Checked by ear by the user on 10 November 2026 (buses and processing on real devices): no issues, according to the user; not repeated here.
 - **Not checked**: CPU of the 8-node layout with full chains (criterion: 5% on a 4-core CPU).
+
+## v2 stage 3: applications
+
+### How it works
+
+- **Exclusions in All system audio** (`exclude: ["telegram.exe", …]` on the System node). The node menu has «Исключить приложения»: excluded exes (checked; a click brings one back), the applications playing right now (a click excludes one) and a box for any exe name, so an application can be excluded before it makes a sound. Excluded exes join the same banned set as applications with their own node (`GraphBuilder.SystemExclusions`), so the node is assembled from per-process include captures (`SystemCapture`) as soon as the set is not empty.
+- **Keep applications that have their own node** (`includeOwnNodes`, «Не исключать приложения со своим узлом», off by default). With it on, applications with a node are not banned. With an empty exclusion list the node goes back to the single exclude capture. The double-sound warning now fires whenever All system audio contains an application with its own node and both reach the same output, in either mode.
+- **What was skipped, and why.** `SystemPlan.Skipped` is a list of `SkippedProcess(exe, reason, because)`: the mixer is in its process tree (`ContainsMixer`, checked first: it would be a loop), an excluded application is in its tree (`ContainsExcluded`, naming that application), or the 24-capture ceiling was reached (`CaptureLimit`). The card shows a «пропущено: N» badge whose tooltip lists every process with its reason. The subtitle reads «всё, кроме Discord, telegram.exe».
+- **Fast pickup of new applications** (`SessionNotifier`). The host subscribes to `IAudioSessionNotification::OnSessionCreated` on every playback device while the graph has App or System nodes, from its MTA control thread and after `GetSessionEnumerator`. The callback, on an audio service thread, only posts one coalesced job (the mixer's own sessions are ignored). The job takes a process and session snapshot (8–11 ms in stage 0) and rebuilds the graph if the capture set changed. The log notes how long that took from the notification («new audio session handled in N ms»). The subscription is recreated when the device list changes and after sleep. The 1 s tick stays as a fallback.
+- **Direct routes** (`GraphBuilder.DirectRouteOf`, `DirectRoute`). An App node goes direct when all of the following hold:
+  - Take over is on and `directRoute` is not off;
+  - exactly one enabled wire, into an output rather than a bus;
+  - no active processing on the node or on that output;
+  - no mono or balance;
+  - node + wire + output gain is at most 0 dB;
+  - the output is present and is not the sink.
+
+  A direct node has no captures and no engine wires. Instead `TakeOverManager` binds the application to the output itself (each exe now has its own target: the sink or the output of its direct route, `AppBinding.Target`). The `boundApps` journal covers direct bindings too, so they are reset on exit and after a crash.
+- **Switching** (`MixerHost.Rebuild`). Capture → direct: the application is bound to the output first (a partial `Reconcile`), then `Engine.Apply` fades out its capture. Direct → capture: `Engine.Apply` opens the capture with its wires switched off (the output still reads them, so the rings fill, but nothing is heard while the application still plays directly). `WaitWarm` waits until every capture has a running wire, at most 300 ms (51–60 ms on the device). Then the application moves to the sink and the wires switch on in the same instant. This is the stage 0 measurement setup, where the capture was already running at `Set`. Neither path waits for a session on the new device.
+- **A sink and an output on the same cable** (`FeedbackRules.SameCable`). An output on «CABLE In 16ch» while the sink is «CABLE Input» (or the other way round) gets a `SinkConflict` warning. Only one input of a VB-Cable can be open at a time, so applications moved to the sink fall silent or stop.
+- **Session volume and meter** (`DirectVolumes`, `AppSession`). The node level and mute (node + wire + output, at most 0 dB, mute of the node or the output) become `ISimpleAudioVolume` on the application's sessions on that output, including inactive ones, so the level is right before the first sound. A new session gets it on `OnSessionCreated`. The value is set only when it differs, so other volume controls aren't woken for nothing. The meter is the sessions' `IAudioMeterInformation`, polled 30 times a second by the control thread, multiplied by the session volume (`MeterIsPreVolume`, see deviation 43) and shown on the card and the wire.
+- **Cut-off labels** (`TrimTip`): every label that ends with an ellipsis (card name and subtitle, the toolbar hint, palette and settings rows, the processing panel title and preset) shows its full text on hover, above the label's own tooltip if it has one. The toolbar is now a three-column grid, so the hint is cut with an ellipsis instead of sliding under the zoom buttons.
+- **The `volumeApps` journal.** Windows keeps a session volume per application and device. So an exe is written to `volumeApps` in `graph.json` before its volume is first lowered. When the node leaves the direct route, its sessions go back to 100% without mute after the binding has moved. On exit this happens after the bindings are reset. After a crash it happens on the next start, as soon as the application is running (all its sessions on all playback devices). Only then is the exe struck from the journal.
+- **On the canvas**: the direct wire's pill shows a lightning bolt and «напрямую». Its tooltip reads «Прямой маршрут · 0 мс», «Firefox играет прямо в «Наушники», мимо микшера; микшер задаёт только устройство и громкость». The card subtitle is «приложение · напрямую в Наушники». The footer counts direct wires («3 провода (1 напрямую)»). The node menu has «Прямой маршрут» (available while Take over is on). `Mixer.Run run` prints direct routes with their session peaks, the volume journal and skipped processes.
+
+### Deviations from the specification
+
+40. **Two more direct-route conditions: no mono or balance on the node, no processing on the output.** Session volume can't reproduce mono or balance, and an application playing straight into the device would bypass the output's EQ and compressor. The output limiter is bypassed too, which is harmless at ≤ 0 dB.
+41. **A direct route needs Take over.** It is a binding made by the mixer, like Take over; with Take over off the user has asked the mixer not to move the application. On the other hand it needs neither a sink nor process loopback: on Windows 10 before 20348 an App node on a direct route works, and only nodes that need a capture show «недоступно».
+42. **The `volumeApps` journal goes beyond the specification.** Without it a crash would leave the application quieter on that device until someone moved its slider in the Windows volume mixer.
+43. **The session meter reads before the session volume** and is multiplied by it. The documentation says so for the endpoint meter and says nothing about sessions. Checked on 11 November 2026: a −70 dBFS tone on a direct route gave a raw session peak of −70.0 dBFS at both 0 dB and −6 dB, and the card value −76.0 at −6 dB.
+44. **Keeping applications with their own node and an empty exclusion list gives the single exclude capture**, the cheapest form; with exclusions it gives per-process captures in which those applications are not banned.
+45. **The mixer takes precedence among skip reasons**: explorer.exe, the parent of both the mixer and Discord, is reported as «в его дереве процессов работает микшер».
+46. The skipped-process list used to be in the node tooltip; it is now the «пропущено: N» badge, as the specification asks. The tooltip keeps what is captured and what is excluded.
+47. **Direct → capture warms the capture up first** (see «How it works»). Opening it at the moment of `Set` gave a 95 ms gap: the first packet, filling the ring and the output queue all came after the application had left the output.
+48. **The direct → capture gap is 55–70 ms, not ≤ 50 ms.** The application's stream has a hole while Windows moves it, and process loopback sees the same hole (stage 0). On top of that, the wire refills its ring to the 20 ms target after an underrun before it plays again, the protection against crackle from stage 1. The stage 0 tool has no such refill, and on the same day it showed 50 ms. Making the switch shorter would mean relaxing that protection at the switch, so it is left as is. Capture → direct is 0 ms.
+49. The same-cable sink warning goes beyond the specification. It was found during the device check, where a test output on CABLE In 16ch made every application moved to CABLE Input stop.
+
+### Tests
+
+`AppsV2Tests`, plus updates in `AppTests` and `EditorTests`:
+
+- exclusion of `telegram.exe` without its own node: Telegram is not captured, the others are (criterion); exclusion edits normalize the name, don't duplicate it and are structural changes; `includeOwnNodes` falls back to one capture and warns about double sound only on a shared output; with an exclusion list it keeps the app in per-process captures and warns;
+- skip reasons (mixer, excluded application with its name, capture limit) and the tooltip text;
+- direct route: one wire to an output goes direct with the summed gain and mute, no sources and no engine wires; 13 cases that keep the node on capture (second wire, bus, node or output processing, above 0 dB, mono, balance, switched off, no Take over, bindings unavailable, output disconnected, output is the sink, wire off); a disabled second wire doesn't matter; works without the app running, without a sink and without process loopback;
+- bindings per exe: direct and sink targets side by side, a target change rebinds, a partial reconcile neither releases nor clears status, «restart playback» is measured against the target;
+- session volume on fake sessions: the journal is written before the first change, only the app's sessions on that output change, leaving the direct route restores 100% and clears the journal, a crash journal waits until the app runs, a journal failure leaves the volume alone, the meter follows the level and mute, exit restores everything;
+- an output on the other input of the sink cable (CABLE In 16ch with the CABLE Input sink) is a sink conflict, another cable is not;
+- `graph.json` round trip of `exclude`, `includeOwnNodes`, `directRoute`, `volumeApps`; the store doesn't let the UI graph and the host's volume journal overwrite each other.
+
+### Running
+
+```
+Mixer.Run.exe run graph.json --watch --envelope lb --envelope-csv env.csv
+```
+
+`--watch` applies edits of `graph.json` while running, as edits from the UI would be. `--envelope <node>` records a 5 ms RMS envelope of that source (put a loopback of the output on the graph without wires). At the end it reports, for every edit, the longest gap and the amount of double sound against the level before the edit. `run` also prints direct routes with their session peaks, the volume journal and skipped processes.
+
+### Device check, 11 November 2026
+
+The application was a `Mixer.Probe tone` (−70 dBFS, automatic stream routing). The direct-route output was the fifine speakers, the sink CABLE Input, and a loopback of the fifine speakers measured the envelope (`--envelope`). Mixer.exe was closed. The runs were made by the user with a script, after the auto-mode classifier stopped further device probes from the session.
+
+1. **Direct route**: the binding moved the tone from Realtek Digital Output to the fifine speakers within 1 s of start, without restarting playback. Mixer CPU was 0.16–0.37% of the machine with no captures.
+2. **Session volume**: −6 dB on the node lowered the tone in the fifine loopback from −73.0 to −79.0 dB RMS. Back at 0 dB, the volume returned to 100% and the exe was struck from the journal. On the meter, see deviation 43.
+3. **`OnSessionCreated`**: a tone started while the mixer was running got its direct binding «new audio session handled in 35 ms from the notification».
+4. **Switching**: 4 cycles of a second wire to Realtek Digital Output on and off.
+
+   | Direction | Longest gap | Double sound |
+   | --- | --- | --- |
+   | direct → capture, capture opened at `Set` | 95 ms (all 4 cycles) | 0 ms |
+   | direct → capture, capture warmed up first (final) | 55–70 ms | 0 ms |
+   | capture → direct | 0 ms | 0–10 ms |
+   | stage 0 tool on the same devices, same day (control) | 50 ms / 15 ms | 0 ms |
+
+5. **Found on the way: two inputs of one cable.** In the first runs the second output was CABLE In 16ch. While the mixer held it open, every move of the tone into CABLE Input ended with `AUDCLNT_E_NOT_INITIALIZED`, and the tone stopped. Variants with a stereo capture format, a capture 3 s old, no session handles and a fresh exe all failed the same way. With CABLE Input kept open by the mixer, the mixer reported CABLE In 16ch as «занято другим приложением», and the tone survived. Hence the new warning (deviation 49).
+6. **The fifine speakers were unreliable at times.** In the first two runs `IAudioClient.Initialize` hung for 22 s and more than 60 s right at start, before any binding touched the device; later runs opened them in 1–6 s.
+
+### Status as of 11 November 2026
+
+- Done: exclusions and skipped processes, `OnSessionCreated`, direct routes with session volume and meter, the same-cable sink warning. 264 tests pass (2 manual tuning sweeps skipped). The solution builds without warnings.
+- Checked on devices: the direct route, session volume and meter, pickup of a new application (35 ms), switching gaps (see the table).
+- **Not checked on devices**: Discord and a game (not used on this machine), exclusions and the skipped badge with real processes, the volume journal after killing the mixer, the UI with the engine (the direct pill, the skipped badge).
 
 ## Localization
 

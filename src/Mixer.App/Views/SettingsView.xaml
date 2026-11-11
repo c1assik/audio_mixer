@@ -166,8 +166,8 @@
                                 <Ellipse Width="8" Height="8" Fill="{StaticResource Accent}" HorizontalAlignment="Left" Margin="4,0,0,0"
                                          Visibility="{Binding IsCurrent, Converter={StaticResource Vis}}" />
                                 <StackPanel Grid.Column="1">
-                                    <TextBlock Text="{Binding Title}" FontWeight="Medium" Foreground="{StaticResource Text}" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Text="{Binding Subtitle}" FontSize="12" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding Title}" FontWeight="Medium" Foreground="{StaticResource Text}" TextTrimming="CharacterEllipsis" ui:TrimTip.IsEnabled="True" />
+                                    <TextBlock Text="{Binding Subtitle}" FontSize="12" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis" ui:TrimTip.IsEnabled="True" />
                                 </StackPanel>
                                 <TextBlock Grid.Column="2" Text="{x:Static res:Strings.Settings_Checking}" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center"
                                            Visibility="{Binding IsChecking, Converter={StaticResource Vis}}" />
@@ -186,7 +186,7 @@
                                 ToolTip="{x:Static res:Strings.Settings_VolumeMixerTip}" />
                     </StackPanel>
                     <TextBlock Text="{Binding LoopbackText}" Foreground="{StaticResource Faint}" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center"
-                               TextTrimming="CharacterEllipsis" MaxWidth="240" ToolTip="{Binding LoopbackText}" />
+                               TextTrimming="CharacterEllipsis" MaxWidth="240" ui:TrimTip.IsEnabled="True" />
                 </Grid>
             </Border>
         </Grid>

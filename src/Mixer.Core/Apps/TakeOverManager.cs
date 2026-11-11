@@ -23,10 +23,13 @@ public sealed record AppBinding(string Exe, BindingState State, string? Message 
 {
     /// <summary>Привязка стоит, но активная сессия приложения ещё на прежнем устройстве: нужно перезапустить воспроизведение.</summary>
     public bool PlaysDirect { get; init; }
+    /// <summary>Куда привязано (Bound): заглушка или выход прямого маршрута.</summary>
+    public string? Target { get; init; }
 }
 
 /// <summary>
 /// Режим «Забрать себе»: вывод приложений перенаправляется в заглушку, их звук остаётся только в захвате микшера.
+/// Приложение на прямом маршруте привязывается не к заглушке, а прямо к своему выходу (v2).
 /// Привязка хранится в Windows за exe и переживает и приложение, и микшер, поэтому каждое приложение с привязкой
 /// записано в журнал boundApps <b>до</b> вызова Set и вычёркивается только после успешного сброса.
 /// Вызывается из одного управляющего потока, без блокировок.
@@ -35,9 +38,9 @@ public sealed class TakeOverManager(IAppEndpointPolicy policy, IBindingJournal j
 {
     public static readonly ERole[] Roles = [ERole.Console, ERole.Multimedia, ERole.Communications];
 
-    private readonly Dictionary<string, HashSet<uint>> _applied = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>exe → куда привязано и на каких PID это уже подтверждено.</summary>
+    private readonly Dictionary<string, (string Target, HashSet<uint> Pids)> _applied = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, AppBinding> _status = new(StringComparer.OrdinalIgnoreCase);
-    private string? _appliedSink;
 
     public IReadOnlyDictionary<string, AppBinding> Status => _status;
 
@@ -45,27 +48,29 @@ public sealed class TakeOverManager(IAppEndpointPolicy policy, IBindingJournal j
     /// Привести привязки к желаемому: desired — exe узлов с «Забрать себе», sinkId — проверенная заглушка
     /// (null — режим недоступен, все привязки снимаются). Остальное из журнала сбрасывается, если процесс жив.
     /// </summary>
-    public void Reconcile(IEnumerable<string> desired, string? sinkId, AppSnapshot world, string? unavailableReason = null)
+    public void Reconcile(IEnumerable<string> desired, string? sinkId, AppSnapshot world, string? unavailableReason = null) =>
+        Reconcile(desired.Select(ProcessSnapshot.NormalizeExe).Distinct(StringComparer.OrdinalIgnoreCase).ToDictionary(e => e, _ => sinkId),
+            world, unavailableReason);
+
+    /// <summary>
+    /// То же с целью для каждого exe: заглушка или выход прямого маршрута; null — режим для exe недоступен
+    /// (unavailableReason), привязка снимается. partial — только поставить перечисленные привязки, ничего не снимая
+    /// (переход на прямой маршрут до перестройки движка: сначала приложение уходит в выход, потом гаснет захват).
+    /// </summary>
+    public void Reconcile(IReadOnlyDictionary<string, string?> desired, AppSnapshot world, string? unavailableReason = null, bool partial = false)
     {
-        if (!string.Equals(sinkId, _appliedSink, StringComparison.OrdinalIgnoreCase))
+        var want = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (exe, target) in desired) want.TryAdd(ProcessSnapshot.NormalizeExe(exe), target);
+        if (!partial) _status.Clear();
+        foreach (var (exe, target) in want)
         {
-            _applied.Clear(); // заглушка сменилась: всё ставится заново
-            _appliedSink = sinkId;
+            if (target is not null) Bind(exe, target, world);
+            else if (!partial) _status[exe] = new AppBinding(exe, BindingState.Unavailable, unavailableReason ?? CoreStrings.Bind_NoSink);
         }
-
-        var want = desired.Select(ProcessSnapshot.NormalizeExe).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        _status.Clear();
-        if (sinkId is null)
-        {
-            foreach (string exe in want)
-                _status[exe] = new AppBinding(exe, BindingState.Unavailable, unavailableReason ?? CoreStrings.Bind_NoSink);
-            want.Clear();
-        }
-
-        foreach (string exe in want) Bind(exe, sinkId!, world);
+        if (partial) return;
         foreach (string exe in journal.Apps.ToList())
         {
-            if (want.Contains(exe)) continue;
+            if (want.GetValueOrDefault(exe) is not null) continue;
             var r = Release(exe, world);
             // недоступный режим не затирает объяснение у узла, но о сбросе тоже надо знать
             if (!_status.ContainsKey(exe) && r is not null) _status[exe] = r;
@@ -84,7 +89,7 @@ public sealed class TakeOverManager(IAppEndpointPolicy policy, IBindingJournal j
         _applied.Clear();
     }
 
-    private void Bind(string exe, string sinkId, AppSnapshot world)
+    private void Bind(string exe, string target, AppSnapshot world)
     {
         var targets = world.BindingTargets(exe);
         if (targets.Count == 0)
@@ -108,26 +113,28 @@ public sealed class TakeOverManager(IAppEndpointPolicy policy, IBindingJournal j
             }
         }
 
-        if (!_applied.TryGetValue(exe, out var applied)) _applied[exe] = applied = [];
+        if (!_applied.TryGetValue(exe, out var entry) || !string.Equals(entry.Target, target, StringComparison.OrdinalIgnoreCase))
+            _applied[exe] = entry = (target, []); // цель сменилась: всё ставится заново
+        var applied = entry.Pids;
         applied.IntersectWith(targets); // завершившиеся процессы забываем
 
         string? failure = null;
         foreach (uint pid in targets)
         {
             if (applied.Contains(pid)) continue;
-            switch (Apply(pid, sinkId, out string? error))
+            switch (Apply(pid, target, out string? error))
             {
                 case ApplyResult.Ok: applied.Add(pid); break;
                 case ApplyResult.Failed: failure ??= error; break;
             }
         }
 
-        bool direct = world.SessionsOf(exe).Any(s => s.IsActive && !string.Equals(s.EndpointId, sinkId, StringComparison.OrdinalIgnoreCase));
+        bool direct = world.SessionsOf(exe).Any(s => s.IsActive && !string.Equals(s.EndpointId, target, StringComparison.OrdinalIgnoreCase));
         _status[exe] = failure is not null
             ? new AppBinding(exe, BindingState.Failed, Loc.F(CoreStrings.Bind_FailedFormat, failure))
             : applied.Count == 0
                 ? new AppBinding(exe, BindingState.WaitingAudio, CoreStrings.Bind_NoAudioYet)
-                : new AppBinding(exe, BindingState.Bound, direct ? CoreStrings.Bind_PlaysDirect : null) { PlaysDirect = direct };
+                : new AppBinding(exe, BindingState.Bound, direct ? CoreStrings.Bind_PlaysDirect : null) { PlaysDirect = direct, Target = target };
     }
 
     /// <summary>Сбросить привязку exe. null — сброшено и вычеркнуто из журнала.</summary>

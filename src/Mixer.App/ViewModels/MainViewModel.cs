@@ -328,6 +328,12 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     public void SetColor(NodeViewModel n, string hex) => Edit(g => GraphEdits.UpdateNode(g, n.Id, c => c with { Color = hex }));
 
+    /// <summary>Исключить exe из «Весь звук системы» или вернуть его туда.</summary>
+    public void SetExcluded(NodeViewModel n, string exe, bool excluded) => Edit(g => GraphEdits.SetExcluded(g, n.Id, exe, excluded));
+
+    /// <summary>Приложения со звуком на последнем такте хоста (кандидаты в исключения).</summary>
+    public IReadOnlyList<string> PlayingApps => _host?.Status.PlayingApps ?? [];
+
     public void SetSink(string? endpointId) => Edit(g => GraphEdits.SetSink(g, endpointId));
 
     /// <summary>Добавить узел из палитры. atY — где на холсте открыли палитру (правый клик), иначе вниз колонки.</summary>

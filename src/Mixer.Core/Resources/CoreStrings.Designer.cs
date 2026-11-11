@@ -181,9 +181,6 @@ public static class CoreStrings
     /// <summary>error: {0}</summary>
     public static string Bind_StateErrorFormat => Get("Bind_StateErrorFormat");
 
-    /// <summary>{0} (capture limit)</summary>
-    public static string System_CaptureLimitFormat => Get("System_CaptureLimitFormat");
-
     /// <summary>graph.json is empty</summary>
     public static string Config_Empty => Get("Config_Empty");
 
@@ -228,4 +225,10 @@ public static class CoreStrings
 
     /// <summary>Music — quieter and smoother</summary>
     public static string Preset_MusicSmooth => Get("Preset_MusicSmooth");
+
+    /// <summary>couldn’t set the app’s volume: {0}</summary>
+    public static string Direct_VolumeFailedFormat => Get("Direct_VolumeFailedFormat");
+
+    /// <summary>“{0}” and the “Take over” sink “{1}” are two inputs of the same virtual cable, and only one of them can be open at a time: while this output plays, apps moved to the sink fall silent or stop. Pick another sink or another output</summary>
+    public static string Issue_SinkSameCableFormat => Get("Issue_SinkSameCableFormat");
 }

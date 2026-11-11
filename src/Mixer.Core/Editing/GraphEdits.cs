@@ -26,6 +26,20 @@ public static class GraphEdits
         Wires = g.Wires.Where(w => w.From != id && w.To != id).ToList(),
     };
 
+    /// <summary>Добавить exe в исключения узла «Весь звук системы» или убрать его оттуда (имя нормализуется, дубли не пишутся).</summary>
+    public static GraphConfig SetExcluded(GraphConfig g, string id, string exe, bool excluded)
+    {
+        if (string.IsNullOrWhiteSpace(exe)) return g;
+        string name = Sys.ProcessSnapshot.NormalizeExe(exe);
+        return UpdateNode(g, id, n =>
+        {
+            var list = (n.Exclude ?? []).Where(e => !Sys.ProcessSnapshot.NormalizeExe(e).Equals(name, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (excluded) list.Add(name);
+            list.Sort(StringComparer.Ordinal);
+            return n with { Exclude = list.Count == 0 ? null : list };
+        });
+    }
+
     public static GraphConfig UpdateNode(GraphConfig g, string id, Func<NodeConfig, NodeConfig> change)
     {
         bool hit = false;

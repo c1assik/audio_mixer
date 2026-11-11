@@ -258,10 +258,11 @@ public class EditorTests
         store.Changed(edited);
         Assert.True(store.IsDirty);
         // хост пишет журнал со своим (старым) графом — правка интерфейса не теряется
-        store.SaveJournal(g with { BoundApps = ["discord.exe"] });
+        store.SaveJournal(g with { BoundApps = ["discord.exe"], VolumeApps = ["firefox.exe"] });
         var disk = GraphSerializer.Load(path);
         Assert.Equal("Голос", GraphEdits.Find(disk, "mic")!.Name);
         Assert.Equal(new[] { "discord.exe" }, disk.BoundApps);
+        Assert.Equal(new[] { "firefox.exe" }, disk.VolumeApps);
         Assert.False(store.IsDirty);
         // и наоборот: граф интерфейса со старым журналом журнал не откатывает
         store.Changed(GraphEdits.UpdateNode(edited, "mic", n => n with { GainDb = -5 }));
@@ -269,6 +270,7 @@ public class EditorTests
         disk = GraphSerializer.Load(path);
         Assert.Equal(-5, GraphEdits.Find(disk, "mic")!.GainDb);
         Assert.Equal(new[] { "discord.exe" }, disk.BoundApps);
+        Assert.Equal(new[] { "firefox.exe" }, disk.VolumeApps);
     }
 
     [Fact]

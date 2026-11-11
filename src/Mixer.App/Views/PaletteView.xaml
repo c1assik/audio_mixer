@@ -112,8 +112,8 @@
                                         </Grid>
                                     </Border>
                                     <StackPanel Grid.Column="1" Margin="12,0,8,0" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Title}" FontWeight="Medium" Foreground="{StaticResource Text}" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Text="{Binding Subtitle}" FontSize="12" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding Title}" FontWeight="Medium" Foreground="{StaticResource Text}" TextTrimming="CharacterEllipsis" ui:TrimTip.IsEnabled="True" />
+                                        <TextBlock Text="{Binding Subtitle}" FontSize="12" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis" ui:TrimTip.IsEnabled="True" />
                                     </StackPanel>
                                     <!-- «играет звук» -->
                                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Height="14"

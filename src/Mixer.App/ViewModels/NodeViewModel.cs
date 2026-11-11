@@ -43,6 +43,9 @@ public sealed partial class NodeViewModel : ObservableObject
     public bool HasOutPort => Config.HasOutPort;
     public NodeColumn Column => Config.Column;
     public bool IsApp => Kind == NodeKind.App;
+    public bool IsSystem => Kind == NodeKind.System;
+    /// <summary>Исключения узла «Весь звук системы» (нормализованные exe).</summary>
+    public IReadOnlyList<string> Exclude => Config.Exclude ?? [];
     public bool HasDevice => Kind is NodeKind.DeviceInput or NodeKind.Loopback or NodeKind.DeviceOutput;
     public bool IsCable => Config.DefaultRole is null && Config.EndpointName is { } n && FeedbackRules.IsVirtualCable(n);
     /// <summary>Узел «Устройство по умолчанию»: устройство меняется вслед за Windows.</summary>
@@ -57,6 +60,10 @@ public sealed partial class NodeViewModel : ObservableObject
     [ObservableProperty] private bool _mono;
     [ObservableProperty] private double _balance;
     [ObservableProperty] private bool _takeOver;
+    /// <summary>Прямой маршрут разрешён (настройка узла «Приложение»).</summary>
+    [ObservableProperty] private bool _directRoute;
+    /// <summary>«Весь звук системы»: не исключать приложения со своим узлом.</summary>
+    [ObservableProperty] private bool _includeOwnNodes;
 
     // ── состояние (опрос 4 раза в секунду) ──
     [ObservableProperty] private string _subtitle = "";
@@ -67,6 +74,11 @@ public sealed partial class NodeViewModel : ObservableObject
     [ObservableProperty] private string? _limiterText;
     [ObservableProperty] private string? _tooltip;
     [ObservableProperty] private ImageSource? _appIcon;
+    /// <summary>Узел сейчас на прямом маршруте: звук идёт мимо микшера.</summary>
+    [ObservableProperty] private bool _isDirect;
+    /// <summary>«Весь звук системы»: значок «пропущено: N» (null — пропущенных нет) и список с причинами.</summary>
+    [ObservableProperty] private string? _skippedText;
+    [ObservableProperty] private string? _skippedTip;
 
     // ── взаимодействие ──
     [ObservableProperty] private bool _isSelected;
@@ -103,6 +115,9 @@ public sealed partial class NodeViewModel : ObservableObject
     /// <summary>Цепочки обработки узла в движке (по экземпляру на захват или на выход шины).</summary>
     internal ProcessingChain[] EngineChains = [];
     internal double NextIconTry;
+    /// <summary>Прямой маршрут: индикатор сессии приложения от хоста и его последние пики (их же показывает провод).</summary>
+    internal Mixer.Audio.Dsp.PeakMeter? DirectMeter;
+    internal (float L, float R) DirectPeak;
 
     public Brush ColorBrush { get; private set; } = Brushes.Gray;
     public Brush TintBrush { get; private set; } = Brushes.Transparent;
@@ -126,6 +141,7 @@ public sealed partial class NodeViewModel : ObservableObject
     public bool ShowBody => Look == NodeLook.Normal;
     public bool HasWarnings => !string.IsNullOrEmpty(Warnings);
     public bool HasLimiter => LimiterText is not null;
+    public bool HasSkipped => SkippedText is not null;
 
     /// <summary>Центр выходного порта на холсте (справа у источника и шины).</summary>
     public Point OutPoint => new(X + GraphLayout.CardWidth, Y + GraphLayout.PortY);
@@ -151,6 +167,8 @@ public sealed partial class NodeViewModel : ObservableObject
             Mono = c.Mono ?? false;
             Balance = c.Balance ?? 0;
             TakeOver = GraphBuilder.TakesOver(c);
+            DirectRoute = c.DirectRoute ?? true;
+            IncludeOwnNodes = c.IncludeOwnNodes ?? false;
             HasGate = c.Chain?.Gate.Enabled == true;
             HasEq = c.Chain?.Eq.Enabled == true;
             HasComp = c.Chain?.Comp.Enabled == true;
@@ -217,6 +235,18 @@ public sealed partial class NodeViewModel : ObservableObject
     {
         if (!_loading) _owner.Edit(g => GraphEdits.UpdateNode(g, Id, n => n with { TakeOver = value }));
     }
+
+    partial void OnDirectRouteChanged(bool value)
+    {
+        if (!_loading) _owner.Edit(g => GraphEdits.UpdateNode(g, Id, n => n with { DirectRoute = value ? null : false }));
+    }
+
+    partial void OnIncludeOwnNodesChanged(bool value)
+    {
+        if (!_loading) _owner.Edit(g => GraphEdits.UpdateNode(g, Id, n => n with { IncludeOwnNodes = value ? true : null }));
+    }
+
+    partial void OnSkippedTextChanged(string? value) => OnPropertyChanged(nameof(HasSkipped));
 
     partial void OnLookChanged(NodeLook value) => OnPropertyChanged(nameof(ShowBody));
     partial void OnHasGateChanged(bool value) => OnPropertyChanged(nameof(ShowFx));

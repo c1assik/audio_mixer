@@ -58,6 +58,15 @@ public static class NodeMenus
         if (n.IsApp)
         {
             menu.Items.Add(Check(Strings.Node_TakeOver, n.TakeOver, () => n.TakeOver = !n.TakeOver, Strings.Node_TakeOverTip));
+            var direct = Check(Strings.Node_DirectRoute, n.DirectRoute, () => n.DirectRoute = !n.DirectRoute, Strings.Node_DirectRouteTip);
+            direct.IsEnabled = n.TakeOver; // прямой маршрут — разновидность «Забрать себе»: приложение переназначает микшер
+            ToolTipService.SetShowOnDisabled(direct, true);
+            menu.Items.Add(direct);
+        }
+        if (n.IsSystem)
+        {
+            menu.Items.Add(ExcludeItem(main, n));
+            menu.Items.Add(Check(Strings.Node_IncludeOwnNodes, n.IncludeOwnNodes, () => n.IncludeOwnNodes = !n.IncludeOwnNodes, Strings.Node_IncludeOwnNodesTip));
         }
         if (n.HasDevice) menu.Items.Add(DeviceItem(main, n));
         if (n.IsSource) menu.Items.Add(ColorItem(main, n));
@@ -92,6 +101,57 @@ public static class NodeMenus
         if (routes.Items.Count == 0)
             routes.Items.Add(new MenuItem { Header = outgoing ? Strings.Node_AddOutputFirst : Strings.Node_AddSourceFirst, IsEnabled = false });
         return routes;
+    }
+
+    /// <summary>
+    /// «Исключить приложения»: исключённые (галочка, клик возвращает), затем играющие сейчас (клик исключает) и поле
+    /// для любого exe — чтобы убрать приложение до того, как оно зазвучит.
+    /// </summary>
+    private static MenuItem ExcludeItem(MainViewModel main, NodeViewModel n)
+    {
+        var item = new MenuItem { Header = Strings.Node_Exclude, ToolTip = Strings.Node_ExcludeTip };
+        var excluded = n.Exclude.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (string exe in n.Exclude)
+        {
+            string e = exe;
+            var mi = new MenuItem { Header = e, IsCheckable = true, IsChecked = true };
+            mi.Click += (_, _) => main.SetExcluded(n, e, false);
+            item.Items.Add(mi);
+        }
+        if (item.Items.Count > 0) item.Items.Add(new Separator());
+
+        var own = main.Nodes.Where(x => x.IsApp && x.Config.Exe is { Length: > 0 }).Select(x => Mixer.Core.Sys.ProcessSnapshot.NormalizeExe(x.Config.Exe!))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var playing = main.PlayingApps.Where(e => !excluded.Contains(e) && (n.IncludeOwnNodes || !own.Contains(e))).ToList();
+        item.Items.Add(new MenuItem { Header = Strings.Node_ExcludeNowPlaying, IsEnabled = false });
+        foreach (string exe in playing)
+        {
+            string e = exe;
+            var mi = new MenuItem { Header = e, IsCheckable = true, IsChecked = false };
+            mi.Click += (_, _) => main.SetExcluded(n, e, true);
+            item.Items.Add(mi);
+        }
+        if (playing.Count == 0) item.Items.Add(new MenuItem { Header = Strings.Node_ExcludeNothing, IsEnabled = false });
+        item.Items.Add(new Separator());
+
+        var box = new TextBox { Width = 150, Margin = new Thickness(6, 0, 0, 0), ToolTip = Strings.Node_ExcludeOtherTip };
+        box.KeyDown += (_, e) =>
+        {
+            if (e.Key != System.Windows.Input.Key.Enter || string.IsNullOrWhiteSpace(box.Text)) return;
+            main.SetExcluded(n, box.Text, true);
+            e.Handled = true;
+            for (DependencyObject? p = item; p is not null; p = LogicalTreeHelper.GetParent(p))
+                if (p is ContextMenu cm)
+                {
+                    cm.IsOpen = false;
+                    break;
+                }
+        };
+        var row = new StackPanel { Orientation = Orientation.Horizontal };
+        row.Children.Add(new TextBlock { Text = Strings.Node_ExcludeOther, VerticalAlignment = VerticalAlignment.Center });
+        row.Children.Add(box);
+        item.Items.Add(new MenuItem { Header = row, StaysOpenOnClick = true, ToolTip = Strings.Node_ExcludeOtherTip });
+        return item;
     }
 
     private static MenuItem BalanceItem(MainViewModel main, NodeViewModel n)

@@ -281,9 +281,6 @@
   <data name="NodeSub_DeviceDisconnected" xml:space="preserve">
     <value>device unplugged</value>
   </data>
-  <data name="NodeSub_SystemExceptApps" xml:space="preserve">
-    <value>everything except apps with their own node</value>
-  </data>
   <data name="NodeSub_SystemExceptMixer" xml:space="preserve">
     <value>everything except the mixer</value>
   </data>
@@ -392,10 +389,6 @@
   </data>
   <data name="NodeTip_SystemCapturedFormat" xml:space="preserve">
     <value>Captured per process: {0}.</value>
-    <comment>{0} = exe names</comment>
-  </data>
-  <data name="NodeTip_SystemSkippedFormat" xml:space="preserve">
-    <value>Not captured: {0}. Their process tree contains the mixer or an app with its own node, and Windows can’t cut part of a tree out of a capture.</value>
     <comment>{0} = exe names</comment>
   </data>
   <data name="NodeName_DefaultMic" xml:space="preserve">
@@ -1057,5 +1050,84 @@
   </data>
   <data name="Fx_TypeOff" xml:space="preserve">
     <value>Off</value>
+  </data>
+  <data name="Node_DirectRoute" xml:space="preserve">
+    <value>Direct route</value>
+  </data>
+  <data name="Node_DirectRouteTip" xml:space="preserve">
+    <value>When the node goes to exactly one output and does nothing to the audio, the mixer doesn’t capture it: it sends the app straight to that output and sets its volume. No added latency or CPU. A second wire, processing or a level above 0 dB switch the node back to capture.</value>
+  </data>
+  <data name="Node_Exclude" xml:space="preserve">
+    <value>Exclude apps</value>
+  </data>
+  <data name="Node_ExcludeTip" xml:space="preserve">
+    <value>These apps don’t get into All system audio, even without a node of their own</value>
+  </data>
+  <data name="Node_ExcludeNowPlaying" xml:space="preserve">
+    <value>Playing now</value>
+  </data>
+  <data name="Node_ExcludeNothing" xml:space="preserve">
+    <value>Nothing else is playing right now</value>
+  </data>
+  <data name="Node_ExcludeOther" xml:space="preserve">
+    <value>Other app:</value>
+  </data>
+  <data name="Node_ExcludeOtherTip" xml:space="preserve">
+    <value>Type the exe name, for example telegram.exe, and press Enter</value>
+  </data>
+  <data name="Node_IncludeOwnNodes" xml:space="preserve">
+    <value>Keep apps that have their own node</value>
+  </data>
+  <data name="Node_IncludeOwnNodesTip" xml:space="preserve">
+    <value>Off by default: an app with its own node is removed from All system audio so you don’t hear it twice. Turn this on when the app’s node and All system audio go to different outputs.</value>
+  </data>
+  <data name="NodeSub_SystemExceptFormat" xml:space="preserve">
+    <value>everything except {0}</value>
+    <comment>{0} = app names</comment>
+  </data>
+  <data name="NodeSub_AppDirectFormat" xml:space="preserve">
+    <value>app · direct to {0}</value>
+    <comment>{0} = short device name</comment>
+  </data>
+  <data name="Node_SkippedFormat" xml:space="preserve">
+    <value>skipped: {0}</value>
+    <comment>Badge on the All system audio card; {0} = count</comment>
+  </data>
+  <data name="NodeTip_SkippedHeader" xml:space="preserve">
+    <value>Not captured:</value>
+  </data>
+  <data name="Skip_ContainsMixerFormat" xml:space="preserve">
+    <value>{0}: the mixer runs inside its process tree, so capturing it would feed the mixer back into itself</value>
+    <comment>{0} = exe</comment>
+  </data>
+  <data name="Skip_ContainsExcludedFormat" xml:space="preserve">
+    <value>{0}: {1} runs inside its process tree and is excluded, and Windows can’t cut part of a tree out of a capture</value>
+    <comment>{0} = exe, {1} = excluded exe</comment>
+  </data>
+  <data name="Skip_CaptureLimitFormat" xml:space="preserve">
+    <value>{0}: already {1} captures, no more are opened</value>
+    <comment>{0} = exe, {1} = limit</comment>
+  </data>
+  <data name="NodeTip_SystemUserExcludedFormat" xml:space="preserve">
+    <value>Excluded by you: {0}.</value>
+    <comment>{0} = exe names</comment>
+  </data>
+  <data name="NodeTip_SystemIncludesOwnNodes" xml:space="preserve">
+    <value>Apps with their own node are heard here too.</value>
+  </data>
+  <data name="Wire_Direct" xml:space="preserve">
+    <value>direct</value>
+    <comment>Pill on a direct-route wire</comment>
+  </data>
+  <data name="Wire_TooltipDirect" xml:space="preserve">
+    <value>Direct route · 0 ms</value>
+  </data>
+  <data name="Wire_TooltipDirectFormat" xml:space="preserve">
+    <value>{0} plays straight to {1}, bypassing the mixer; the mixer only sets its device and volume.</value>
+    <comment>{0} = app node, {1} = output node</comment>
+  </data>
+  <data name="Status_WiresDirectFormat" xml:space="preserve">
+    <value>{0} ({1} direct)</value>
+    <comment>{0} = wires with Plural_Wire, {1} = count</comment>
   </data>
 </root>
