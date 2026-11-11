@@ -61,6 +61,13 @@ public static class Fmt
     }
 
     /// <summary>Первая буква — заглавная (причина из Core вставляется в начало фразы).</summary>
+    /// <summary>Перечисление: «А», «А и Б», «А, Б и В».</summary>
+    public static string List(IEnumerable<string> items)
+    {
+        var l = items.ToList();
+        return l.Count < 2 ? string.Concat(l) : F(Strings.List_AndFormat, string.Join(", ", l.Take(l.Count - 1)), l[^1]);
+    }
+
     public static string Capitalize(string s) => s.Length == 0 ? s : char.ToUpper(s[0], C) + s[1..];
 
     /// <summary>Имя устройства без драйвера в скобках: «Динамики (fifine)» → «Динамики».</summary>

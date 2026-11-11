@@ -1032,4 +1032,40 @@ public static class Strings
 
     /// <summary>{0} ({1} direct)</summary>
     public static string Status_WiresDirectFormat => Get("Status_WiresDirectFormat");
+
+    /// <summary>Low latency</summary>
+    public static string Node_LowLatency => Get("Node_LowLatency");
+
+    /// <summary>Low latency (experimental)</summary>
+    public static string Node_LowLatencyInput => Get("Node_LowLatencyInput");
+
+    /// <summary>Opens the device with the smallest period its driver allows (IAudioClient3): down to 2.7 ms instead of 10 ms. The small period switches the whole Windows audio engine on this device into the same mode, for every app, and slightly raises system CPU use. If the device glitches more than 3 times a minute, the node goes back to 10 ms by itself. Many drivers only allow 10 ms; then nothing changes.</summary>
+    public static string Node_LowLatencyTip => Get("Node_LowLatencyTip");
+
+    /// <summary>On inputs the mode is experimental: with some drivers a capture stream with a small period glitches.</summary>
+    public static string Node_LowLatencyInputNote => Get("Node_LowLatencyInputNote");
+
+    /// <summary>Low latency: period {0} instead of {1}</summary>
+    public static string NodeTip_LowLatencyActiveFormat => Get("NodeTip_LowLatencyActiveFormat");
+
+    /// <summary>Low latency is not available: the driver’s smallest period is {0}</summary>
+    public static string NodeTip_LowLatencyUnsupportedFormat => Get("NodeTip_LowLatencyUnsupportedFormat");
+
+    /// <summary>Low latency didn’t start ({0}); the device runs with the usual period</summary>
+    public static string NodeTip_LowLatencyUnavailableFormat => Get("NodeTip_LowLatencyUnavailableFormat");
+
+    /// <summary>Low latency is off: more than {0} glitches within a minute. The node went back to the usual {1} period. To try again, turn “Low latency” off and on in the node menu.</summary>
+    public static string NodeWarn_LowLatencyFellBackFormat => Get("NodeWarn_LowLatencyFellBackFormat");
+
+    /// <summary>The layout was moved over from version 1. {0} go to the same outputs ({1}). Group them into a bus? One fader for the group, fewer wires, levels stay the same.</summary>
+    public static string Migrate_GroupOfferFormat => Get("Migrate_GroupOfferFormat");
+
+    /// <summary>Group into a bus</summary>
+    public static string Migrate_GroupAccept => Get("Migrate_GroupAccept");
+
+    /// <summary>No thanks</summary>
+    public static string Migrate_GroupDismiss => Get("Migrate_GroupDismiss");
+
+    /// <summary>{0} and {1}</summary>
+    public static string List_AndFormat => Get("List_AndFormat");
 }

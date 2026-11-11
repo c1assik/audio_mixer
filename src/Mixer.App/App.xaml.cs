@@ -118,7 +118,8 @@ public partial class App : Application
         if (prefsError is not null) _log.Write("app", $"settings not read ({prefsError}), using defaults");
         _log.Write("app", $"start {typeof(App).Assembly.GetName().Version}, Windows {Environment.OSVersion.Version}, " +
                           $"UI {CultureInfo.CurrentUICulture.Name}, graph {path}" + (opt.NoAudio ? ", no audio (--no-audio)" : ""));
-        var graph = GraphStore.LoadOrEmpty(path, out string? loadError);
+        var graph = GraphStore.LoadOrEmpty(path, out string? loadError, out bool upgraded);
+        if (upgraded) _log.Write("store", $"graph upgraded to version {GraphConfig.CurrentVersion}, original kept next to it");
         if (loadError is not null) _log.Write("store", loadError);
         _log.Write("store", $"graph: {graph.Nodes.Count} nodes, {graph.Wires.Count} wires" +
                             (graph.BoundApps.Count > 0 ? $", redirect journal: {string.Join(", ", graph.BoundApps)}" : ""));
@@ -136,6 +137,7 @@ public partial class App : Application
 
         _vm = new MainViewModel(graph, _store, _host, loadError) { Preferences = prefs };
         _vm.RestartRequested += Restart;
+        if (upgraded) _vm.OfferGrouping();
         var window = new MainWindow { DataContext = _vm };
         MainWindow = window;
         window.Show();

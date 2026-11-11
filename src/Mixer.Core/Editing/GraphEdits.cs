@@ -89,6 +89,33 @@ public static class GraphEdits
     /// Выход, для которого такой раскладки нет (уровни расходятся по-разному), остаётся на прямых проводах.
     /// Шина без общих выходов тоже создаётся: она только получает входы, звук не меняется.
     /// </summary>
+    /// <summary>
+    /// Что предложить сгруппировать после переноса схемы v1 (v2, «Перенос с v1»): источники с одинаковым набором выходов.
+    /// Берутся включённые провода прямо в выходы; источник, у которого уже есть провод в шину, не предлагается.
+    /// Группа — от двух источников и от двух общих выходов: с одним выходом шина проводов не убавит.
+    /// </summary>
+    public static IReadOnlyList<IReadOnlyList<string>> GroupSuggestions(GraphConfig g)
+    {
+        var byId = g.Nodes.GroupBy(n => n.Id).ToDictionary(x => x.Key, x => x.First());
+        var groups = new Dictionary<string, List<string>>();
+        var order = new List<string>();
+        foreach (var n in g.Nodes.Where(n => n.IsSource).OrderBy(n => n.Y))
+        {
+            var wires = g.Wires.Where(w => w.From == n.Id && w.Enabled).ToList();
+            if (wires.Any(w => byId.GetValueOrDefault(w.To)?.IsBus == true)) continue;
+            var outs = wires.Where(w => byId.GetValueOrDefault(w.To)?.IsOutput == true).Select(w => w.To).Distinct().Order(StringComparer.Ordinal).ToList();
+            if (outs.Count < 2) continue;
+            string key = string.Join('\u0001', outs);
+            if (!groups.TryGetValue(key, out var list))
+            {
+                groups[key] = list = [];
+                order.Add(key);
+            }
+            list.Add(n.Id);
+        }
+        return order.Select(k => groups[k]).Where(l => l.Count >= 2).Select(l => (IReadOnlyList<string>)l).ToList();
+    }
+
     public static GroupResult GroupIntoBus(GraphConfig g, IReadOnlyList<string> members, NodeConfig bus)
     {
         var nodes = members.Distinct().Select(id => Find(g, id)).ToList();

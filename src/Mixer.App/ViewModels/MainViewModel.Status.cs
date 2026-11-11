@@ -246,6 +246,12 @@ public sealed partial class MainViewModel
             }
         }
         if (c.Muted && error is null && wait is null) sub = Strings.NodeSub_Muted;
+        var lowLatency = c.LowLatencyOn ? n.EngineNodes.FirstOrDefault(e => e.State == NodeState.Running)?.LowLatency : null;
+        if (lowLatency is { Status: LowLatencyStatus.FellBack } fb)
+        {
+            warn = true;
+            warnings.Add(Fmt.F(Strings.NodeWarn_LowLatencyFellBackFormat, GlitchWindow.Limit, Fmt.Millis(fb.DefaultMs)));
+        }
 
         if (n.IsBus)
         {
@@ -327,6 +333,7 @@ public sealed partial class MainViewModel
                 current is null ? Strings.NodeTip_DefaultNowNone : Fmt.F(Strings.NodeTip_DefaultNowFormat, current.Name)),
             _ => c.EndpointName,
         };
+        if (LowLatencyTip(lowLatency) is { } llTip) n.Tooltip = string.IsNullOrEmpty(n.Tooltip) ? llTip : n.Tooltip + "\n\n" + llTip;
 
         if (c.Kind == NodeKind.App && n.AppIcon is null && _now >= n.NextIconTry)
         {
@@ -334,6 +341,15 @@ public sealed partial class MainViewModel
             n.AppIcon = AppIcons.ForExe(ProcessSnapshot.NormalizeExe(c.Exe ?? ""));
         }
     }
+
+    /// <summary>Строка подсказки узла о «Низкой задержке» (null — режим не просили или сказать нечего).</summary>
+    public static string? LowLatencyTip(LowLatencyInfo? i) => i?.Status switch
+    {
+        LowLatencyStatus.Active => Fmt.F(Strings.NodeTip_LowLatencyActiveFormat, Fmt.Millis(i.PeriodMs), Fmt.Millis(i.DefaultMs)),
+        LowLatencyStatus.Unsupported => Fmt.F(Strings.NodeTip_LowLatencyUnsupportedFormat, Fmt.Millis(i.MinMs)),
+        LowLatencyStatus.Unavailable => Fmt.F(Strings.NodeTip_LowLatencyUnavailableFormat, i.Error),
+        _ => null, // откат показывается предупреждением
+    };
 
     /// <summary>Кого «Весь звук системы» не слышит по настройке: узлы приложений (если их не оставили) и исключённые exe.</summary>
     private List<string> SystemExceptNames(NodeConfig sys)

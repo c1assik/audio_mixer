@@ -12,12 +12,16 @@ public sealed record SourceSpec(string Id, SourceKind Kind, string EndpointId, f
 {
     /// <summary>Обработка перед фейдером (null — нет).</summary>
     public ChainSettings? Chain { get; init; }
+    /// <summary>«Низкая задержка» (IAudioClient3): только у входа устройства.</summary>
+    public bool LowLatency { get; init; }
 }
 
 /// <summary>Выход в снимке маршрутизации.</summary>
 public sealed record OutputSpec(string Id, string EndpointId, float GainDb = 0, bool Muted = false)
 {
     public ChainSettings? Chain { get; init; }
+    /// <summary>«Низкая задержка» (IAudioClient3).</summary>
+    public bool LowLatency { get; init; }
 }
 
 /// <summary>Шина: своих часов нет, считается в периоде каждого выхода, в который ведёт.</summary>
@@ -71,6 +75,11 @@ public sealed class AudioEngine : IDisposable
     private readonly Dictionary<(string From, string To, string Out), BusLink> _links = new();
     private EngineGraph _last = EngineGraph.Empty;
     private volatile EngineSnapshot _snapshot = EngineSnapshot.Empty;
+    /// <summary>
+    /// Откаты с малого периода по узлу и устройству. Пересозданный узел (сон, переподключение, перестройка) сразу
+    /// идёт с обычным периодом; память стирается, когда «Низкую задержку» у узла выключают.
+    /// </summary>
+    private readonly Dictionary<(string Id, string Endpoint), LowLatencyInfo> _fallbacks = new();
 
     /// <summary>Сколько ждать выхода потока узла при остановке, мс; дольше — поток бросается.</summary>
     public const int StopTimeoutMs = 2000;
@@ -138,20 +147,24 @@ public sealed class AudioEngine : IDisposable
             _last = graph;
             var toStop = new List<AudioNode>();
             var toStart = new List<AudioNode>();
+            RememberFallbacks(graph);
 
             // ── источники ──
             var newSources = new Dictionary<string, SourceNode>();
             foreach (var s in graph.Sources)
             {
+                bool lowLatency = s.LowLatency && s.Kind == SourceKind.DeviceInput;
                 if (_sources.TryGetValue(s.Id, out var cur) && cur.Kind == s.Kind && cur.EndpointId == s.EndpointId
-                    && cur.ProcessId == s.ProcessId && cur.SampleRate == s.SampleRate && restart?.Invoke(s.Id) != true)
+                    && cur.ProcessId == s.ProcessId && cur.SampleRate == s.SampleRate && cur.LowLatencyRequested == lowLatency
+                    && restart?.Invoke(s.Id) != true)
                 {
                     newSources[s.Id] = cur;
                 }
                 else
                 {
                     if (cur is not null) toStop.Add(cur);
-                    cur = new SourceNode(s.Id, s.Kind, s.EndpointId, Options, s.ProcessId, s.SampleRate);
+                    cur = new SourceNode(s.Id, s.Kind, s.EndpointId, Options, s.ProcessId, s.SampleRate,
+                        lowLatency, _fallbacks.GetValueOrDefault((s.Id, s.EndpointId)));
                     newSources[s.Id] = cur;
                     toStart.Add(cur);
                 }
@@ -166,14 +179,15 @@ public sealed class AudioEngine : IDisposable
             var newOutputs = new Dictionary<string, OutputNode>();
             foreach (var o in graph.Outputs)
             {
-                if (_outputs.TryGetValue(o.Id, out var cur) && cur.EndpointId == o.EndpointId && restart?.Invoke(o.Id) != true)
+                if (_outputs.TryGetValue(o.Id, out var cur) && cur.EndpointId == o.EndpointId && cur.LowLatencyRequested == o.LowLatency
+                    && restart?.Invoke(o.Id) != true)
                 {
                     newOutputs[o.Id] = cur;
                 }
                 else
                 {
                     if (cur is not null) toStop.Add(cur);
-                    cur = new OutputNode(o.Id, o.EndpointId, Options);
+                    cur = new OutputNode(o.Id, o.EndpointId, Options, o.LowLatency, _fallbacks.GetValueOrDefault((o.Id, o.EndpointId)));
                     newOutputs[o.Id] = cur;
                     toStart.Add(cur);
                 }
@@ -288,6 +302,29 @@ public sealed class AudioEngine : IDisposable
             StopAll(toStop, restart is not null ? RestartStopTimeoutMs : StopTimeoutMs);
             foreach (var n in toStart) n.Start();
         }
+    }
+
+    /// <summary>
+    /// Запомнить откаты живых узлов (до их пересоздания) и забыть откаты узлов, у которых «Низкую задержку» выключили:
+    /// выключить и включить режим — способ попробовать снова.
+    /// </summary>
+    private void RememberFallbacks(EngineGraph graph)
+    {
+        foreach (var n in _sources.Values.Cast<AudioNode>().Concat(_outputs.Values))
+            if (n.FellBack is { } fb) _fallbacks[(n.Id, n.EndpointId)] = fb;
+        if (_fallbacks.Count == 0) return;
+        var on = graph.Sources.Where(s => s.LowLatency).Select(s => s.Id)
+            .Concat(graph.Outputs.Where(o => o.LowLatency).Select(o => o.Id)).ToHashSet();
+        var present = graph.Sources.Select(s => s.Id).Concat(graph.Outputs.Select(o => o.Id)).ToHashSet();
+        // узел, которого сейчас нет в движке (устройство отключено), помнит откат до возвращения
+        foreach (var key in _fallbacks.Keys.Where(k => present.Contains(k.Id) && !on.Contains(k.Id)).ToList())
+            _fallbacks.Remove(key);
+    }
+
+    /// <summary>Откаты с малого периода, которые движок помнит (для журнала и тестов).</summary>
+    public IReadOnlyDictionary<(string Id, string Endpoint), LowLatencyInfo> Fallbacks
+    {
+        get { lock (_gate) return new Dictionary<(string, string), LowLatencyInfo>(_fallbacks); }
     }
 
     /// <summary>Сначала просим выйти все потоки, потом ждём: несколько зависших узлов не складывают таймауты.</summary>

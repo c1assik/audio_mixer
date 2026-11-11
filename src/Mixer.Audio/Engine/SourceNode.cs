@@ -46,8 +46,10 @@ public sealed class SourceNode : AudioNode
 
     public bool IsProcessLoopback => Kind is SourceKind.App or SourceKind.System;
 
-    public SourceNode(string id, SourceKind kind, string endpointId, EngineOptions options, uint processId = 0, int sampleRate = 0)
-        : base(id, endpointId, options)
+    /// <param name="lowLatency">Только для входа устройства: loopback и process loopback идут по периоду чужого движка.</param>
+    public SourceNode(string id, SourceKind kind, string endpointId, EngineOptions options, uint processId = 0, int sampleRate = 0,
+        bool lowLatency = false, LowLatencyInfo? fallback = null)
+        : base(id, endpointId, options, lowLatency && kind == SourceKind.DeviceInput, fallback)
     {
         Kind = kind;
         ProcessId = processId;
@@ -147,13 +149,15 @@ public sealed class SourceNode : AudioNode
                 uint flags = AudioConst.AUDCLNT_STREAMFLAGS_EVENTCALLBACK
                              | (Kind == SourceKind.Loopback ? AudioConst.AUDCLNT_STREAMFLAGS_LOOPBACK : 0);
                 Phase("IAudioClient.Initialize (" + what + ")");
-                format = InitializeShared(client, flags, Options.CaptureBufferMs, what);
-                AudioException.Check(client.GetBufferSize(out bufferFrames), what, "GetBufferSize");
+                format = OpenShared(ref client, flags, Options.CaptureBufferMs, what);
+                _liveClient = client;
+                AudioException.Check(client!.GetBufferSize(out bufferFrames), what, "GetBufferSize");
             }
             capture = GetService<IAudioCaptureClient>(client, what);
             AudioException.Check(client.SetEventHandle(evt.SafeWaitHandle.DangerousGetHandle()), what, "SetEventHandle");
             if (client.GetStreamLatency(out long latency100ns) < 0) latency100ns = 0;
-            Volatile.Write(ref _captureLatencyMs, latency100ns / 10_000.0 + Options.PeriodMs);
+            double period = StreamPeriodSeconds(format.SampleRate);
+            Volatile.Write(ref _captureLatencyMs, latency100ns / 10_000.0 + (period > 0 ? period * 1000 : Options.PeriodMs));
 
             uint keepAliveFrames = 0;
             if (Kind == SourceKind.Loopback)
@@ -180,9 +184,10 @@ public sealed class SourceNode : AudioNode
             Phase("IAudioClient.Start (" + what + ")");
             AudioException.Check(client.Start(), what, "Start");
             started = true;
-            Clock.Started(format.SampleRate);
+            Clock.Started(format.SampleRate, period);
             SetState(NodeState.Running);
 
+            long sessionPackets = 0;
             while (!StopRequested)
             {
                 evt.WaitOne(100);
@@ -206,10 +211,13 @@ public sealed class SourceNode : AudioNode
                     AudioException.Check(capture.ReleaseBuffer(frames), what, "ReleaseBuffer");
                     Interlocked.Increment(ref _packets);
                     Interlocked.Add(ref _frames, frames);
+                    sessionPackets++;
                     if ((bufFlags & AudioConst.AUDCLNT_BUFFERFLAGS_DATA_DISCONTINUITY) != 0)
                     {
                         Interlocked.Increment(ref _discontinuities);
                         Clock.Break();
+                        // разрыв на первом пакете — норма запуска потока, не сбой
+                        if (sessionPackets > 1) CountGlitch(now);
                     }
                     AudioException.Check(capture.GetNextPacketSize(out packet), what, "GetNextPacketSize");
                 }

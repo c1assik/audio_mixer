@@ -70,6 +70,13 @@ public sealed record NodeConfig
     /// <summary>Обработка перед фейдером: гейт → EQ → компрессор (null — не настраивалась).</summary>
     public ChainSettings? Chain { get; init; }
 
+    /// <summary>
+    /// «Низкая задержка»: поток устройства через IAudioClient3 с наименьшим периодом, который даёт драйвер
+    /// (v2, «Низкая задержка»). null — по умолчанию: у выходов включена, у входов выключена (там она экспериментальная),
+    /// у выхода в виртуальный кабель выключена (см. <see cref="LowLatencyFor"/>). Только у входа и выхода устройства.
+    /// </summary>
+    public bool? LowLatency { get; init; }
+
     public double X { get; init; }
     public double Y { get; init; }
     public string? Color { get; init; }
@@ -88,6 +95,18 @@ public sealed record NodeConfig
     [JsonIgnore] public bool HasChain => Chain is { IsActive: true };
     [JsonIgnore] public bool HasDevice => Kind is NodeKind.DeviceInput or NodeKind.Loopback or NodeKind.DeviceOutput;
     [JsonIgnore] public bool FollowsDefault => DefaultRole is not null && HasDevice;
+    /// <summary>У узла есть режим «Низкая задержка»: вход или выход устройства (у loopback период задаёт чужой поток).</summary>
+    [JsonIgnore] public bool SupportsLowLatency => Kind is NodeKind.DeviceInput or NodeKind.DeviceOutput;
+    /// <summary>«Низкая задержка» с учётом умолчаний для устройства из конфигурации (EndpointName).</summary>
+    [JsonIgnore] public bool LowLatencyOn => LowLatencyFor(EndpointName);
+
+    /// <summary>
+    /// «Низкая задержка» с учётом умолчаний на этом устройстве: включена у выходов, кроме виртуальных кабелей, выключена у входов.
+    /// VB-Cable даёт 128 кадров, но на этапе 1 сам забирал звук на 1% медленнее реального времени и оставлял буфер
+    /// пустым тысячи раз в час уже при 10 мс; с очередью в 5 мс такой выход откатывался бы со щелчками на каждом запуске.
+    /// </summary>
+    public bool LowLatencyFor(string? deviceName) => SupportsLowLatency
+        && (LowLatency ?? (Kind == NodeKind.DeviceOutput && !(deviceName is not null && Graph.FeedbackRules.IsVirtualCable(deviceName))));
 }
 
 public sealed record WireConfig

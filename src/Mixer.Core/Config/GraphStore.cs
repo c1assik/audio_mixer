@@ -48,13 +48,19 @@ public sealed class GraphStore : IDisposable
     /// автосохранение затёрло бы его), а граф берётся из самой свежей читаемой резервной копии; копий нет — пустой граф.
     /// error объясняет, что случилось.
     /// </summary>
-    public static GraphConfig LoadOrEmpty(string path, out string? error)
+    public static GraphConfig LoadOrEmpty(string path, out string? error) => LoadOrEmpty(path, out error, out _);
+
+    /// <param name="upgraded">Файл был прежней версии и перенесён (оригинал отложен в «graph.v1.json»).</param>
+    public static GraphConfig LoadOrEmpty(string path, out string? error, out bool upgraded)
     {
         error = null;
+        upgraded = false;
         if (!File.Exists(path)) return new GraphConfig();
         try
         {
-            return Upgrade(path, GraphSerializer.Load(path));
+            var loaded = GraphSerializer.Load(path);
+            upgraded = loaded.Version < GraphConfig.CurrentVersion;
+            return Upgrade(path, loaded);
         }
         catch (Exception ex) when (IsCorrupt(ex))
         {

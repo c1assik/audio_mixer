@@ -24,7 +24,8 @@ public sealed class OutputNode : AudioNode
     private int _bufferFrames;
     private int _queueFrames;
 
-    public OutputNode(string id, string endpointId, EngineOptions options) : base(id, endpointId, options)
+    public OutputNode(string id, string endpointId, EngineOptions options, bool lowLatency = false, LowLatencyInfo? fallback = null)
+        : base(id, endpointId, options, lowLatency, fallback)
     {
     }
 
@@ -49,6 +50,18 @@ public sealed class OutputNode : AudioNode
     /// <summary>Минимальное усиление ограничителя с прошлого опроса (1 — не срабатывал).</summary>
     public float TakeLimiterMinGain() => Interlocked.Exchange(ref _limiterMinGain, 1f);
 
+    /// <summary>
+    /// До скольких кадров держать очередь в буфере устройства. Обычный период: RenderQueueMs (15 мс), как в v1.
+    /// Малый период (periodSeconds &gt; 0): период плюс запас ещё в период, но не меньше LowLatencyMarginMs на опоздание потока.
+    /// </summary>
+    public static uint QueueFramesFor(int rate, uint bufferFrames, double periodSeconds, EngineOptions options)
+    {
+        double seconds = periodSeconds > 0
+            ? periodSeconds + Math.Max(periodSeconds, options.LowLatencyMarginMs / 1000.0)
+            : Math.Max(options.RenderQueueMs, options.PeriodMs) / 1000.0;
+        return Math.Min(bufferFrames, (uint)Math.Ceiling(rate * seconds));
+    }
+
     protected override void RunSession()
     {
         IAudioClient? client = null;
@@ -60,7 +73,7 @@ public sealed class OutputNode : AudioNode
             Phase("IMMDevice.Activate");
             client = ActivateClient(EndpointId);
             Phase("IAudioClient.Initialize (" + What + ")");
-            var format = InitializeShared(client, AudioConst.AUDCLNT_STREAMFLAGS_EVENTCALLBACK, Options.RenderBufferMs, What);
+            var format = OpenShared(ref client, AudioConst.AUDCLNT_STREAMFLAGS_EVENTCALLBACK, Options.RenderBufferMs, What);
             AudioException.Check(client.GetBufferSize(out uint bufferFrames), What, "GetBufferSize");
             render = GetService<IAudioRenderClient>(client, What);
             AudioException.Check(client.SetEventHandle(evt.SafeWaitHandle.DangerousGetHandle()), What, "SetEventHandle");
@@ -71,7 +84,8 @@ public sealed class OutputNode : AudioNode
             int rate = format.SampleRate;
             // Windows часто выделяет буфер больше запрошенного (22 мс вместо 10). Держать его полным — лишняя задержка,
             // поэтому очередь в устройстве ограничена: период + запас.
-            uint queueFrames = Math.Min(bufferFrames, (uint)Math.Ceiling(rate * Math.Max(Options.RenderQueueMs, Options.PeriodMs) / 1000.0));
+            double period = StreamPeriodSeconds(rate);
+            uint queueFrames = QueueFramesFor(rate, bufferFrames, period, Options);
             Volatile.Write(ref _queueFrames, (int)queueFrames);
             var map = new ChannelMap(format);
             var mix = new float[bufferFrames * 2];
@@ -100,13 +114,18 @@ public sealed class OutputNode : AudioNode
                 AudioException.Check(client.GetCurrentPadding(out uint padding), What, "GetCurrentPadding");
                 int n = (int)queueFrames - (int)padding;
                 if (n <= 0) continue;
-                if (padding == 0 && cycles > 4) Interlocked.Increment(ref _starvations);
+                long now = Stopwatch.GetTimestamp();
+                if (padding == 0 && cycles > 4)
+                {
+                    Interlocked.Increment(ref _starvations);
+                    CountGlitch(now);
+                }
                 cycles++;
 
-                long now = Stopwatch.GetTimestamp();
                 var block = mix.AsSpan(0, n * 2);
                 block.Clear();
-                _plan.Render(block, scratch, n, rate, now);
+                // провод с целью, пониженной малым периодом, опустел — это тоже сбой режима (цель слишком мала для этой машины)
+                if (_plan.Render(block, scratch, n, rate, now, period) > 0) CountGlitch(now);
 
                 Chain.Process(block, n, rate);
                 gain.SetTargets(GainL, GainR, Muted);

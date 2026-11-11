@@ -130,6 +130,36 @@ internal interface IAudioClient
     [PreserveSig] int GetService(ref Guid riid, [MarshalAs(UnmanagedType.IUnknown)] out object service);
 }
 
+/// <summary>
+/// IAudioClient3 целиком: методы IAudioClient, IAudioClient2 и IAudioClient3 в порядке vtable (Windows 10+).
+/// Получается приведением того же объекта IAudioClient (QueryInterface). Проверен в Mixer.Probe lowlat (v2, этап 0).
+/// </summary>
+[ComImport, Guid("7ED4EE07-8E67-4CD4-8C1A-2B7A5987AD42"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+internal interface IAudioClient3
+{
+    [PreserveSig] int Initialize(int shareMode, uint streamFlags, long hnsBufferDuration, long hnsPeriodicity, IntPtr pFormat, IntPtr audioSessionGuid);
+    [PreserveSig] int GetBufferSize(out uint numBufferFrames);
+    [PreserveSig] int GetStreamLatency(out long latency);
+    [PreserveSig] int GetCurrentPadding(out uint numPaddingFrames);
+    [PreserveSig] int IsFormatSupported(int shareMode, IntPtr pFormat, out IntPtr closestMatch);
+    [PreserveSig] int GetMixFormat(out IntPtr deviceFormat);
+    [PreserveSig] int GetDevicePeriod(out long defaultDevicePeriod, out long minimumDevicePeriod);
+    [PreserveSig] int Start();
+    [PreserveSig] int Stop();
+    [PreserveSig] int Reset();
+    [PreserveSig] int SetEventHandle(IntPtr eventHandle);
+    [PreserveSig] int GetService(ref Guid riid, [MarshalAs(UnmanagedType.IUnknown)] out object service);
+    // IAudioClient2
+    [PreserveSig] int IsOffloadCapable(int category, out int offloadCapable);
+    [PreserveSig] int SetClientProperties(IntPtr properties);
+    [PreserveSig] int GetBufferSizeLimits(IntPtr pFormat, int eventDriven, out long minBufferDuration, out long maxBufferDuration);
+    // IAudioClient3
+    [PreserveSig] int GetSharedModeEnginePeriod(IntPtr pFormat, out uint defaultPeriodInFrames, out uint fundamentalPeriodInFrames,
+        out uint minPeriodInFrames, out uint maxPeriodInFrames);
+    [PreserveSig] int GetCurrentSharedModeEnginePeriod(out IntPtr pFormat, out uint currentPeriodInFrames);
+    [PreserveSig] int InitializeSharedAudioStream(uint streamFlags, uint periodInFrames, IntPtr pFormat, IntPtr audioSessionGuid);
+}
+
 [ComImport, Guid("C8ADBD64-E71E-48a0-A4DE-185C395CD317"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 internal interface IAudioCaptureClient
 {
@@ -286,6 +316,8 @@ public static class Hr
         [0x88890019] = "AUDCLNT_E_BUFDURATION_PERIOD_NOT_EQUAL",
         [0x88890021] = "AUDCLNT_E_INVALID_STREAM_FLAG",
         [0x88890026] = "AUDCLNT_E_RESOURCES_INVALIDATED",
+        [0x88890028] = "AUDCLNT_E_ENGINE_PERIODICITY_LOCKED",
+        [0x88890029] = "AUDCLNT_E_ENGINE_FORMAT_LOCKED",
     };
 
     public static string Describe(int hr)

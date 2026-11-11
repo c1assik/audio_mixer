@@ -27,10 +27,12 @@ public static class Latency
         var options = Commands.OptionsFrom(cli);
         Console.WriteLine($"Петля: {outEp.Name} → {inEp.Name}; провод {gainDb} дБ, импульс {20 * Math.Log10(level):F0} dBFS, {count} замеров.");
 
+        // --low-latency: IAudioClient3 на обоих концах (вход — экспериментально), --low-latency-out: только выход, как в схеме по умолчанию
+        bool llIn = cli.Has("low-latency"), llOut = llIn || cli.Has("low-latency-out");
         using var engine = new AudioEngine(options);
         engine.Apply(new EngineGraph(
-            [new SourceSpec("in", SourceKind.DeviceInput, inEp.Id)],
-            [new OutputSpec("out", outEp.Id)],
+            [new SourceSpec("in", SourceKind.DeviceInput, inEp.Id) { LowLatency = llIn }],
+            [new OutputSpec("out", outEp.Id) { LowLatency = llOut }],
             [new WireSpec("in", "out", gainDb)]));
 
         var src = engine.FindSource("in")!;
@@ -44,7 +46,9 @@ public static class Latency
             Thread.Sleep(50);
         }
         if (wire.State != WireState.Running) throw new UsageException("Провод не запустился за 10 с (нет пакетов от входа?)");
-        Console.WriteLine($"Вход {src.Format}, выход {dst.Format}, буфер выхода {dst.BufferFrames} кадров. Прогрев 3 с…");
+        Console.WriteLine($"Вход {src.Format}, выход {dst.Format}, буфер выхода {dst.BufferFrames} кадров (очередь {dst.QueueFrames}), " +
+                          $"цель кольца {wire.TargetMs:F1} мс. Прогрев 3 с…");
+        if (llIn || llOut) Console.WriteLine($"Низкая задержка: вход {src.LowLatency.Status} {src.LowLatency.PeriodFrames}, выход {dst.LowLatency.Status} {dst.LowLatency.PeriodFrames} кадров");
         cancel.WaitHandle.WaitOne(3000);
 
         int rate = src.Format!.SampleRate;

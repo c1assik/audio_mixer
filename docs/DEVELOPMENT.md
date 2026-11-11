@@ -1,6 +1,6 @@
 # Mixer for Windows: developer notes
 
-The user guide is in the [README](../README.md). The specification and plan (in Russian) is `Микшер для Windows спецификация и план.md` in the repository root; section names from it are quoted below in Russian. Stage 0 (risk check): [tools/Mixer.Probe](../tools/Mixer.Probe/README.md). The v2 specification is `Микшер для Windows v2 спецификация и план.md`; its stage 0 results (captures, new applications, direct route, `IAudioClient3`) are in the same Mixer.Probe README; stages 1 (buses), 2 (processing) and 3 (applications) are described below in «v2 stage 1», «v2 stage 2» and «v2 stage 3».
+The user guide is in the [README](../README.md). The specification and plan (in Russian) is `Микшер для Windows спецификация и план.md` in the repository root; section names from it are quoted below in Russian. Stage 0 (risk check): [tools/Mixer.Probe](../tools/Mixer.Probe/README.md). The v2 specification is `Микшер для Windows v2 спецификация и план.md`; its stage 0 results (captures, new applications, direct route, `IAudioClient3`) are in the same Mixer.Probe README; stages 1 (buses), 2 (processing), 3 (applications), 4 (low latency) and 5 (migration and release 2.0) are described below in «v2 stage 1» … «v2 stage 5».
 
 The UI is in English, or in Russian when Windows is in Russian (see "Localization"). Log messages are in English; code comments are in Russian. Russian strings quoted below are shown as they appear in the Russian UI.
 
@@ -8,10 +8,10 @@ The UI is in English, or in Russian when Windows is in Russian (see "Localizatio
 
 | Project | Contents |
 | --- | --- |
-| `src/Mixer.Audio` | Audio engine and WASAPI interop, no WPF: source and output nodes, wires, buses (per-output instances and mix plans), resamplers, PI controller, ramps, limiter, processing chain (gate, EQ, compressor), peak meters; process loopback, `IAudioPolicyConfig`, audio sessions with their volume, meter and new-session notifications, probe stream, device change notifications (`IMMNotificationClient`) |
+| `src/Mixer.Audio` | Audio engine and WASAPI interop, no WPF: source and output nodes, wires, buses (per-output instances and mix plans), resamplers, PI controller, ramps, limiter, processing chain (gate, EQ, compressor), peak meters; low-latency streams (`IAudioClient3`) with automatic fallback; process loopback, `IAudioPolicyConfig`, audio sessions with their volume, meter and new-session notifications, probe stream, device change notifications (`IMMNotificationClient`) |
 | `src/Mixer.Core` | Graph model and `graph.json`, device lookup by ID, name and default role, the feedback rule, paths through buses, building the engine snapshot; process snapshot, Take over with the `boundApps` journal, sink validation, watchdog, the `MixerHost` control layer with hot-plug and sleep handling; a WPF-free editor: history, edits (including grouping into a bus), wire validation, layout, store with backups, chain presets, application catalog; file log |
 | `src/Mixer.App` | UI (WPF, CommunityToolkit.Mvvm): graph canvas, cards, wires, palette, sink settings, processing side panel with the EQ curve. Builds `Mixer.exe` |
-| `tools/Mixer.Run` | Console host for stages 1–2: runs a JSON graph through `MixerHost` with statistics, lists applications, checks a sink, measures loop latency |
+| `tools/Mixer.Run` | Console host for stages 1–2: runs a JSON graph through `MixerHost` with statistics, lists applications, checks a sink, measures loop latency (also with low latency) |
 | `tests/Mixer.Tests` | xUnit tests without a sound card, including UI view models (on their own STA thread, without a window) |
 | `tools/publish.ps1`, `tools/make-icon.ps1` | Release build of a single `Mixer.exe` and the program icon (stage 5) |
 
@@ -492,6 +492,85 @@ The application was a `Mixer.Probe tone` (−70 dBFS, automatic stream routing).
 - Done: exclusions and skipped processes, `OnSessionCreated`, direct routes with session volume and meter, the same-cable sink warning. 264 tests pass (2 manual tuning sweeps skipped). The solution builds without warnings.
 - Checked on devices: the direct route, session volume and meter, pickup of a new application (35 ms), switching gaps (see the table).
 - **Not checked on devices**: Discord and a game (not used on this machine), exclusions and the skipped badge with real processes, the volume journal after killing the mixer, the UI with the engine (the direct pill, the skipped badge).
+
+## v2 stage 4: low latency
+
+### How it works
+
+- **`IAudioClient3` per node** (`lowLatency` in `graph.json`; «Низкая задержка» in the node menu). The node thread asks the driver for its engine periods (`GetSharedModeEnginePeriod`) and opens the stream with `InitializeSharedAudioStream` at the minimum period (`LowLatencyStream`, `AudioNode.OpenShared`). The period actually in force is read back with `GetCurrentSharedModeEnginePeriod`: if another program already holds the device engine at some other small period, that one stays. Defaults: on for outputs, off for device inputs (experimental there, as the specification asks), not available on loopback and application captures (their period is set by someone else's stream).
+- **Where it changes nothing.** A driver whose minimum is its default period (every physical card on the developer machine: 480 frames) is opened with the plain `Initialize`, exactly as in v1. If `IAudioClient3` is missing or `InitializeSharedAudioStream` fails (for example `AUDCLNT_E_ENGINE_PERIODICITY_LOCKED`), the client is released, a new one is activated, and the node opens with the plain `Initialize`. The status is kept per node (`LowLatencyInfo`: Active, Unsupported, Unavailable, FellBack) and shown in the card tooltip and the log.
+- **Output queue.** With a small period the engine keeps the device queue at period + max(period, 2 ms) (`OutputNode.QueueFramesFor`): 256 frames (5.3 ms) at 128 frames. The usual period keeps the v1 15 ms.
+- **Adaptive ring target** (`Wire.TargetSeconds`): two periods of the slower end of the wire, but at least 4 ms. The source publishes its period in `SourceClock.Started`, and the output passes its own through `MixPlan.Render` to every wire, including wires into buses. At 10 ms on both ends this is 20 ms, as in v1. A wire whose period changes (an output fell back) re-primes with the new target.
+- **Auto fallback** (`GlitchWindow`): more than 3 glitches within 60 s while the small period is active, and the node reopens at once with the usual period. Glitches are an empty device buffer at wake-up (output), `DATA_DISCONTINUITY` after the first packet (input), and an underrun on a wire whose target was lowered by the small period (deviation 51). The engine remembers the fallback per node and device (`AudioEngine.Fallbacks`), so a node recreated after sleep, hot-plug or a rebuild starts at the usual period right away. The memory is cleared when the user turns the mode off; turning it off and on again is the way to retry.
+- **On the card**: the tooltip says «Низкая задержка: период 2,7 мс вместо 10 мс», «Низкая задержка недоступна: драйвер не даёт период меньше 10 мс» or why `IAudioClient3` didn't start. A fallback is a warning: «Низкая задержка выключена: больше 3 сбоев за минуту. Узел вернулся на обычный период 10 мс. Чтобы попробовать снова, выключите и включите «Низкая задержка» в меню узла». The log records every change of the state («low latency on, period 128 frames (2.67 ms, default 480)»).
+- `Mixer.Run run` prints the period and glitch count of every node with the mode on. `Mixer.Run latency --low-latency` (both ends) or `--low-latency-out` (output only) measures the end-to-end loop latency with the mode on, for the 25 ms criterion on a card with small periods.
+
+### Deviations from the specification
+
+50. **Off by default on virtual cable outputs.** VB-Cable reports 128 frames, but in stage 1 CABLE Input consumed audio 1% slower than real time and left its buffer empty thousands of times an hour already at 10 ms. With a 5 ms queue such an output would glitch and fall back on every start. The specification also says the mixer can't shorten the VB-Cable path. It can still be turned on by hand.
+51. **Wire underruns count towards the fallback** when the wire's target was lowered by the small period. Otherwise a machine whose threads wake up too late for a 5.3 ms target would crackle without ever falling back: the device buffer itself doesn't run dry, the ring does.
+52. **The underrun fade is a quarter of the ring target, 1–2 ms** (v1: 2 ms). The ring keeps a fade's worth of audio in reserve; at a 5.3 ms target a 2 ms reserve left 0.7 ms for late wake-ups. Wire model with 128-frame periods on both ends, 60 s: with 0…1 ms wake-up jitter, ~100 underruns a minute before, 0 after; with 0…1.5 ms, 8 a minute (the fallback's job); with 0…0.5 ms, 0 either way. At the usual 20 ms target the fade is 2 ms as before.
+53. **A driver without small periods is opened with the plain `Initialize`**, not with `InitializeSharedAudioStream` at the default period: that is the v1 path, checked on devices in stages 1–3.
+54. **The fallback is remembered while the program runs**, not across restarts: a new start tries again.
+
+### Tests
+
+`LowLatencyTests`:
+
+- ring target: 20 ms at the usual period on both ends, 5.33 ms at 128 frames, the slower end decides, 4 ms minimum;
+- wire model at 128 frames on both ends, 0…1 ms wake-up jitter, +100 ppm, 60 s: no glitches, fill 5.3 ms, wire latency 6 ms; 10 ms ↔ 2.67 ms ends keep 20 ms without glitches; the target follows an output that falls back; the plan passes the output period to wires into buses and direct wires;
+- an underrun on a lowered target is reported to the output, on the usual target it isn't;
+- output queue: 15 ms as in v1, two periods, the 2 ms margin, capped by the device buffer;
+- glitch window: the 4th glitch within a minute trips it, one every 25 s doesn't, the window slides;
+- a node created with a remembered fallback starts at the usual period, a node with the mode off forgets it; loopback and application captures have no mode;
+- defaults (outputs on, inputs off, loopback never, VB-Cable output off), the engine snapshot, `graph.json` round trip (defaults aren't written), a change is a structural edit; the menu toggle writes only non-default values and undoes; card tooltip texts; log lines.
+
+**Not covered by tests**: the `IAudioClient3` calls themselves and the fallback memory in `AudioEngine` (engine nodes open devices).
+
+### Status as of 11 November 2026
+
+- Done: `IAudioClient3` per node with fallback to the v1 path, auto fallback, adaptive ring target, menu, tooltip, warning, log, `Mixer.Run` switches.
+- **Not checked on devices.** No physical card on the developer machine has periods below 480 frames (stage 0), so the mode changes nothing on them: their nodes take the v1 path. VB-Cable (128 frames) is off by default. The 25 ms criterion needs another PC: `Mixer.Probe lowlat --list` must show a minimum below 480, then `Mixer.Run latency --in <line in> --out <line out> --low-latency` with a cable from the output to the input.
+
+## v2 stage 5: migration and release 2.0
+
+### How it works
+
+- **Migration of `graph.json`.** The file version and the `graph.v1.json` copy were done in stage 1 (deviation 30). `GraphStore.LoadOrEmpty` now also reports that the file was upgraded, and the log says so («graph upgraded to version 2, original kept next to it»). The graph itself moves over as is: v2 fields are empty, processing is off, there are no buses.
+- **«Сгруппировать в шину?» after migration** (`GraphEdits.GroupSuggestions`, `MainViewModel.OfferGrouping`). Sources whose enabled wires go to the same set of at least two outputs (directly, not through a bus) are offered as a group, one offer at a time, in a panel at the bottom of the canvas: «Схема перенесена с версии 1. «Игра» и «Discord» идут в одни и те же выходы («Наушники» и «Стрим»). Сгруппировать в шину? …» with «Сгруппировать в шину» and «Не нужно». Accepting is the stage 1 grouping (levels kept, one undo step). An offer whose nodes were deleted meanwhile is skipped. Nothing changes until the user chooses.
+- **Version 2.0.0** (`Directory.Build.props`); the user guide (README) describes buses, processing, exclusions, direct routes, low latency and upgrading from 1.0.
+
+### Deviations from the specification
+
+55. **Cable pairing is not part of the 2.0 migration.** Cables as entities (pairing table, roles) are stage 6, release 2.1; in 2.0 there is nothing to pair them into. CABLE Input and CABLE Output nodes move over as ordinary device nodes.
+56. **A group is offered only for two or more common outputs.** With one output a bus saves no wires. The specification only says «одинаковый набор выходов».
+57. **The offer appears once per upgrade**: on the first start after the file is upgraded. If the user changes nothing, the file stays version 1 on disk and the offer appears again on the next start.
+
+### Acceptance criteria 2.0
+
+| Criterion | Result |
+| --- | --- |
+| Streamer layout (4 sources, 2 buses, 2 outputs) works 8 hours; CPU ≤ 5% on a 4-core CPU with processing on every node | **Computation measured, the 8-hour run not done.** `StreamerBudgetTests`: sources with full chains, rings with resamplers (44.1 → 48 kHz for the microphone), the «game + chat» bus computed twice (two outputs), outputs with chains and the limiter: 2.3% of one core, 0.6% of a 4-core CPU. Thread wake-ups, WASAPI and the UI come on top (0.07–0.4% of the machine in the stage 1–3 runs). The 8-hour run on devices is for the user |
+| A wire closing a cycle through buses or loopback can't be created; the hint shows the loop path | met: `BusTests` (stage 1) |
+| Turning any EQ, compressor or gate knob on a 1 kHz sine doesn't click; EQ response within ±0.1 dB | met: `ProcessingTests` (stage 2): residual −70 dB or lower, response error under 0.001 dB |
+| All system audio with telegram.exe excluded (no node of its own): Telegram isn't in it, the others are; skipped processes are listed with their reason | met by tests (`AppsV2Tests`, stage 3); not checked with real processes |
+| A direct route adds no latency or mixer CPU; switching gaps ≤ 50 ms | **partly**: capture → direct 0 ms, direct → capture 55–70 ms on the device (deviation 48) |
+| A new application gets into All system audio within 100 ms of its first sound | met: 35 ms from `OnSessionCreated`, which arrives at the application's `Initialize`, before its first sound (stage 3, on the device) |
+| Microphone → headphones ≤ 25 ms on a card with small buffers | **not checked**: no such card on the developer machine (stage 4). In the model the wire takes 6 ms at 128 frames instead of 20 ms |
+| A v1 layout sounds the same after migration; `graph.v1.json` is kept | met: `MigrationV2Tests` (a v1 file gives the same engine snapshot: sources, outputs, wires, levels, no processing or buses; the copy is byte-identical and isn't overwritten). The user's own v1 graph was upgraded and played through on 10 November |
+
+### Localization
+
+All strings added in v2 are in `Strings.resx` / `Strings.ru.resx` (and `CoreStrings`, `AudioStrings`); `LocalizationTests` check that both languages have the same keys and placeholders. A scan for Cyrillic literals in UI code found only the quotes of the grouping offer, which now come from the resources too («…» in Russian, “…” in English). Snapshots of the offer in both languages were checked with `--no-audio --snapshot`.
+
+### Tests
+
+`MigrationV2Tests`, `StreamerBudgetTests`: v1 file → the same engine snapshot, the `graph.v1.json` copy, upgraded once; group suggestions (same outputs, one output, already in a bus); the offer: text, grouping as one undo step with every level kept, dismissing, an offer whose node was deleted; the streamer CPU budget. 293 tests pass (2 manual tuning sweeps skipped). The solution builds without warnings.
+
+### Status as of 11 November 2026
+
+- Done: migration with the grouping offer, acceptance criteria run (table above), localization check, version 2.0.0, README. `tools/publish.ps1` ran end to end: 293 tests, `dist\Mixer.exe` 68.3 MB, launch check of the published exe.
+- **Not done**: the 8-hour run of the streamer layout on devices, the 25 ms criterion (another PC), Discord and a game on a direct route. The GitHub release is made by pushing the `v2.0.0` tag (see README, «For developers»).
 
 ## Localization
 

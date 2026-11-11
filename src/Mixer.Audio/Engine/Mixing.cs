@@ -42,8 +42,10 @@ public sealed class BusInstance
     internal int Capacity => _buffer.Length / 2;
 
     /// <summary>Поток выхода: свести входы шины, обработать, применить фейдер.</summary>
-    internal void Render(MixStep step, Span<float> scratch, int frames, int rate, long nowTicks)
+    /// <returns>Сколько проводов с пониженной целью дали underrun в этом блоке (см. <see cref="Wire.Render"/>).</returns>
+    internal int Render(MixStep step, Span<float> scratch, int frames, int rate, long nowTicks, double periodSeconds = 0)
     {
+        int glitches = 0;
         if (rate != _rate)
         {
             _rate = rate;
@@ -52,13 +54,15 @@ public sealed class BusInstance
         var buf = _buffer.AsSpan(0, frames * 2);
         buf.Clear();
         var wires = step.Wires;
-        for (int i = 0; i < wires.Length; i++) wires[i].Render(buf, scratch, frames, rate, nowTicks);
+        for (int i = 0; i < wires.Length; i++)
+            if (wires[i].Render(buf, scratch, frames, rate, nowTicks, periodSeconds)) glitches++;
         var links = step.Links;
         for (int i = 0; i < links.Length; i++) links[i].MixInto(buf, frames, rate);
         Chain.Process(buf, frames, rate);
         _gain.SetTargets(_gainL, _gainR, _muted);
         _gain.Apply(buf, frames);
         Peak.Update(buf, frames);
+        return glitches;
     }
 }
 
@@ -132,19 +136,24 @@ public sealed class MixPlan
     public IEnumerable<Wire> AllWires => Wires.Concat(Steps.SelectMany(s => s.Wires));
 
     /// <summary>Поток выхода: добавить в mix всё, что сводит выход. scratch — рабочий буфер не меньше frames·2.</summary>
-    public void Render(Span<float> mix, Span<float> scratch, int frames, int rate, long nowTicks)
+    /// <param name="periodSeconds">Период выхода (0 — обычный): от него зависит цель заполнения колец.</param>
+    /// <returns>Сколько проводов с пониженной целью дали underrun в этом блоке: сбои «Низкой задержки» выхода.</returns>
+    public int Render(Span<float> mix, Span<float> scratch, int frames, int rate, long nowTicks, double periodSeconds = 0)
     {
+        int glitches = 0;
         var steps = Steps;
         for (int i = 0; i < steps.Length; i++)
         {
             // блок выхода больше буфера шины не бывает (буфер — MaxBlockFrames), но лучше тишина, чем выход за массив
-            if (frames > steps[i].Bus.Capacity) return;
-            steps[i].Bus.Render(steps[i], scratch, frames, rate, nowTicks);
+            if (frames > steps[i].Bus.Capacity) return glitches;
+            glitches += steps[i].Bus.Render(steps[i], scratch, frames, rate, nowTicks, periodSeconds);
         }
         var wires = Wires;
-        for (int i = 0; i < wires.Length; i++) wires[i].Render(mix, scratch, frames, rate, nowTicks);
+        for (int i = 0; i < wires.Length; i++)
+            if (wires[i].Render(mix, scratch, frames, rate, nowTicks, periodSeconds)) glitches++;
         var links = Links;
         for (int i = 0; i < links.Length; i++) links[i].MixInto(mix, frames, rate);
+        return glitches;
     }
 }
 

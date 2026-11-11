@@ -98,6 +98,7 @@ public sealed class MixerHost : IDisposable
     private double _lastResume = double.NegativeInfinity;
     private double _nextDevicePoll;
     private readonly Dictionary<string, (NodeState State, string? Message)> _nodeStates = new();
+    private readonly Dictionary<string, LowLatencyInfo> _lowLatencyStates = new();
 
     // ── прямые маршруты, новые сессии ──
     private DirectVolumes? _direct;
@@ -731,6 +732,11 @@ public sealed class MixerHost : IDisposable
             seen.Add(n.Id);
             var st = n.State;
             if (st is NodeState.Starting or NodeState.Stopped) continue;
+            if (st == NodeState.Running && n.LowLatencyRequested && n.LowLatency != _lowLatencyStates.GetValueOrDefault(n.Id))
+            {
+                _lowLatencyStates[n.Id] = n.LowLatency;
+                Emit($"{DescribeSource(n.Id)}: " + DescribeLowLatency(n.LowLatency));
+            }
             string? msg = st == NodeState.Running ? null : n.Message;
             if (_nodeStates.TryGetValue(n.Id, out var prev) && prev.State == st && prev.Message == msg) continue;
             _nodeStates[n.Id] = (st, msg);
@@ -742,7 +748,18 @@ public sealed class MixerHost : IDisposable
             });
         }
         foreach (string id in _nodeStates.Keys.Where(id => !seen.Contains(id)).ToList()) _nodeStates.Remove(id);
+        foreach (string id in _lowLatencyStates.Keys.Where(id => !seen.Contains(id)).ToList()) _lowLatencyStates.Remove(id);
     }
+
+    /// <summary>Строка журнала о режиме «Низкая задержка» (журнал на английском).</summary>
+    public static string DescribeLowLatency(LowLatencyInfo i) => i.Status switch
+    {
+        LowLatencyStatus.Active => FormattableString.Invariant($"low latency on, period {i.PeriodFrames} frames ({i.PeriodMs:0.##} ms, default {i.DefaultFrames})"),
+        LowLatencyStatus.Unsupported => FormattableString.Invariant($"low latency not supported by the driver: minimum period {i.MinFrames} frames ({i.MinMs:0.##} ms)"),
+        LowLatencyStatus.Unavailable => $"low latency unavailable: {i.Error}; usual period",
+        LowLatencyStatus.FellBack => FormattableString.Invariant($"low latency off after more than {GlitchWindow.Limit} glitches in a minute; back to {i.DefaultFrames} frames ({i.DefaultMs:0.##} ms)"),
+        _ => "low latency off",
+    };
 
     // ── «Забрать себе» ──
 
