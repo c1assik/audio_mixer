@@ -112,9 +112,11 @@ public partial class App : Application
         // один экземпляр за раз: два микшера дрались бы за устройства и за журнал привязок
         if (!opt.NoAudio)
         {
-            _mutex = new Mutex(true, @"Local\Mixer.SingleInstance", out bool first);
+            var mutex = new Mutex(true, @"Local\Mixer.SingleInstance", out bool first);
             if (!first)
             {
+                // мьютекс держит первый экземпляр: освобождать его при выходе нельзя (ApplicationException)
+                mutex.Dispose();
                 _log.Write("app", "second instance: showed the first window, exiting");
                 // окно первого экземпляра может быть спрятано в трей: попросить его показаться
                 if (EventWaitHandle.TryOpenExisting(ShowEventName, out var show))
@@ -124,6 +126,7 @@ public partial class App : Application
                 Shutdown();
                 return;
             }
+            _mutex = mutex;
             WatchShowRequests();
         }
 
@@ -232,14 +235,25 @@ public partial class App : Application
             if (vm.Preferences?.HotkeyToasts != false) _toast.Show(text);
         };
 
-        _tray = new TrayIcon();
-        if (!_tray.Show(TrayState.Normal, Strings.App_Title))
+        // Значок — только если он действительно показан: без него крестик закрывает окно, а не прячет программу
+        // в никуда (_tray остаётся null, и OnWindowClosing ничего не отменяет).
+        var tray = new TrayIcon();
+        string? trayError = null;
+        try
         {
-            _log?.Write("app", "tray icon refused by Windows");
-            _tray.Dispose();
-            _tray = null;
+            if (!tray.Show(TrayState.Normal, Strings.App_Title)) trayError = "refused by Windows";
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            trayError = $"{ex.GetType().Name}: {ex.Message}";
+        }
+        if (trayError is not null)
+        {
+            _log?.Write("app", "tray icon unavailable (" + trayError + "): the close button exits");
+            tray.Dispose();
             return;
         }
+        _tray = tray;
         _log?.Write("app", "tray icon shown");
         _tray.Click += ShowWindow;
         _tray.RightClick += ShowTrayMenu;
