@@ -68,6 +68,13 @@ public static class NodeMenus
             menu.Items.Add(ExcludeItem(main, n));
             menu.Items.Add(Check(Strings.Node_IncludeOwnNodes, n.IncludeOwnNodes, () => n.IncludeOwnNodes = !n.IncludeOwnNodes, Strings.Node_IncludeOwnNodesTip));
         }
+        if (n.SupportsLowLatency)
+        {
+            // на входах режим экспериментальный: у части драйверов поток записи с малым периодом сбоит
+            bool input = !n.IsOutput;
+            menu.Items.Add(Check(input ? Strings.Node_LowLatencyInput : Strings.Node_LowLatency, n.LowLatency, () => n.LowLatency = !n.LowLatency,
+                input ? Strings.Node_LowLatencyTip + "\n\n" + Strings.Node_LowLatencyInputNote : Strings.Node_LowLatencyTip));
+        }
         if (n.HasDevice) menu.Items.Add(DeviceItem(main, n));
         if (n.IsSource) menu.Items.Add(ColorItem(main, n));
         if (n.IsBus) menu.Items.Add(Item(Strings.Bus_Ungroup, () => main.Ungroup(n), tip: Strings.Bus_UngroupTip));

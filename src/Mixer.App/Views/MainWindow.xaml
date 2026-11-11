@@ -183,34 +183,48 @@
             </Grid>
         </Border>
 
-        <!-- ── всплывающее сообщение ── -->
-        <Border Grid.Row="2" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,20" Padding="14,10" CornerRadius="10" MaxWidth="640"
-                BorderThickness="1" Visibility="{Binding Toast, Converter={x:Static views:MainWindow.NotNullToVisible}}" MouseLeftButtonDown="OnToastClick" Cursor="Hand">
-            <Border.Style>
-                <Style TargetType="Border">
-                    <Setter Property="Background" Value="{StaticResource Raised2}" />
-                    <Setter Property="BorderBrush" Value="{StaticResource LineStrong}" />
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding ToastIsError}" Value="True">
-                            <Setter Property="Background" Value="{StaticResource RedDeep}" />
-                            <Setter Property="BorderBrush" Value="#5C2B2E" />
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </Border.Style>
-            <TextBlock Text="{Binding Toast}" TextWrapping="Wrap" LineHeight="18">
-                <TextBlock.Style>
-                    <Style TargetType="TextBlock">
-                        <Setter Property="Foreground" Value="{StaticResource Text}" />
+        <!-- ── внизу холста: предложение «Сгруппировать в шину?» и всплывающее сообщение ── -->
+        <StackPanel Grid.Row="2" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,20">
+            <!-- предложение после переноса схемы v1: «Сгруппировать в шину?» -->
+            <Border Padding="14,12" Margin="0,0,0,8" CornerRadius="10" Width="420"
+                    Background="{StaticResource Raised2}" BorderBrush="{StaticResource Accent}" BorderThickness="1"
+                    Visibility="{Binding GroupOfferText, Converter={x:Static views:MainWindow.NotNullToVisible}}">
+                <StackPanel>
+                    <TextBlock Text="{Binding GroupOfferText}" TextWrapping="Wrap" LineHeight="18" Foreground="{StaticResource Text}" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+                        <Button Style="{StaticResource ToolButton}" Command="{Binding DismissGroupOfferCommand}" Content="{x:Static res:Strings.Migrate_GroupDismiss}" Margin="0,0,8,0" />
+                        <Button Style="{StaticResource PrimaryButton}" Command="{Binding AcceptGroupOfferCommand}" Content="{x:Static res:Strings.Migrate_GroupAccept}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+            <Border HorizontalAlignment="Center" Padding="14,10" CornerRadius="10" MaxWidth="640"
+                    BorderThickness="1" Visibility="{Binding Toast, Converter={x:Static views:MainWindow.NotNullToVisible}}" MouseLeftButtonDown="OnToastClick" Cursor="Hand">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="{StaticResource Raised2}" />
+                        <Setter Property="BorderBrush" Value="{StaticResource LineStrong}" />
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding ToastIsError}" Value="True">
-                                <Setter Property="Foreground" Value="{StaticResource RedPale}" />
+                                <Setter Property="Background" Value="{StaticResource RedDeep}" />
+                                <Setter Property="BorderBrush" Value="#5C2B2E" />
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>
-                </TextBlock.Style>
-            </TextBlock>
-        </Border>
+                </Border.Style>
+                <TextBlock Text="{Binding Toast}" TextWrapping="Wrap" LineHeight="18">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="{StaticResource Text}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding ToastIsError}" Value="True">
+                                    <Setter Property="Foreground" Value="{StaticResource RedPale}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Border>
+        </StackPanel>
 
         <!-- ── палитра и настройки поверх окна ── -->
         <Grid Grid.RowSpan="4" Background="{StaticResource Scrim}" Visibility="{Binding HasOverlay, Converter={StaticResource Vis}}" MouseLeftButtonDown="OnScrimClick">

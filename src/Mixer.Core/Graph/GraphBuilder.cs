@@ -240,7 +240,11 @@ public static class GraphBuilder
             switch (n.Kind)
             {
                 case NodeKind.DeviceInput:
-                    sources.Add(new SourceSpec(n.Id, SourceKind.DeviceInput, ep.Id, n.GainDb, n.Muted, n.Mono ?? false, n.Balance ?? 0) { Chain = ChainOf(n) });
+                    sources.Add(new SourceSpec(n.Id, SourceKind.DeviceInput, ep.Id, n.GainDb, n.Muted, n.Mono ?? false, n.Balance ?? 0)
+                    {
+                        Chain = ChainOf(n),
+                        LowLatency = n.LowLatencyFor(ep.Name),
+                    });
                     engineSources[n.Id] = [n.Id];
                     break;
                 case NodeKind.Loopback:
@@ -248,7 +252,7 @@ public static class GraphBuilder
                     engineSources[n.Id] = [n.Id];
                     break;
                 case NodeKind.DeviceOutput:
-                    outputs.Add(new OutputSpec(n.Id, ep.Id, n.GainDb, n.Muted) { Chain = ChainOf(n) });
+                    outputs.Add(new OutputSpec(n.Id, ep.Id, n.GainDb, n.Muted) { Chain = ChainOf(n), LowLatency = n.LowLatencyFor(ep.Name) });
                     break;
             }
         }

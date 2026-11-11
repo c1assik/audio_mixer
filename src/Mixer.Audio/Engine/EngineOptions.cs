@@ -17,6 +17,18 @@ public sealed record EngineOptions
     /// </summary>
     public double RenderQueueMs { get; init; } = 15;
 
+    /// <summary>
+    /// «Низкая задержка» на выходе: очередь в устройстве — период плюс ещё период, но не меньше этого запаса, мс,
+    /// на опоздание пробуждения потока.
+    /// </summary>
+    public double LowLatencyMarginMs { get; init; } = 2;
+
+    /// <summary>
+    /// Нижний предел цели заполнения кольца, мс. Цель — TargetPeriods периодов самого медленного из двух устройств
+    /// на концах провода (v2, «Низкая задержка»); при обычных 10 мс это 20 мс, как в v1.
+    /// </summary>
+    public double MinTargetMs { get; init; } = 4;
+
     /// <summary>Буфер захвата WASAPI, мс. Задержку не добавляет: пакеты забираются по событию, как только готовы.</summary>
     public double CaptureBufferMs { get; init; } = 50;
 

@@ -33,7 +33,7 @@ public static class GraphChange
             if (!byId.TryGetValue(n.Id, out var old)) return GraphChangeKind.Structure;
             if (old == n) continue;
             if (old.Kind != n.Kind || old.EndpointId != n.EndpointId || old.EndpointName != n.EndpointName || old.DefaultRole != n.DefaultRole
-                || old.Exe != n.Exe || old.TakeOver != n.TakeOver || old.DirectRoute != n.DirectRoute
+                || old.Exe != n.Exe || old.TakeOver != n.TakeOver || old.DirectRoute != n.DirectRoute || old.LowLatency != n.LowLatency
                 || old.IncludeOwnNodes != n.IncludeOwnNodes || !(old.Exclude ?? []).SequenceEqual(n.Exclude ?? [], StringComparer.OrdinalIgnoreCase))
                 return GraphChangeKind.Structure;
             var stripped = n with { X = old.X, Y = old.Y, Color = old.Color, Exclude = old.Exclude };

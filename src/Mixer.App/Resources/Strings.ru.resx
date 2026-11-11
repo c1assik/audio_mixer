@@ -1021,4 +1021,40 @@
   <data name="Status_WiresDirectFormat" xml:space="preserve">
     <value>{0} ({1} напрямую)</value>
   </data>
+  <data name="Node_LowLatency" xml:space="preserve">
+    <value>Низкая задержка</value>
+  </data>
+  <data name="Node_LowLatencyInput" xml:space="preserve">
+    <value>Низкая задержка (эксперимент)</value>
+  </data>
+  <data name="Node_LowLatencyTip" xml:space="preserve">
+    <value>Открывает устройство с наименьшим периодом, который даёт драйвер (IAudioClient3): до 2,7 мс вместо 10 мс. Малый период переводит в этот режим весь звуковой движок Windows на этом устройстве, для всех приложений, и немного повышает нагрузку на процессор. Если устройство сбоит больше 3 раз за минуту, узел сам возвращается на 10 мс. Многие драйверы дают только 10 мс, тогда ничего не меняется.</value>
+  </data>
+  <data name="Node_LowLatencyInputNote" xml:space="preserve">
+    <value>На входах режим экспериментальный: у части драйверов поток записи с малым периодом сбоит.</value>
+  </data>
+  <data name="NodeTip_LowLatencyActiveFormat" xml:space="preserve">
+    <value>Низкая задержка: период {0} вместо {1}</value>
+  </data>
+  <data name="NodeTip_LowLatencyUnsupportedFormat" xml:space="preserve">
+    <value>Низкая задержка недоступна: драйвер не даёт период меньше {0}</value>
+  </data>
+  <data name="NodeTip_LowLatencyUnavailableFormat" xml:space="preserve">
+    <value>Низкая задержка не включилась ({0}), устройство работает с обычным периодом</value>
+  </data>
+  <data name="NodeWarn_LowLatencyFellBackFormat" xml:space="preserve">
+    <value>Низкая задержка выключена: больше {0} сбоев за минуту. Узел вернулся на обычный период {1}. Чтобы попробовать снова, выключите и включите «Низкая задержка» в меню узла.</value>
+  </data>
+  <data name="Migrate_GroupOfferFormat" xml:space="preserve">
+    <value>Схема перенесена с версии 1. {0} идут в одни и те же выходы ({1}). Сгруппировать в шину? Один фейдер на группу, проводов меньше, уровни не изменятся.</value>
+  </data>
+  <data name="Migrate_GroupAccept" xml:space="preserve">
+    <value>Сгруппировать в шину</value>
+  </data>
+  <data name="Migrate_GroupDismiss" xml:space="preserve">
+    <value>Не нужно</value>
+  </data>
+  <data name="List_AndFormat" xml:space="preserve">
+    <value>{0} и {1}</value>
+  </data>
 </root>

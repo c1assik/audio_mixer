@@ -380,9 +380,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private bool CanGroup() => Picked.Count >= 2;
 
     [RelayCommand(CanExecute = nameof(CanGroup))]
-    private void GroupSelected()
+    private void GroupSelected() => GroupNodes(Picked);
+
+    private void GroupNodes(IReadOnlyList<NodeViewModel> members)
     {
-        var members = Picked;
         if (members.Count < 2)
         {
             Notify(Mixer.Core.Resources.CoreStrings.Group_NeedTwo);
@@ -404,6 +405,59 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             : r.Skipped > 0 ? Fmt.F(Strings.Bus_GroupedSomeFormat, bus.Name, Fmt.Plural(r.Moved, Strings.Plural_Output), Fmt.Plural(r.Skipped, Strings.Plural_Output))
             : Fmt.F(Strings.Bus_GroupedFormat, bus.Name, Fmt.Plural(r.Moved, Strings.Plural_Output)));
     }
+
+    // ── предложение сгруппировать после переноса схемы v1 ──
+
+    private readonly Queue<IReadOnlyList<string>> _groupOffers = new();
+    private IReadOnlyList<string>? _groupOffer;
+
+    /// <summary>Текст предложения «Сгруппировать в шину?» (null — предлагать нечего).</summary>
+    [ObservableProperty] private string? _groupOfferText;
+
+    /// <summary>
+    /// Схему перенесли с v1: предложить шины для источников с одинаковым набором выходов (v2, «Перенос с v1»).
+    /// Шины сами не создаются: предложения идут по одному, каждое можно принять или отклонить.
+    /// </summary>
+    public void OfferGrouping()
+    {
+        _groupOffers.Clear();
+        foreach (var g in GraphEdits.GroupSuggestions(Graph)) _groupOffers.Enqueue(g);
+        NextGroupOffer();
+    }
+
+    private void NextGroupOffer()
+    {
+        _groupOffer = null;
+        GroupOfferText = null;
+        while (_groupOffers.TryDequeue(out var ids))
+        {
+            // граф могли поправить, пока висело прежнее предложение
+            var members = ids.Select(id => _nodes.GetValueOrDefault(id)).ToList();
+            if (members.Any(m => m is null)) continue;
+            var outs = Graph.Wires.Where(w => w.From == ids[0] && w.Enabled).Select(w => _nodes.GetValueOrDefault(w.To))
+                .Where(o => o is { IsOutput: true }).Select(o => o!.Name).ToList();
+            _groupOffer = ids;
+            GroupOfferText = Fmt.F(Strings.Migrate_GroupOfferFormat,
+                Fmt.List(members.Select(m => Quote(m!.Name))), Fmt.List(outs.Select(Quote)));
+            return;
+        }
+    }
+
+    /// <summary>Имя в кавычках языка интерфейса: «…» или “…”.</summary>
+    private static string Quote(string name) => Fmt.F(Mixer.Core.Resources.CoreStrings.Path_NameFormat, name);
+
+    [RelayCommand]
+    private void AcceptGroupOffer()
+    {
+        var ids = _groupOffer;
+        var members = ids?.Select(id => _nodes.GetValueOrDefault(id)).OfType<NodeViewModel>().ToList();
+        // узлы предложения могли удалить, пока оно висело: тогда группировать нечего
+        if (members is not null && members.Count == ids!.Count) GroupNodes(members);
+        NextGroupOffer();
+    }
+
+    [RelayCommand]
+    private void DismissGroupOffer() => NextGroupOffer();
 
     public void Ungroup(NodeViewModel bus)
     {

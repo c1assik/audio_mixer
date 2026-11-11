@@ -27,8 +27,9 @@ public static class Commands
                            [--resampler sinc|cubic] [--render-ms M] [--queue-ms Q] [--target-periods P] [--max-ppm E] [--max-drift-ppm D]
                            [--allow-feedback] [--allow-voicemeeter] [--no-takeover]
                                               запустить граф; Ctrl+C — остановить (привязки приложений снимаются)
-          latency --in <вход> --out <выход> [--count N] [--gain дБ] [--render-ms M]
-                                              сквозная задержка по петле «выход → кабель → вход»
+          latency --in <вход> --out <выход> [--count N] [--gain дБ] [--render-ms M] [--low-latency | --low-latency-out]
+                                              сквозная задержка по петле «выход → кабель → вход»;
+                                              --low-latency — IAudioClient3 на входе и выходе, --low-latency-out — только на выходе
 
         Устройства указываются по ID или по части имени.
         run пишет журнал привязок (boundApps) обратно в graph.json до каждой установки привязки.
@@ -339,7 +340,7 @@ public sealed class StatusMonitor(MixerHost host)
             var (l, r) = s.Peak.Take();
             Console.WriteLine($"  ▶ {Name(s.Id),-24} {State(s)} {s.Format}  пик {Dbfs(l)} / {Dbfs(r)} dBFS" +
                               $"  пакетов {s.Packets}, средняя {Rate("s:" + s.Id, s.FramesCaptured, s.Format?.SampleRate ?? 0)}, разрывов {s.Discontinuities}, захват ≈{s.CaptureLatencyMs:F1} мс" +
-                              (s.IsProcessLoopback ? $", без пакетов {s.SecondsSinceActivity:F1} с" : ""));
+                              (s.IsProcessLoopback ? $", без пакетов {s.SecondsSinceActivity:F1} с" : "") + LowLatencyText(s));
         }
         var st = host.Status;
         foreach (var (exe, b) in st.Bindings)
@@ -362,7 +363,7 @@ public sealed class StatusMonitor(MixerHost host)
             var (l, r) = o.Peak.Take();
             float lim = o.TakeLimiterMinGain();
             Console.WriteLine($"  ◀ {Name(o.Id),-24} {State(o)} {o.Format}  пик {Dbfs(l)} / {Dbfs(r)} dBFS  буфер {o.QueueFrames}/{o.BufferFrames} кадров ≈{o.RenderLatencyMs:F1} мс, средняя {Rate("o:" + o.Id, o.FramesRendered, o.Format?.SampleRate ?? 0)}" +
-                              $"  пусто при пробуждении {o.Starvations}, нет события {o.EventTimeouts}, ограничитель {(lim < 1 ? $"{Db.FromGain(lim):F1} дБ" : "—")}");
+                              $"  пусто при пробуждении {o.Starvations}, нет события {o.EventTimeouts}, ограничитель {(lim < 1 ? $"{Db.FromGain(lim):F1} дБ" : "—")}" + LowLatencyText(o));
         }
         foreach (var w in engine.Wires)
         {
@@ -385,6 +386,16 @@ public sealed class StatusMonitor(MixerHost host)
                 cpuPct.ToString("F2", CultureInfo.InvariantCulture), w.Gaps));
         }
     }
+
+    /// <summary>Режим «Низкая задержка» узла (пусто, если не просили).</summary>
+    private static string LowLatencyText(AudioNode n) => !n.LowLatencyRequested ? "" : n.LowLatency.Status switch
+    {
+        LowLatencyStatus.Active => $", малый период {n.LowLatency.PeriodFrames} кадров ({n.LowLatency.PeriodMs:F2} мс), сбоев с ним {(n is OutputNode o ? o.Starvations : ((SourceNode)n).Discontinuities)}",
+        LowLatencyStatus.Unsupported => $", малых периодов нет (минимум {n.LowLatency.MinFrames} кадров)",
+        LowLatencyStatus.Unavailable => $", IAudioClient3 не включился: {n.LowLatency.Error}",
+        LowLatencyStatus.FellBack => $", ОТКАТ с малого периода: больше {GlitchWindow.Limit} сбоев за минуту",
+        _ => "",
+    };
 
     private static string State(AudioNode n) => n.State switch
     {

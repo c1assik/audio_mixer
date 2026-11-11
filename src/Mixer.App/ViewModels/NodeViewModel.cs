@@ -47,6 +47,8 @@ public sealed partial class NodeViewModel : ObservableObject
     /// <summary>Исключения узла «Весь звук системы» (нормализованные exe).</summary>
     public IReadOnlyList<string> Exclude => Config.Exclude ?? [];
     public bool HasDevice => Kind is NodeKind.DeviceInput or NodeKind.Loopback or NodeKind.DeviceOutput;
+    /// <summary>У узла есть «Низкая задержка» (вход и выход устройства).</summary>
+    public bool SupportsLowLatency => Config.SupportsLowLatency;
     public bool IsCable => Config.DefaultRole is null && Config.EndpointName is { } n && FeedbackRules.IsVirtualCable(n);
     /// <summary>Узел «Устройство по умолчанию»: устройство меняется вслед за Windows.</summary>
     public bool FollowsDefault => Config.FollowsDefault;
@@ -62,6 +64,8 @@ public sealed partial class NodeViewModel : ObservableObject
     [ObservableProperty] private bool _takeOver;
     /// <summary>Прямой маршрут разрешён (настройка узла «Приложение»).</summary>
     [ObservableProperty] private bool _directRoute;
+    /// <summary>«Низкая задержка» (IAudioClient3) с учётом умолчаний: у выхода включена, у входа выключена.</summary>
+    [ObservableProperty] private bool _lowLatency;
     /// <summary>«Весь звук системы»: не исключать приложения со своим узлом.</summary>
     [ObservableProperty] private bool _includeOwnNodes;
 
@@ -168,6 +172,7 @@ public sealed partial class NodeViewModel : ObservableObject
             Balance = c.Balance ?? 0;
             TakeOver = GraphBuilder.TakesOver(c);
             DirectRoute = c.DirectRoute ?? true;
+            LowLatency = c.LowLatencyOn;
             IncludeOwnNodes = c.IncludeOwnNodes ?? false;
             HasGate = c.Chain?.Gate.Enabled == true;
             HasEq = c.Chain?.Eq.Enabled == true;
@@ -239,6 +244,12 @@ public sealed partial class NodeViewModel : ObservableObject
     partial void OnDirectRouteChanged(bool value)
     {
         if (!_loading) _owner.Edit(g => GraphEdits.UpdateNode(g, Id, n => n with { DirectRoute = value ? null : false }));
+    }
+
+    partial void OnLowLatencyChanged(bool value)
+    {
+        // значение по умолчанию (у выхода — вкл., у входа и кабеля — выкл.) в файл не пишется
+        if (!_loading) _owner.Edit(g => GraphEdits.UpdateNode(g, Id, n => n with { LowLatency = value == (n with { LowLatency = null }).LowLatencyOn ? null : value }));
     }
 
     partial void OnIncludeOwnNodesChanged(bool value)

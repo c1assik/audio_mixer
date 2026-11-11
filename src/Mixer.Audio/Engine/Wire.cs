@@ -12,6 +12,7 @@ public sealed class SourceClock
     private int _rate;
     private int _epoch;
     private int _breaks;
+    private long _periodBits;
 
     /// <summary>
     /// Источник с законными паузами (process loopback: приложение замолчало — пакетов нет).
@@ -20,14 +21,17 @@ public sealed class SourceClock
     public bool Intermittent { get; init; }
 
     public int SampleRate => Volatile.Read(ref _rate);
+    /// <summary>Период источника, с (0 — обычный, <see cref="EngineOptions.PeriodMs"/>).</summary>
+    public double PeriodSeconds => BitConverter.Int64BitsToDouble(Volatile.Read(ref _periodBits));
     public int Epoch => Volatile.Read(ref _epoch);
     /// <summary>Разрывы потока источника (DATA_DISCONTINUITY): связь «кадры — время» сместилась скачком.</summary>
     public int Breaks => Volatile.Read(ref _breaks);
 
     public void Break() => Interlocked.Increment(ref _breaks);
 
-    public void Started(int sampleRate)
+    public void Started(int sampleRate, double periodSeconds = 0)
     {
+        Volatile.Write(ref _periodBits, BitConverter.DoubleToInt64Bits(periodSeconds));
         Volatile.Write(ref _rate, sampleRate);
         Interlocked.Increment(ref _epoch);
     }
@@ -48,6 +52,8 @@ public enum WireState { Idle, Priming, Running }
 public sealed class Wire
 {
     public const double FadeSeconds = 0.002;
+    /// <summary>Наименьший фейд: у малой цели заполнения фейд — её четверть, но не короче этого.</summary>
+    public const double MinFadeSeconds = 0.001;
     /// <summary>Тишина у прерывистого источника дольше этого — пауза, а не сбой.</summary>
     public const double GapSeconds = 0.1;
 
@@ -81,6 +87,7 @@ public sealed class Wire
     // ── состояние читателя (только поток выхода) ──
     private bool _active;
     private int _outRate;
+    private double _outPeriod;
     private int _epoch = -1;
     private int _inRate;
     private int _rsOutRate;
@@ -93,6 +100,7 @@ public sealed class Wire
     private double _trackResyncSeconds;
     private int _overflowFrames;
     private int _fadeFrames;
+    private bool _smallTarget;         // цель ниже обычной из-за малых периодов: underrun — сбой «Низкой задержки»
     private int _fadeInLeft;
     private JitterFilter _rJitter;
     private RateEstimator _rRate;
@@ -245,13 +253,25 @@ public sealed class Wire
 
     /// <summary>
     /// Выдаёт frames кадров провода и добавляет их в mix (interleaved-стерео) с усилением провода.
-    /// scratch — рабочий буфер не меньше frames·2.
+    /// scratch — рабочий буфер не меньше frames·2. outPeriodSeconds — период выхода (0 — обычный).
     /// </summary>
-    public void Render(Span<float> mix, Span<float> scratch, int frames, int outRate, long nowTicks)
+    /// <returns>
+    /// true — в этом блоке случился underrun, а цель провода понижена малыми периодами: выход с «Низкой задержкой»
+    /// считает это своим сбоем для автоотката.
+    /// </returns>
+    public bool Render(Span<float> mix, Span<float> scratch, int frames, int outRate, long nowTicks, double outPeriodSeconds = 0)
     {
-        if (!_active || outRate != _outRate)
+        int before = _underruns;
+        RenderBlock(mix, scratch, frames, outRate, nowTicks, outPeriodSeconds);
+        return _smallTarget && _underruns != before;
+    }
+
+    private void RenderBlock(Span<float> mix, Span<float> scratch, int frames, int outRate, long nowTicks, double outPeriodSeconds)
+    {
+        if (!_active || outRate != _outRate || outPeriodSeconds != _outPeriod)
         {
             _outRate = outRate;
+            _outPeriod = outPeriodSeconds;
             _active = true;
             _epoch = -1;
             _gain.Init(outRate, _targetGain, _targetGain, !_enabled);
@@ -355,12 +375,28 @@ public sealed class Wire
         }
         _inRate = inRate;
         _ring.Limit = (int)(inRate * _opt.RingMs / 1000.0);
-        _targetFrames = _baseTargetFrames = _opt.TargetPeriods * _opt.PeriodMs / 1000.0 * inRate;
+        double target = TargetSeconds(_opt, _clock.PeriodSeconds, _outPeriod);
+        _targetFrames = _baseTargetFrames = target * inRate;
+        _smallTarget = target < TargetSeconds(_opt, 0, 0);
+        // Резерв на фейд съедает запас малой цели (при 5,3 мс остаётся 0,7 мс на опоздание пробуждения),
+        // поэтому фейд — четверть цели, от 1 до 2 мс. При обычной цели 20 мс — 2 мс, как в v1.
+        _fadeFrames = Math.Max(1, (int)(_outRate * Math.Clamp(target / 4, MinFadeSeconds, FadeSeconds)));
         _breaksAtStart = _clock.Breaks;
         _targetRaised = false;
         _overflowFrames = (int)(inRate * _opt.OverflowMs / 1000.0);
         _resyncSeconds = _opt.ResyncMs / 1000.0;
         _trackResyncSeconds = _opt.TrackResyncMs / 1000.0;
+    }
+
+    /// <summary>
+    /// Цель заполнения кольца, с: TargetPeriods периодов самого медленного из двух устройств на концах провода,
+    /// но не меньше MinTargetMs (v2, «Низкая задержка»). Период 0 — обычный (PeriodMs). При 10 мс с обеих сторон — 20 мс, как в v1.
+    /// </summary>
+    public static double TargetSeconds(EngineOptions opt, double sourcePeriod, double outputPeriod)
+    {
+        double normal = opt.PeriodMs / 1000.0;
+        double slowest = Math.Max(sourcePeriod > 0 ? sourcePeriod : normal, outputPeriod > 0 ? outputPeriod : normal);
+        return Math.Max(opt.TargetPeriods * slowest, opt.MinTargetMs / 1000.0);
     }
 
     private double Ratio => (double)_inRate / _outRate * (1 + _ctl.Epsilon);

@@ -42,11 +42,17 @@ internal sealed class WireSimulation
     public List<float> Output { get; } = [];
     public bool KeepOutput { get; init; }
 
+    /// <summary>
+    /// Сообщать проводу периоды концов (SourceBlockMs и OutputBlockMs), как это делают узлы с «Низкой задержкой».
+    /// false — период «обычный» (0), цель заполнения считается от EngineOptions.PeriodMs, как в v1.
+    /// </summary>
+    public bool ReportPeriods { get; init; }
+
     public Wire Run(double seconds, int seed = 1)
     {
         var rnd = new Random(seed);
         var clock = new SourceClock { Intermittent = Intermittent };
-        clock.Started(InRate);
+        clock.Started(InRate, ReportPeriods ? SourceBlockMs / 1000 : 0);
         var wire = new Wire("src", "out", clock, Options);
 
         double srcRate = InRate * (1 + DriftPpm * 1e-6);
@@ -128,7 +134,7 @@ internal sealed class WireSimulation
                 outIndex++;
                 if (InStall(OutputStall, t)) continue;
                 Array.Clear(mix);
-                wire.Render(mix, scratch, outBlock, OutRate, ticks);
+                wire.Render(mix, scratch, outBlock, OutRate, ticks, ReportPeriods ? outPeriod : 0);
                 if (KeepOutput) Output.AddRange(mix);
                 if (t >= nextSample)
                 {

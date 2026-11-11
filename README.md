@@ -10,7 +10,21 @@ What it does:
 - takes audio from microphones and other inputs, from any output (whatever is playing in your headphones or speakers) and **from a single application**: Discord, a browser, a game, a music player;
 - plays to any playback device, including the VB-Cable virtual cable, so you can hand the mix to OBS or Discord;
 - sets the volume of every source, every output and every wire separately, with a level meter on each;
+- groups sources into **buses**: one fader for "game + chat", fewer wires;
+- cleans up your voice with a **gate, equalizer and compressor** on any node, with ready-made presets;
+- sends an application straight to its output when it needs nothing from the mixer (**direct route**: no added latency or CPU);
+- opens devices with **low latency** where the sound card driver allows it;
 - saves your layout automatically and restores it on start, picks up unplugged and reconnected devices, and survives sleep.
+
+## What's new in 2.0
+
+- **Buses**: a middle column between sources and outputs. Select sources and group them in one click; levels stay the same.
+- **Processing**: gate, EQ and compressor on every source, bus and output, with an EQ curve you drag with the mouse.
+- **All system audio** can leave out chosen programs (say, a messenger), and shows which processes it skipped and why.
+- New applications are picked up within tens of milliseconds, so the first notification sound isn't lost.
+- **Direct routes**: an application that goes to exactly one output, unprocessed, plays there directly.
+- **Low latency** on outputs (and, experimentally, on inputs) where the driver supports small buffers.
+- Your 1.0 layout is moved over automatically (see "Upgrading from 1.0").
 
 ## Requirements
 
@@ -50,6 +64,8 @@ Discord takes your microphone directly, as usual: there is no need to route it t
 
 The layout saves itself a second after every change. Undo is Ctrl+Z.
 
+Four sources going to two outputs make eight wires. To tidy that up, Ctrl+click the game and Discord, then click **Group into bus** (`Сгруппировать в шину`): Mixer adds a bus "Bus 1" in the middle column, wires both sources into it and the bus into both outputs. Every level stays exactly as it was, and now one fader turns the whole group up or down.
+
 ## Sources and outputs
 
 | Source | What it is |
@@ -61,6 +77,8 @@ The layout saves itself a second after every change. Undo is Ctrl+Z.
 | **Default device** (`по умолчанию`) | the microphone or output selected as default in Windows. Change the device in Windows and the node follows. The "communications" variant (`для связи`) follows the default communications device, the one Discord and calls use |
 
 An output is any playback device: headphones, speakers, CABLE Input.
+
+A **bus** (**+ Bus**, `+ Шина`) sits in the middle column. Several sources (or another bus) go in, and the sum goes on to outputs. It has its own fader, mute, meter and processing. A bus can feed another bus, but no more than two in a row. A bus with no inputs or no outputs is drawn faded: nothing is heard through it. "Ungroup" (`Разгруппировать`) in the bus menu turns it back into direct wires at the same levels.
 
 Every node has a volume from −60 to +12 dB, an **M** button (mute) and a level meter. A source's menu also has **mono** (sum the left and right channels, handy for a microphone that records into one channel) and balance. If an output gets too loud, a limiter gently holds it back, and a badge lights up on the card.
 
@@ -76,6 +94,8 @@ Every node has a volume from −60 to +12 dB, an **M** button (mute) and a level
 | Move or delete a wire | drag the wire by its end (near the node) to another node or into empty space; or select it and press Delete; or right-click → "Delete" (`Удалить провод`) |
 | Rename | double-click the name, or F2 |
 | Mono, balance, colour, another device | node menu: "⋯" or right-click |
+| Group sources into a bus | Ctrl+click two or more sources, then **Group into bus**; or right-click one of them |
+| Processing | click **+ FX** or a Gate · EQ · Comp chip on the card |
 | See routes | hover over a node: its wires light up |
 | Undo / redo | Ctrl+Z / Ctrl+Y |
 | Zoom | Ctrl + mouse wheel, Ctrl +/−/0 |
@@ -105,6 +125,33 @@ Good to know:
 - If the sink has fewer channels than your main device (say, 7.1 headphones and a stereo cable), some applications get quieter. Settings warns you about this. Restarting playback in the application helps, or set the cable to 7.1 in its device properties.
 - "All system audio" also hears applications in the sink. If it and such an application go to the same output, that application plays twice; the card warns you.
 
+## Processing: gate, EQ, compressor
+
+Every source, bus and output has a chain of three blocks in a fixed order: **gate → EQ → compressor**, then the fader. Click **+ FX** on a card (or a Gate · EQ · Comp chip once a block is on) to open the side panel.
+
+- **Gate** silences the background between phrases: threshold, attack, hold, release and how deep it cuts.
+- **EQ**: a high-pass filter (40–300 Hz) against rumble, and four bands (peak, low shelf, high shelf). Drag a point on the curve to change frequency and gain, scroll over it for Q, right-click for the band type, double-click for 0 dB.
+- **Compressor** evens out quiet and loud phrases: threshold, ratio, attack, release, knee and makeup. The card shows how much it is reducing right now.
+
+Presets: "Voice — clean", "Voice — broadcast", "Music — quieter and smoother". "Save as…" keeps your own. A block that is off costs nothing, and turning knobs never clicks. The "In" and "Out" meters at the bottom compare the level before and after processing.
+
+## Applications: exclusions and direct routes
+
+**All system audio** captures every program except Mixer. To keep a program out of it (say, a messenger out of your stream) without giving it its own node, open the node menu → **Exclude apps** (`Исключить приложения`): tick a program that is playing now, or type any exe name. Programs that have their own node are left out automatically so you don't hear them twice. If you want such a program in both (Discord on its own wire to the stream, and together with everything else in your headphones), turn on **Keep apps that have their own node**.
+
+Windows can only capture a program together with its whole process tree. When a tree contains Mixer or an excluded program, it can't be captured, and the card shows **skipped: N** (`пропущено: N`); hover over it to see which processes and why.
+
+**Direct route.** When an Application node goes to exactly one output, has no processing and its level is at most 0 dB, Mixer doesn't capture it at all: it sends the application straight to that output and sets its volume there. The wire shows a lightning bolt and "direct" (`напрямую`). There is no added latency or CPU. Add a second wire, turn on processing or raise the level above 0 dB, and the node goes back through Mixer by itself; the switch causes a gap of a few tens of milliseconds. A direct route needs Take over (below). It can be turned off in the node menu: **Direct route** (`Прямой маршрут`).
+
+## Low latency
+
+Outputs open with the smallest buffer the sound card driver allows (**Low latency**, `Низкая задержка`, in the node menu, on by default). On a driver that supports it, the period drops from 10 ms to as little as 2.7 ms, and the whole path through Mixer gets shorter. Many drivers only allow 10 ms; then nothing changes, and the card's tooltip says so.
+
+- The small buffer applies to the whole Windows audio engine on that device, for every program, and slightly raises system CPU use.
+- If the device glitches more than 3 times a minute, the node goes back to 10 ms by itself, and the card explains why. To try again, turn the mode off and on.
+- On inputs (microphones) the mode is off by default and marked experimental: with some drivers a capture stream with a small buffer glitches.
+- It is off by default on VB-Cable outputs: the cable adds its own buffer, and a small one makes it glitch.
+
 ## What the cards show
 
 ![Node and wire states: normal, muted, waiting, error, limiter; wire on, off, being dragged, forbidden](docs/images/states.png)
@@ -122,9 +169,9 @@ The top bar shows the total latency, CPU load and the number of audio glitches. 
 
 ## Limitations
 
-- **Latency is about 40–50 ms.** That is unnoticeable for streaming, calls and listening, but monitoring your own voice through Mixer in real time is uncomfortable: you will hear a slight echo.
+- **Latency is about 40–50 ms** on most sound cards. That is unnoticeable for streaming, calls and listening, but monitoring your own voice through Mixer in real time is uncomfortable: you will hear a slight echo. With low latency on a card that supports small buffers it is lower; VB-Cable always adds its own buffer.
 - Games with anti-cheat and programs running as administrator may refuse to give up their audio or to move to the sink. The card shows an error.
-- No equalizer, compressor, noise suppression, VST, tray icon or hotkeys yet.
+- No noise suppression, VST, tray icon, scenes or hotkeys yet.
 
 ## Where your data lives
 
@@ -132,23 +179,31 @@ The top bar shows the total latency, CPU load and the number of audio glitches. 
 | --- | --- |
 | layout | `%AppData%\Mixer\graph.json` |
 | layout backups (the last 5) | same folder, `graph.json.bak-…` |
+| your 1.0 layout, as it was before the upgrade | same folder, `graph.v1.json` |
+| settings (language, your processing presets) | same folder, `settings.json` |
 | log | `%LocalAppData%\Mixer\logs` |
 
 To open a folder, paste the path into the File Explorer address bar. If the layout file gets corrupted, Mixer restores it from the most recent backup and moves the broken file aside as `graph.json.broken-…`.
 
 **To uninstall**, close Mixer and delete `Mixer.exe` and both `Mixer` folders.
 
+## Upgrading from 1.0
+
+Just replace `Mixer.exe`. On first start 2.0 moves your layout over as it is: nodes, wires, names, levels and positions. Processing is off, so everything sounds as before. The original file is kept as `graph.v1.json` next to the layout; to go back to 1.0, put that file back as `graph.json`.
+
+If two or more sources go to the same outputs, Mixer offers to group them into a bus. Click **Group into a bus** (`Сгруппировать в шину`) or **No thanks** (`Не нужно`); nothing changes until you choose.
+
 ## Troubleshooting
 
 - **No sound from an application.** Read what the card says. If you just started the application, give it a second. If the card asks you to restart playback, pause and play again.
 - **An application plays twice.** Turn on Take over for its node and assign a sink in ⚙.
 - **Sound disappeared after Mixer crashed.** Start Mixer again: it moves applications back to their devices. Or fix it by hand in the Windows Volume mixer (see above).
-- **Crackling or dropouts.** Check the glitch counter in the top bar and the wire's tooltip. Close programs that take the audio device in exclusive mode.
+- **Crackling or dropouts.** Check the glitch counter in the top bar and the wire's tooltip. Close programs that take the audio device in exclusive mode. If it started with low latency, turn **Low latency** off on that node.
 - **Something else.** Attach the log from `%LocalAppData%\Mixer\logs` to your question: it records what happened with devices and applications.
 
 ## For developers
 
-Architecture, stage history, measurements and tests are in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). The original specification and plan (in Russian) is `Микшер для Windows спецификация и план.md`.
+Architecture, stage history, measurements and tests are in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). The specification and plan (in Russian) is `Микшер для Windows v2 спецификация и план.md`.
 
 ```
 dotnet build Mixer.sln -c Release

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using Mixer.Audio.Dsp;
 using Mixer.Audio.Interop;
@@ -22,6 +23,9 @@ public abstract class AudioNode : IDisposable
     private volatile WaveFormat? _format;
     private volatile string? _phase;
     private long _phaseTicks;
+    private volatile LowLatencyInfo _lowLatency = LowLatencyInfo.Off;
+    private volatile LowLatencyInfo? _fallback;
+    private readonly GlitchWindow _glitches = new();
 
     /// <summary>Вызов открытия устройства дольше этого считается зависшим (служба аудио нездорова).</summary>
     /// <summary>USB-микрофон на этой машине открывается 4–5 с, поэтому порог с запасом.</summary>
@@ -64,12 +68,36 @@ public abstract class AudioNode : IDisposable
     /// <summary>Сколько раз поток открывал устройство заново после сбоя.</summary>
     public int Restarts { get; private set; }
 
-    protected AudioNode(string id, string endpointId, EngineOptions options)
+    /// <param name="lowLatency">Открывать поток с малым периодом через IAudioClient3 («Низкая задержка»).</param>
+    /// <param name="fallback">Узел на этом устройстве уже откатывался с малого периода: сразу обычный период.</param>
+    protected AudioNode(string id, string endpointId, EngineOptions options, bool lowLatency = false, LowLatencyInfo? fallback = null)
     {
         Id = id;
         EndpointId = endpointId;
         Options = options;
+        LowLatencyRequested = lowLatency;
+        if (lowLatency && fallback is { Status: LowLatencyStatus.FellBack })
+        {
+            _fallback = fallback;
+            _lowLatency = fallback;
+        }
     }
+
+    /// <summary>Режим «Низкая задержка» включён в настройках узла.</summary>
+    public bool LowLatencyRequested { get; }
+
+    /// <summary>Что вышло с режимом «Низкая задержка» при последнем открытии устройства.</summary>
+    public LowLatencyInfo LowLatency => _lowLatency;
+
+    /// <summary>Узел откатился с малого периода из-за сбоев (null — нет). Движок помнит это для новых узлов того же устройства.</summary>
+    public LowLatencyInfo? FellBack => _fallback;
+
+    /// <summary>Поток открыт с малым периодом.</summary>
+    protected bool LowLatencyActive => _lowLatency.Status == LowLatencyStatus.Active;
+
+    /// <summary>Период потока, с (0 — обычный, <see cref="EngineOptions.PeriodMs"/>). Из него провода считают цель заполнения.</summary>
+    protected double StreamPeriodSeconds(int rate) =>
+        LowLatencyActive && rate > 0 ? _lowLatency.PeriodFrames / (double)rate : 0;
 
     public void SetGain(float gainDb, float balance, bool muted)
     {
@@ -162,6 +190,12 @@ public abstract class AudioNode : IDisposable
                     // сеанс закончился сам (устройство ушло без исключения)
                     SetState(NodeState.WaitingDevice, GoneMessage);
                 }
+                catch (LowLatencyFallbackException)
+                {
+                    // сразу заново, уже с обычным периодом: устройство в порядке, ждать нечего
+                    if (_stop) break;
+                    continue;
+                }
                 catch (AudioException ex) when (ex.IsDeviceGone)
                 {
                     SetState(NodeState.WaitingDevice, GoneMessage);
@@ -228,6 +262,49 @@ public abstract class AudioNode : IDisposable
         {
             Marshal.ReleaseComObject(enumerator);
         }
+    }
+
+    /// <summary>
+    /// Открыть поток (shared). С «Низкой задержкой» — через IAudioClient3 с наименьшим периодом движка; если драйвер
+    /// малых периодов не даёт, IAudioClient3 нет или он отказал, — обычный Initialize, как в v1. Клиент может
+    /// замениться новым: после отказа InitializeSharedAudioStream прежний не годится.
+    /// </summary>
+    private protected WaveFormat OpenShared([NotNull] ref IAudioClient? client, uint flags, double bufferMs, string what)
+    {
+        ArgumentNullException.ThrowIfNull(client);
+        _glitches.Reset();
+        if (LowLatencyRequested && _fallback is null)
+        {
+            var (format, info) = LowLatencyStream.TryInitialize(client, flags, what, out bool renew);
+            _lowLatency = info;
+            if (format is not null) return format;
+            if (renew)
+            {
+                Release(client);
+                client = null;
+                Phase("IMMDevice.Activate");
+                client = ActivateClient(EndpointId);
+                Phase("IAudioClient.Initialize (" + what + ")");
+            }
+        }
+        else
+        {
+            _lowLatency = _fallback ?? LowLatencyInfo.Off;
+        }
+        return InitializeShared(client, flags, bufferMs, what);
+    }
+
+    /// <summary>
+    /// Сбой потока (выход: буфер пуст при пробуждении; вход: разрыв). С малым периодом больше
+    /// <see cref="GlitchWindow.Limit"/> сбоев за минуту — откат: поток открывается заново с обычным периодом.
+    /// </summary>
+    protected void CountGlitch(long nowTicks)
+    {
+        if (!LowLatencyActive || !_glitches.Add(nowTicks)) return;
+        var fb = _lowLatency with { Status = LowLatencyStatus.FellBack };
+        _fallback = fb;
+        _lowLatency = fb;
+        throw new LowLatencyFallbackException();
     }
 
     /// <summary>GetMixFormat + Initialize (shared). Возвращает формат микса.</summary>
