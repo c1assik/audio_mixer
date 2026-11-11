@@ -7,7 +7,7 @@ Add-Type -AssemblyName PresentationCore, PresentationFramework, WindowsBase
 
 $accent = [Windows.Media.Color]::FromRgb(0x4F, 0xA3, 0xFF)
 $ink = [Windows.Media.Color]::FromRgb(0x0E, 0x11, 0x16)
-# тот же путь, что IconLogo в Themes/Theme.xaml (сетка 24×24)
+# тот же путь, что IconLogo в Themes/Styles.xaml (сетка 24×24)
 $logo = [Windows.Media.Geometry]::Parse('M4 7c6 0 10 10 16 10M4 17c6 0 10-10 16-10')
 
 function Render([int]$size) {

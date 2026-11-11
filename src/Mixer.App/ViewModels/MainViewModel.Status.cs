@@ -75,6 +75,7 @@ public sealed partial class MainViewModel
         var issues = build?.Issues ?? [];
 
         foreach (var n in Nodes) PollNode(n, st, snap, build, issues);
+        if (_host is not null) WatchDevices();
         var paths = devices.Count > 0 ? new GraphPaths(Graph) : null;
         int directBefore = Wires.Count(x => x.ShowDirect);
         foreach (var w in Wires) PollWire(w, snap, devices, paths, build);
@@ -105,6 +106,32 @@ public sealed partial class MainViewModel
         Processing?.Poll();
         if (_pollCount % 4 == 1) PollCpu();
         if (_pollCount % 8 == 1) PollFooter(st, devices);
+    }
+
+    /// <summary>Узлы, чьё устройство сейчас отключено (для уведомлений «отключено» / «снова подключено»).</summary>
+    private readonly HashSet<string> _lostDevices = new();
+    private bool _devicesWatched;
+
+    /// <summary>Устройство узла пропало (true) или вернулось (false): имя узла.</summary>
+    public event Action<string, bool>? DeviceAvailabilityChanged;
+
+    private void WatchDevices()
+    {
+        foreach (var n in Nodes)
+        {
+            bool lost = n.HasDevice && n.Look == NodeLook.Waiting && n.Subtitle == Strings.NodeSub_DeviceDisconnected;
+            if (lost && _lostDevices.Add(n.Id))
+            {
+                if (_devicesWatched) DeviceAvailabilityChanged?.Invoke(n.Name, true);
+            }
+            else if (!lost && n.Look == NodeLook.Normal && _lostDevices.Remove(n.Id))
+            {
+                DeviceAvailabilityChanged?.Invoke(n.Name, false);
+            }
+        }
+        _lostDevices.RemoveWhere(id => FindNode(id) is null);
+        // первый опрос после запуска: устройства, которых нет с самого начала, — не новость
+        _devicesWatched = _pollCount > 8;
     }
 
     private void PollCpu()
@@ -307,6 +334,11 @@ public sealed partial class MainViewModel
             }
         }
         if (c.Muted && error is null && wait is null) sub = Strings.NodeSub_Muted;
+        else if (n.PushMuted is { } pm && error is null && wait is null)
+        {
+            bool ptt = Graph.Hotkeys.Any(h => h.Target == n.Id && h.Action == HotkeyAction.PushToTalk);
+            sub = ptt ? (pm ? Strings.NodeSub_PushToTalkOff : Strings.NodeSub_PushToTalkOn) : Strings.NodeSub_PushToMuteOn;
+        }
         var lowLatency = c.LowLatencyOn ? n.EngineNodes.FirstOrDefault(e => e.State == NodeState.Running)?.LowLatency : null;
         if (lowLatency is { Status: LowLatencyStatus.FellBack } fb)
         {

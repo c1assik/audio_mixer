@@ -7,7 +7,7 @@
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="Vis" />
     </UserControl.Resources>
-    <Border Background="{StaticResource Card}" BorderBrush="#33373D" BorderThickness="1" CornerRadius="14">
+    <Border Background="{StaticResource Card}" BorderBrush="{StaticResource DialogBorder}" BorderThickness="1" CornerRadius="14">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />

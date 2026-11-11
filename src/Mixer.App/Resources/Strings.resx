@@ -1382,7 +1382,7 @@ Virtual cable “{1}”: apps play into {2}, and record from {3}</value>
     <comment>{0} = count with Plural_Cable</comment>
   </data>
   <data name="Settings_SetupHeader" xml:space="preserve">
-    <value>Setup assistant</value>
+    <value>SETUP ASSISTANT</value>
   </data>
   <data name="Settings_SetupText" xml:space="preserve">
     <value>Builds a ready graph from three questions: where your sound goes and which apps to keep separate</value>
@@ -1399,5 +1399,256 @@ Virtual cable “{1}”: apps play into {2}, and record from {3}</value>
   <data name="Settings_AutostartFailedFormat" xml:space="preserve">
     <value>Couldn’t change startup with Windows: {0}</value>
     <comment>{0} = error</comment>
+  </data>
+  <data name="Scene_Label" xml:space="preserve">
+    <value>Scene</value>
+  </data>
+  <data name="Scene_None" xml:space="preserve">
+    <value>none</value>
+  </data>
+  <data name="Scene_NameFormat" xml:space="preserve">
+    <value>Scene {0}</value>
+    <comment>{0} = number</comment>
+  </data>
+  <data name="Scene_CreatedFormat" xml:space="preserve">
+    <value>Scene “{0}” saved from the current levels</value>
+    <comment>{0} = scene name</comment>
+  </data>
+  <data name="Scene_Save" xml:space="preserve">
+    <value>Save scene</value>
+  </data>
+  <data name="Scene_SaveTip" xml:space="preserve">
+    <value>Store the current faders, mutes, wire levels and processing switches in this scene</value>
+  </data>
+  <data name="Scene_Reset" xml:space="preserve">
+    <value>Reset</value>
+  </data>
+  <data name="Scene_ResetTip" xml:space="preserve">
+    <value>Bring the levels back to the scene</value>
+  </data>
+  <data name="Scene_DirtyTip" xml:space="preserve">
+    <value>The levels were changed after the scene was applied</value>
+  </data>
+  <data name="Scene_MenuTip" xml:space="preserve">
+    <value>Scenes: named sets of levels. A scene changes faders, mutes, wire levels and processing switches, but never adds or removes nodes and wires</value>
+  </data>
+  <data name="Scene_New" xml:space="preserve">
+    <value>New scene from current levels</value>
+  </data>
+  <data name="Scene_Rename" xml:space="preserve">
+    <value>Name:</value>
+  </data>
+  <data name="Scene_Hotkey" xml:space="preserve">
+    <value>Hotkey:</value>
+  </data>
+  <data name="Scene_Delete" xml:space="preserve">
+    <value>Delete scene</value>
+  </data>
+  <data name="Scene_Empty" xml:space="preserve">
+    <value>No scenes yet</value>
+  </data>
+  <data name="Hotkey_Menu" xml:space="preserve">
+    <value>Hotkeys</value>
+  </data>
+  <data name="Hotkey_MenuTip" xml:space="preserve">
+    <value>Global hotkeys work in any app, including a full-screen game. Click a box and press a combination; Backspace clears it</value>
+  </data>
+  <data name="Hotkey_Mute" xml:space="preserve">
+    <value>Mute / unmute</value>
+  </data>
+  <data name="Hotkey_VolumeUp" xml:space="preserve">
+    <value>Volume +1 dB</value>
+  </data>
+  <data name="Hotkey_VolumeDown" xml:space="preserve">
+    <value>Volume −1 dB</value>
+  </data>
+  <data name="Hotkey_PushToTalk" xml:space="preserve">
+    <value>Push-to-talk</value>
+  </data>
+  <data name="Hotkey_PushToMute" xml:space="preserve">
+    <value>Push-to-mute</value>
+  </data>
+  <data name="Hotkey_PushNote" xml:space="preserve">
+    <value>Push-to-talk keeps the node silent until the key is held; push-to-mute silences it while held. They watch the keyboard with a hook that is set only when such a key is assigned</value>
+  </data>
+  <data name="Hotkey_None" xml:space="preserve">
+    <value>not set</value>
+  </data>
+  <data name="Hotkey_Press" xml:space="preserve">
+    <value>press a combination…</value>
+  </data>
+  <data name="Hotkey_NeedModifier" xml:space="preserve">
+    <value>Add Ctrl, Alt, Shift or Win: a plain key would fire while you type. F1–F24 and the numeric keypad work on their own</value>
+  </data>
+  <data name="Hotkey_TakenFormat" xml:space="preserve">
+    <value>{0} is already taken by another app or by Windows</value>
+    <comment>{0} = key combination</comment>
+  </data>
+  <data name="Hotkey_ReassignedFormat" xml:space="preserve">
+    <value>{0} was used for {1}; it’s reassigned</value>
+    <comment>{0} = keys, {1} = previous action</comment>
+  </data>
+  <data name="Hotkey_ActionOnFormat" xml:space="preserve">
+    <value>“{0}” on “{1}”</value>
+    <comment>{0} = action, {1} = node</comment>
+  </data>
+  <data name="Hotkey_SceneFormat" xml:space="preserve">
+    <value>scene “{0}”</value>
+    <comment>{0} = scene; RU: accusative</comment>
+  </data>
+  <data name="Hotkey_FiredMutedFormat" xml:space="preserve">
+    <value>{0}: muted</value>
+    <comment>{0} = node</comment>
+  </data>
+  <data name="Hotkey_FiredOnFormat" xml:space="preserve">
+    <value>{0}: on</value>
+    <comment>{0} = node</comment>
+  </data>
+  <data name="Hotkey_FiredGainFormat" xml:space="preserve">
+    <value>{0}: {1}</value>
+    <comment>{0} = node, {1} = gain</comment>
+  </data>
+  <data name="Hotkey_FiredSceneFormat" xml:space="preserve">
+    <value>Scene: {0}</value>
+    <comment>{0} = scene</comment>
+  </data>
+  <data name="Hotkey_HookFailed" xml:space="preserve">
+    <value>Push-to-talk doesn’t work: Windows refused the keyboard hook</value>
+  </data>
+  <data name="Hotkey_RegisterFailedFormat" xml:space="preserve">
+    <value>Hotkey {0} doesn’t work: another app took it</value>
+    <comment>{0} = keys</comment>
+  </data>
+  <data name="NodeSub_PushToTalkOff" xml:space="preserve">
+    <value>push-to-talk · silent</value>
+  </data>
+  <data name="NodeSub_PushToTalkOn" xml:space="preserve">
+    <value>push-to-talk · on air</value>
+  </data>
+  <data name="NodeSub_PushToMuteOn" xml:space="preserve">
+    <value>push-to-mute · silent</value>
+  </data>
+  <data name="Node_MainMic" xml:space="preserve">
+    <value>Main microphone</value>
+  </data>
+  <data name="Node_MainMicTip" xml:space="preserve">
+    <value>The tray icon shows whether this microphone is on, and the tray menu can mute it</value>
+  </data>
+  <data name="Tray_TipFormat" xml:space="preserve">
+    <value>Mixer · {0}</value>
+    <comment>{0} = state</comment>
+  </data>
+  <data name="Tray_MicOn" xml:space="preserve">
+    <value>microphone on</value>
+  </data>
+  <data name="Tray_MicOff" xml:space="preserve">
+    <value>microphone off</value>
+  </data>
+  <data name="Tray_NoMic" xml:space="preserve">
+    <value>running</value>
+  </data>
+  <data name="Tray_ProblemsFormat" xml:space="preserve">
+    <value>{0} · problems: {1}</value>
+    <comment>{0} = state, {1} = count</comment>
+  </data>
+  <data name="Tray_Open" xml:space="preserve">
+    <value>Open</value>
+  </data>
+  <data name="Tray_Exit" xml:space="preserve">
+    <value>Exit</value>
+  </data>
+  <data name="Tray_MuteMic" xml:space="preserve">
+    <value>Mute microphone</value>
+  </data>
+  <data name="Tray_Scenes" xml:space="preserve">
+    <value>Scenes</value>
+  </data>
+  <data name="Tray_HintTitle" xml:space="preserve">
+    <value>The mixer keeps running</value>
+  </data>
+  <data name="Tray_HintText" xml:space="preserve">
+    <value>It’s in the notification area by the clock. Click the icon to open it; “Exit” is in its menu</value>
+  </data>
+  <data name="Tray_DeviceLostFormat" xml:space="preserve">
+    <value>“{0}” disconnected</value>
+    <comment>{0} = node</comment>
+  </data>
+  <data name="Tray_DeviceBackFormat" xml:space="preserve">
+    <value>“{0}” is back</value>
+    <comment>{0} = node</comment>
+  </data>
+  <data name="Tray_DeviceLostText" xml:space="preserve">
+    <value>The node waits for the device; wires and levels are kept</value>
+  </data>
+  <data name="Settings_ThemeHeader" xml:space="preserve">
+    <value>THEME</value>
+  </data>
+  <data name="Settings_ThemeText" xml:space="preserve">
+    <value>Changes only how the mixer looks. Your graph, levels and positions stay the same</value>
+  </data>
+  <data name="Theme_Graphite" xml:space="preserve">
+    <value>Graphite</value>
+  </data>
+  <data name="Theme_GraphiteText" xml:space="preserve">
+    <value>The default dark look. Cards and curved wires</value>
+  </data>
+  <data name="Theme_Daylight" xml:space="preserve">
+    <value>Daylight</value>
+  </data>
+  <data name="Theme_DaylightText" xml:space="preserve">
+    <value>Light version of Graphite for bright rooms</value>
+  </data>
+  <data name="Theme_Modular" xml:space="preserve">
+    <value>Modular</value>
+  </data>
+  <data name="Theme_ModularText" xml:space="preserve">
+    <value>A Eurorack case: modules with knobs, jacks and patch cables. Nodes are laid out in rack rows</value>
+  </data>
+  <data name="Theme_RestartNote" xml:space="preserve">
+    <value>The new theme applies after a restart</value>
+  </data>
+  <data name="Theme_SaveFailedFormat" xml:space="preserve">
+    <value>Couldn’t save the theme: {0}</value>
+    <comment>{0} = error</comment>
+  </data>
+  <data name="Settings_BackgroundHeader" xml:space="preserve">
+    <value>TRAY AND STARTUP</value>
+  </data>
+  <data name="Settings_Autostart" xml:space="preserve">
+    <value>Start with Windows, minimized to the tray</value>
+  </data>
+  <data name="Settings_CloseToTray" xml:space="preserve">
+    <value>The close button hides the window to the tray</value>
+  </data>
+  <data name="Settings_HotkeyToasts" xml:space="preserve">
+    <value>Confirm hotkeys with a short pop-up by the tray</value>
+  </data>
+  <data name="Settings_DeviceNotifications" xml:space="preserve">
+    <value>Notify when a device disconnects or returns while the window is hidden</value>
+  </data>
+  <data name="Settings_MainMic" xml:space="preserve">
+    <value>Main microphone (tray icon):</value>
+  </data>
+  <data name="Settings_MainMicNone" xml:space="preserve">
+    <value>none</value>
+  </data>
+  <data name="Settings_SaveFailedFormat" xml:space="preserve">
+    <value>Couldn’t save the setting: {0}</value>
+    <comment>{0} = error</comment>
+  </data>
+  <data name="Modular_Level" xml:space="preserve">
+    <value>LEVEL</value>
+  </data>
+  <data name="Modular_InTip" xml:space="preserve">
+    <value>IN jack: drag a cable here from an OUT jack. Pull a plug out to move or remove the cable</value>
+  </data>
+  <data name="Modular_OutTip" xml:space="preserve">
+    <value>OUT jack: drag a cable from here to an IN jack of a bus or an output</value>
+  </data>
+  <data name="Modular_CableKnobTip" xml:space="preserve">
+    <value>Level of the cable plugged into this jack: drag up or down, wheel; double-click for 0 dB</value>
+  </data>
+  <data name="Toolbar_HintModular" xml:space="preserve">
+    <value>Patch from an OUT jack to an IN jack. The small knob above each IN is that cable’s level</value>
   </data>
 </root>

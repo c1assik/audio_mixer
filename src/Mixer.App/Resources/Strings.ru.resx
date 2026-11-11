@@ -1255,7 +1255,7 @@
     <value>Не хватило кабелей: пропущено {0}.</value>
   </data>
   <data name="Settings_SetupHeader" xml:space="preserve">
-    <value>Помощник настройки</value>
+    <value>ПОМОЩНИК НАСТРОЙКИ</value>
   </data>
   <data name="Settings_SetupText" xml:space="preserve">
     <value>Собирает готовую схему по трём вопросам: куда отдать звук и какие приложения держать отдельно</value>
@@ -1271,5 +1271,239 @@
   </data>
   <data name="Settings_AutostartFailedFormat" xml:space="preserve">
     <value>Не удалось изменить запуск вместе с Windows: {0}</value>
+  </data>
+  <data name="Scene_Label" xml:space="preserve">
+    <value>Сцена</value>
+  </data>
+  <data name="Scene_None" xml:space="preserve">
+    <value>нет</value>
+  </data>
+  <data name="Scene_NameFormat" xml:space="preserve">
+    <value>Сцена {0}</value>
+  </data>
+  <data name="Scene_CreatedFormat" xml:space="preserve">
+    <value>Сцена «{0}» сохранена из текущих уровней</value>
+  </data>
+  <data name="Scene_Save" xml:space="preserve">
+    <value>Сохранить сцену</value>
+  </data>
+  <data name="Scene_SaveTip" xml:space="preserve">
+    <value>Записать в сцену текущие фейдеры, mute, уровни проводов и включение обработки</value>
+  </data>
+  <data name="Scene_Reset" xml:space="preserve">
+    <value>Сбросить</value>
+  </data>
+  <data name="Scene_ResetTip" xml:space="preserve">
+    <value>Вернуть уровни сцены</value>
+  </data>
+  <data name="Scene_DirtyTip" xml:space="preserve">
+    <value>Уровни меняли после того, как сцену применили</value>
+  </data>
+  <data name="Scene_MenuTip" xml:space="preserve">
+    <value>Сцены — именованные наборы уровней. Сцена меняет фейдеры, mute, уровни проводов и включение обработки, но не добавляет и не удаляет узлы и провода</value>
+  </data>
+  <data name="Scene_New" xml:space="preserve">
+    <value>Новая сцена из текущих уровней</value>
+  </data>
+  <data name="Scene_Rename" xml:space="preserve">
+    <value>Имя:</value>
+  </data>
+  <data name="Scene_Hotkey" xml:space="preserve">
+    <value>Клавиша:</value>
+  </data>
+  <data name="Scene_Delete" xml:space="preserve">
+    <value>Удалить сцену</value>
+  </data>
+  <data name="Scene_Empty" xml:space="preserve">
+    <value>Сцен пока нет</value>
+  </data>
+  <data name="Hotkey_Menu" xml:space="preserve">
+    <value>Горячие клавиши</value>
+  </data>
+  <data name="Hotkey_MenuTip" xml:space="preserve">
+    <value>Глобальные клавиши работают в любом приложении, в том числе в полноэкранной игре. Щёлкните поле и нажмите сочетание; Backspace — снять</value>
+  </data>
+  <data name="Hotkey_Mute" xml:space="preserve">
+    <value>Mute / включить</value>
+  </data>
+  <data name="Hotkey_VolumeUp" xml:space="preserve">
+    <value>Громче на 1 дБ</value>
+  </data>
+  <data name="Hotkey_VolumeDown" xml:space="preserve">
+    <value>Тише на 1 дБ</value>
+  </data>
+  <data name="Hotkey_PushToTalk" xml:space="preserve">
+    <value>Push-to-talk</value>
+  </data>
+  <data name="Hotkey_PushToMute" xml:space="preserve">
+    <value>Push-to-mute</value>
+  </data>
+  <data name="Hotkey_PushNote" xml:space="preserve">
+    <value>Push-to-talk: узел молчит, пока клавиша не зажата; push-to-mute: молчит, пока зажата. Они следят за клавиатурой хуком, который ставится, только если такая клавиша назначена</value>
+  </data>
+  <data name="Hotkey_None" xml:space="preserve">
+    <value>не задана</value>
+  </data>
+  <data name="Hotkey_Press" xml:space="preserve">
+    <value>нажмите сочетание…</value>
+  </data>
+  <data name="Hotkey_NeedModifier" xml:space="preserve">
+    <value>Добавьте Ctrl, Alt, Shift или Win: одна клавиша срабатывала бы при наборе текста. F1–F24 и цифровой блок можно без них</value>
+  </data>
+  <data name="Hotkey_TakenFormat" xml:space="preserve">
+    <value>{0} уже занято другой программой или Windows</value>
+  </data>
+  <data name="Hotkey_ReassignedFormat" xml:space="preserve">
+    <value>{0} была назначена на {1}; клавиша переназначена</value>
+  </data>
+  <data name="Hotkey_ActionOnFormat" xml:space="preserve">
+    <value>«{0}» у «{1}»</value>
+  </data>
+  <data name="Hotkey_SceneFormat" xml:space="preserve">
+    <value>сцену «{0}»</value>
+  </data>
+  <data name="Hotkey_FiredMutedFormat" xml:space="preserve">
+    <value>{0}: выключен</value>
+  </data>
+  <data name="Hotkey_FiredOnFormat" xml:space="preserve">
+    <value>{0}: включён</value>
+  </data>
+  <data name="Hotkey_FiredGainFormat" xml:space="preserve">
+    <value>{0}: {1}</value>
+  </data>
+  <data name="Hotkey_FiredSceneFormat" xml:space="preserve">
+    <value>Сцена: {0}</value>
+  </data>
+  <data name="Hotkey_HookFailed" xml:space="preserve">
+    <value>Push-to-talk не работает: Windows не дала поставить хук клавиатуры</value>
+  </data>
+  <data name="Hotkey_RegisterFailedFormat" xml:space="preserve">
+    <value>Клавиша {0} не работает: её заняла другая программа</value>
+  </data>
+  <data name="NodeSub_PushToTalkOff" xml:space="preserve">
+    <value>push-to-talk · молчит</value>
+  </data>
+  <data name="NodeSub_PushToTalkOn" xml:space="preserve">
+    <value>push-to-talk · в эфире</value>
+  </data>
+  <data name="NodeSub_PushToMuteOn" xml:space="preserve">
+    <value>push-to-mute · молчит</value>
+  </data>
+  <data name="Node_MainMic" xml:space="preserve">
+    <value>Главный микрофон</value>
+  </data>
+  <data name="Node_MainMicTip" xml:space="preserve">
+    <value>Значок в трее показывает, включён ли этот микрофон, а меню трея умеет его выключать</value>
+  </data>
+  <data name="Tray_TipFormat" xml:space="preserve">
+    <value>Микшер · {0}</value>
+  </data>
+  <data name="Tray_MicOn" xml:space="preserve">
+    <value>микрофон включён</value>
+  </data>
+  <data name="Tray_MicOff" xml:space="preserve">
+    <value>микрофон выключен</value>
+  </data>
+  <data name="Tray_NoMic" xml:space="preserve">
+    <value>работает</value>
+  </data>
+  <data name="Tray_ProblemsFormat" xml:space="preserve">
+    <value>{0} · проблем: {1}</value>
+  </data>
+  <data name="Tray_Open" xml:space="preserve">
+    <value>Открыть</value>
+  </data>
+  <data name="Tray_Exit" xml:space="preserve">
+    <value>Выход</value>
+  </data>
+  <data name="Tray_MuteMic" xml:space="preserve">
+    <value>Выключить микрофон</value>
+  </data>
+  <data name="Tray_Scenes" xml:space="preserve">
+    <value>Сцены</value>
+  </data>
+  <data name="Tray_HintTitle" xml:space="preserve">
+    <value>Микшер продолжает работать</value>
+  </data>
+  <data name="Tray_HintText" xml:space="preserve">
+    <value>Он в области уведомлений у часов. Щёлкните значок, чтобы открыть; «Выход» — в его меню</value>
+  </data>
+  <data name="Tray_DeviceLostFormat" xml:space="preserve">
+    <value>«{0}» отключено</value>
+  </data>
+  <data name="Tray_DeviceBackFormat" xml:space="preserve">
+    <value>«{0}» снова подключено</value>
+  </data>
+  <data name="Tray_DeviceLostText" xml:space="preserve">
+    <value>Узел ждёт устройство; провода и уровни сохранены</value>
+  </data>
+  <data name="Settings_ThemeHeader" xml:space="preserve">
+    <value>ТЕМА</value>
+  </data>
+  <data name="Settings_ThemeText" xml:space="preserve">
+    <value>Меняет только внешний вид. Схема, уровни и позиции узлов остаются прежними</value>
+  </data>
+  <data name="Theme_Graphite" xml:space="preserve">
+    <value>Graphite</value>
+  </data>
+  <data name="Theme_GraphiteText" xml:space="preserve">
+    <value>Обычная тёмная тема. Карточки и изогнутые провода</value>
+  </data>
+  <data name="Theme_Daylight" xml:space="preserve">
+    <value>Daylight</value>
+  </data>
+  <data name="Theme_DaylightText" xml:space="preserve">
+    <value>Светлый вариант Graphite для светлых комнат</value>
+  </data>
+  <data name="Theme_Modular" xml:space="preserve">
+    <value>Modular</value>
+  </data>
+  <data name="Theme_ModularText" xml:space="preserve">
+    <value>Корпус Eurorack: модули с ручками, гнёзда и патч-кабели. Узлы стоят рядами стойки</value>
+  </data>
+  <data name="Theme_RestartNote" xml:space="preserve">
+    <value>Новая тема включится после перезапуска</value>
+  </data>
+  <data name="Theme_SaveFailedFormat" xml:space="preserve">
+    <value>Не удалось сохранить тему: {0}</value>
+  </data>
+  <data name="Settings_BackgroundHeader" xml:space="preserve">
+    <value>ТРЕЙ И ЗАПУСК</value>
+  </data>
+  <data name="Settings_Autostart" xml:space="preserve">
+    <value>Запускать вместе с Windows, свёрнутым в трей</value>
+  </data>
+  <data name="Settings_CloseToTray" xml:space="preserve">
+    <value>Крестик окна сворачивает в трей</value>
+  </data>
+  <data name="Settings_HotkeyToasts" xml:space="preserve">
+    <value>Подтверждать горячие клавиши всплывающим окном у трея</value>
+  </data>
+  <data name="Settings_DeviceNotifications" xml:space="preserve">
+    <value>Сообщать о потере и возврате устройства, пока окно скрыто</value>
+  </data>
+  <data name="Settings_MainMic" xml:space="preserve">
+    <value>Главный микрофон (значок в трее):</value>
+  </data>
+  <data name="Settings_MainMicNone" xml:space="preserve">
+    <value>нет</value>
+  </data>
+  <data name="Settings_SaveFailedFormat" xml:space="preserve">
+    <value>Не удалось сохранить настройку: {0}</value>
+  </data>
+  <data name="Modular_Level" xml:space="preserve">
+    <value>LEVEL</value>
+  </data>
+  <data name="Modular_InTip" xml:space="preserve">
+    <value>Гнездо IN: перетащите сюда кабель из гнезда OUT. Штекер можно выдернуть — перецепить или убрать кабель</value>
+  </data>
+  <data name="Modular_OutTip" xml:space="preserve">
+    <value>Гнездо OUT: тяните кабель отсюда в гнездо IN шины или выхода</value>
+  </data>
+  <data name="Modular_CableKnobTip" xml:space="preserve">
+    <value>Уровень кабеля в этом гнезде: тяните вверх-вниз или крутите колесо; двойной щелчок — 0 дБ</value>
+  </data>
+  <data name="Toolbar_HintModular" xml:space="preserve">
+    <value>Тяните кабель из гнезда OUT в гнездо IN. Маленькая ручка над каждым IN — уровень этого кабеля</value>
   </data>
 </root>

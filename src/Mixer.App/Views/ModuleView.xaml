@@ -1,0 +1,148 @@
+<UserControl x:Class="Mixer.App.Views.ModuleView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:Mixer.App.Ui"
+             xmlns:res="clr-namespace:Mixer.App.Resources"
+             Height="430" Focusable="False" AutomationProperties.Name="{Binding Name}" AutomationProperties.HelpText="{Binding Subtitle}">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="Vis" />
+        <!-- тумблер MUTE: рычаг вверх — звучит, вниз — молчит; светодиод рядом горит, когда молчит -->
+        <Style x:Key="Toggle" TargetType="ToggleButton">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="True" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <StackPanel Orientation="Horizontal" Background="Transparent">
+                            <Grid Width="16" Height="26">
+                                <Border CornerRadius="3" Background="{StaticResource KnobBody}" />
+                                <Border x:Name="Lever" Width="10" Height="11" CornerRadius="2" Background="#F2F2F0" VerticalAlignment="Top" Margin="0,2,0,0" />
+                            </Grid>
+                            <Ellipse x:Name="Led" Width="7" Height="7" Fill="{StaticResource LedOff}" Margin="7,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Lever" Property="VerticalAlignment" Value="Bottom" />
+                                <Setter TargetName="Lever" Property="Margin" Value="0,0,0,2" />
+                                <Setter TargetName="Led" Property="Fill" Value="{StaticResource Red}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <!-- подпись блока обработки со светодиодом: клик открывает ту же боковую панель -->
+        <Style x:Key="FxLabel" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
+            <Setter Property="Command" Value="{Binding OpenChainCommand}" />
+            <Setter Property="Margin" Value="6,0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <ContentPresenter />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="FxText" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource PanelFont}" />
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
+    </UserControl.Resources>
+
+    <Border x:Name="Panel" CornerRadius="3" BorderBrush="#40000000" BorderThickness="1" ui:Ui.Role="module">
+        <Grid>
+            <!-- винты -->
+            <Ellipse Width="7" Height="7" Fill="{StaticResource Screw}" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="8,7,0,0" />
+            <Ellipse Width="7" Height="7" Fill="{StaticResource Screw}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,7,8,0" />
+            <Ellipse Width="7" Height="7" Fill="{StaticResource Screw}" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="8,0,0,7" />
+            <Ellipse Width="7" Height="7" Fill="{StaticResource Screw}" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,8,7" />
+
+            <StackPanel Margin="10,24,10,0">
+                <TextBlock x:Name="Title" FontFamily="{StaticResource PanelFont}" FontSize="17" FontWeight="Bold" HorizontalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" MaxWidth="180" ui:TrimTip.IsEnabled="True" />
+                <TextBlock x:Name="Sub" FontFamily="{StaticResource PanelFont}" FontSize="9.5" HorizontalAlignment="Center" Margin="0,3,0,0"
+                           TextTrimming="CharacterEllipsis" MaxWidth="180" ToolTip="{Binding Tooltip}" />
+
+                <!-- LEVEL и индикатор -->
+                <Grid Margin="0,16,0,0" Height="92">
+                    <ui:Knob x:Name="Level" Width="86" Height="86" HorizontalAlignment="Center" Margin="0,0,24,0"
+                             Value="{Binding GainDb, Mode=TwoWay}" ToolTip="{x:Static res:Strings.Node_FaderTip}"
+                             AutomationProperties.Name="{x:Static res:Strings.Modular_Level}" />
+                    <ui:LedMeter x:Name="Leds" Meter="{Binding Meter}" Width="16" Height="78" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                </Grid>
+                <TextBlock x:Name="LevelLabel" Text="{x:Static res:Strings.Modular_Level}" FontFamily="{StaticResource PanelFont}" FontSize="10" FontWeight="SemiBold"
+                           HorizontalAlignment="Center" Margin="0,6,0,0" />
+                <TextBlock x:Name="LevelValue" Text="{Binding GainText}" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0" />
+
+                <!-- MUTE -->
+                <ToggleButton Style="{StaticResource Toggle}" IsChecked="{Binding Muted, Mode=TwoWay}" HorizontalAlignment="Center" Margin="0,16,0,0"
+                              ToolTip="{x:Static res:Strings.Node_MuteTip}" AutomationProperties.Name="{x:Static res:Strings.Node_Mute}" />
+                <TextBlock x:Name="MuteLabel" Text="MUTE" FontFamily="{StaticResource PanelFont}" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,5,0,0" />
+
+                <!-- обработка: подписи со светодиодами -->
+                <StackPanel x:Name="Fx" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,16,0,0">
+                    <Button Style="{StaticResource FxLabel}" CommandParameter="gate" ToolTip="{x:Static res:Strings.Fx_ChipTip}" AutomationProperties.Name="{x:Static res:Strings.Fx_Gate}">
+                        <StackPanel Background="Transparent">
+                            <Ellipse Width="6" Height="6" HorizontalAlignment="Center" Margin="0,0,0,4">
+                                <Ellipse.Style>
+                                    <Style TargetType="Ellipse">
+                                        <Setter Property="Fill" Value="{StaticResource LedOff}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasGate}" Value="True">
+                                                <Setter Property="Fill" Value="{StaticResource Accent}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Ellipse.Style>
+                            </Ellipse>
+                            <TextBlock Text="GATE" Style="{StaticResource FxText}" Foreground="{Binding Foreground, ElementName=MuteLabel}" />
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource FxLabel}" CommandParameter="eq" ToolTip="{x:Static res:Strings.Fx_ChipTip}" AutomationProperties.Name="{x:Static res:Strings.Fx_Eq}">
+                        <StackPanel Background="Transparent">
+                            <Ellipse Width="6" Height="6" HorizontalAlignment="Center" Margin="0,0,0,4">
+                                <Ellipse.Style>
+                                    <Style TargetType="Ellipse">
+                                        <Setter Property="Fill" Value="{StaticResource LedOff}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasEq}" Value="True">
+                                                <Setter Property="Fill" Value="{StaticResource Accent}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Ellipse.Style>
+                            </Ellipse>
+                            <TextBlock Text="EQ" Style="{StaticResource FxText}" Foreground="{Binding Foreground, ElementName=MuteLabel}" />
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource FxLabel}" CommandParameter="comp" ToolTip="{x:Static res:Strings.Fx_ChipTip}" AutomationProperties.Name="{x:Static res:Strings.Fx_Comp}">
+                        <StackPanel Background="Transparent">
+                            <Ellipse Width="6" Height="6" HorizontalAlignment="Center" Margin="0,0,0,4">
+                                <Ellipse.Style>
+                                    <Style TargetType="Ellipse">
+                                        <Setter Property="Fill" Value="{StaticResource LedOff}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasComp}" Value="True">
+                                                <Setter Property="Fill" Value="{StaticResource Accent}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Ellipse.Style>
+                            </Ellipse>
+                            <TextBlock Text="COMP" Style="{StaticResource FxText}" Foreground="{Binding Foreground, ElementName=MuteLabel}" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+
+                <!-- состояние: ждёт, ошибка, предупреждения, кабель-микрофон -->
+                <TextBlock x:Name="State" FontSize="10" TextWrapping="Wrap" TextAlignment="Center" Margin="0,10,0,0" MaxHeight="40" TextTrimming="CharacterEllipsis"
+                           ToolTipService.ShowDuration="30000" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>

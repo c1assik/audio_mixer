@@ -1,50 +1,7 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <!-- ── цвета (макет «Главное окно») ── -->
-    <Color x:Key="BgColor">#15171A</Color>
-    <Color x:Key="BarColor">#1A1C20</Color>
-    <Color x:Key="CardColor">#1E2125</Color>
-    <Color x:Key="RaisedColor">#22252A</Color>
-    <Color x:Key="Raised2Color">#2A2E34</Color>
-    <Color x:Key="LineColor">#2C3036</Color>
-    <Color x:Key="LineStrongColor">#3A3F46</Color>
-    <Color x:Key="TextColor">#E8EAED</Color>
-    <Color x:Key="Text2Color">#C4C8CD</Color>
-    <Color x:Key="MutedColor">#9AA0A6</Color>
-    <Color x:Key="FaintColor">#6B7178</Color>
-    <Color x:Key="AccentColor">#4FA3FF</Color>
-    <Color x:Key="GreenColor">#3DCC91</Color>
-    <Color x:Key="RedColor">#F28B82</Color>
-    <Color x:Key="YellowColor">#FFC44D</Color>
-
-    <SolidColorBrush x:Key="Bg" Color="{StaticResource BgColor}" />
-    <SolidColorBrush x:Key="Bar" Color="{StaticResource BarColor}" />
-    <SolidColorBrush x:Key="Card" Color="{StaticResource CardColor}" />
-    <SolidColorBrush x:Key="Raised" Color="{StaticResource RaisedColor}" />
-    <SolidColorBrush x:Key="Raised2" Color="{StaticResource Raised2Color}" />
-    <SolidColorBrush x:Key="Line" Color="{StaticResource LineColor}" />
-    <SolidColorBrush x:Key="LineStrong" Color="{StaticResource LineStrongColor}" />
-    <SolidColorBrush x:Key="Text" Color="{StaticResource TextColor}" />
-    <SolidColorBrush x:Key="Text2" Color="{StaticResource Text2Color}" />
-    <SolidColorBrush x:Key="Muted" Color="{StaticResource MutedColor}" />
-    <SolidColorBrush x:Key="Faint" Color="{StaticResource FaintColor}" />
-    <SolidColorBrush x:Key="Accent" Color="{StaticResource AccentColor}" />
-    <SolidColorBrush x:Key="AccentSoft" Color="#2A3A52" />
-    <SolidColorBrush x:Key="Green" Color="{StaticResource GreenColor}" />
-    <SolidColorBrush x:Key="GreenSoft" Color="#243DCC91" />
-    <SolidColorBrush x:Key="GreenText" Color="#6FE0B0" />
-    <SolidColorBrush x:Key="Red" Color="{StaticResource RedColor}" />
-    <SolidColorBrush x:Key="RedSoft" Color="#29F28B82" />
-    <SolidColorBrush x:Key="RedDeep" Color="#3A2423" />
-    <SolidColorBrush x:Key="RedPale" Color="#FBD3CF" />
-    <SolidColorBrush x:Key="Yellow" Color="{StaticResource YellowColor}" />
-    <SolidColorBrush x:Key="YellowSoft" Color="#29FFC44D" />
-    <SolidColorBrush x:Key="Scrim" Color="#B3101215" />
-    <!-- текст и значки на акцентном фоне (основная кнопка, галочка) -->
-    <SolidColorBrush x:Key="OnAccent" Color="#0E1116" />
-
-    <FontFamily x:Key="UiFont">Segoe UI Variable Text, Segoe UI</FontFamily>
+    <!-- Цвета, кисти и шрифты — в словаре темы (Graphite.xaml, Daylight.xaml, Modular.xaml); он подключается раньше этого. -->
 
     <!-- ── иконки: пути из макета, viewBox 0 0 24 24, рисуются штрихом ── -->
     <Geometry x:Key="IconLogo">M4 7c6 0 10 10 16 10M4 17c6 0 10-10 16-10</Geometry>
@@ -164,7 +121,7 @@
     <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource ToolButton}">
         <Setter Property="Background" Value="{StaticResource Accent}" />
         <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
-        <Setter Property="Foreground" Value="#0E1116" />
+        <Setter Property="Foreground" Value="{StaticResource OnAccent}" />
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
@@ -194,7 +151,7 @@
                         <Trigger Property="IsChecked" Value="True">
                             <Setter TargetName="Bd" Property="Background" Value="{StaticResource Red}" />
                             <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Red}" />
-                            <Setter Property="Foreground" Value="#1A0E0D" />
+                            <Setter Property="Foreground" Value="{StaticResource OnRed}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -245,7 +202,7 @@
                                             <Ellipse x:Name="Knob" Fill="{StaticResource Text}" />
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="Knob" Property="Fill" Value="#FFFFFF" />
+                                                    <Setter TargetName="Knob" Property="Fill" Value="{StaticResource KnobActive}" />
                                                 </Trigger>
                                             </ControlTemplate.Triggers>
                                         </ControlTemplate>
@@ -528,7 +485,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="Bd" CornerRadius="5" BorderThickness="1" BorderBrush="#4D4FA3FF" Background="{StaticResource AccentSoft}" Padding="{TemplateBinding Padding}">
+                    <Border x:Name="Bd" CornerRadius="5" BorderThickness="1" BorderBrush="{StaticResource ChipBorder}" Background="{StaticResource AccentSoft}" Padding="{TemplateBinding Padding}">
                         <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}" />
                     </Border>
                     <ControlTemplate.Triggers>
@@ -557,7 +514,7 @@
                         <Trigger Property="IsChecked" Value="True">
                             <Setter TargetName="Track" Property="Background" Value="{StaticResource Accent}" />
                             <Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right" />
-                            <Setter TargetName="Knob" Property="Fill" Value="#FFFFFF" />
+                            <Setter TargetName="Knob" Property="Fill" Value="{StaticResource KnobActive}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

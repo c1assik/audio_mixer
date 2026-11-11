@@ -32,14 +32,14 @@
                     <Style.Triggers>
                         <DataTrigger Binding="{Binding Look}" Value="Waiting">
                             <Setter Property="Fill" Value="{StaticResource Bar}" />
-                            <Setter Property="Stroke" Value="#4A4F56" />
+                            <Setter Property="Stroke" Value="{StaticResource WaitingBorder}" />
                             <Setter Property="StrokeDashArray" Value="4 3" />
                         </DataTrigger>
                         <DataTrigger Binding="{Binding Look}" Value="Error">
                             <Setter Property="Stroke" Value="{StaticResource Red}" />
                         </DataTrigger>
                         <DataTrigger Binding="{Binding HasLimiter}" Value="True">
-                            <Setter Property="Stroke" Value="#80FFC44D" />
+                            <Setter Property="Stroke" Value="{StaticResource YellowBorder}" />
                         </DataTrigger>
                         <DataTrigger Binding="{Binding IsSelected}" Value="True">
                             <Setter Property="Stroke" Value="{StaticResource Accent}" />

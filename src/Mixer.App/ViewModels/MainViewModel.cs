@@ -20,7 +20,8 @@ namespace Mixer.App.ViewModels;
 /// </summary>
 public sealed partial class MainViewModel : ObservableObject, IDisposable
 {
-    public static readonly string[] SourceColors = ["#4FA3FF", "#FF9A4D", "#3DCC91", "#B18CFF", "#F2C94C", "#FF6B9A", "#4DD0E1", "#A3D977"];
+    /// <summary>Палитра источников в graph.json (цвета Graphite); тема показывает свой оттенок того же места (<see cref="ThemeColors.Source"/>).</summary>
+    public static readonly string[] SourceColors = ThemeColors.Canonical;
 
     private readonly GraphHistory _history;
     private readonly GraphStore _store;
@@ -50,6 +51,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _toastTimer.Tick += (_, _) => { Toast = null; _toastTimer.Stop(); };
 
         Sync(graph);
+        UpdateSceneState();
+        CheckHotkeysChanged(graph); // push-to-talk: узел молчит с первой секунды, пока клавиша не зажата
         _poll = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(250) };
         _poll.Tick += (_, _) => Poll();
         _poll.Start();
@@ -105,6 +108,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private SetupViewModel? _setup;
 
     public string ZoomText => Fmt.Percent(Zoom * 100) + "%";
+    /// <summary>Подсказка панели инструментов: у стойки Modular своя (гнёзда и ручки кабелей).</summary>
+    public string ToolbarHint => WireGeometry.Patch ? Strings.Toolbar_HintModular : Strings.Toolbar_Hint;
     public bool IsEmpty => Nodes.Count == 0;
     public bool HasOverlay => Palette is not null || Settings is not null || Setup is not null;
 
@@ -123,7 +128,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     {
         Sync(g);
         _store.Changed(g);
-        _host?.Update(g);
+        _host?.Update(Effective(g));
+        UpdateSceneState();
+        CheckHotkeysChanged(g);
+        MicStateChanged?.Invoke();
         UndoCommand.NotifyCanExecuteChanged();
         RedoCommand.NotifyCanExecuteChanged();
         SaveText = Strings.Header_Changed;

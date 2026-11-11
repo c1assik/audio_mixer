@@ -74,7 +74,7 @@
                                         <Setter Property="Margin" Value="-28,-11,0,0" />
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsPillOff}" Value="True">
-                                                <Setter Property="BorderBrush" Value="#5F656D" />
+                                                <Setter Property="BorderBrush" Value="{StaticResource WireOff}" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsSelected}" Value="True">
                                                 <Setter Property="BorderThickness" Value="2" />
@@ -106,7 +106,7 @@
                                                 </DataTrigger>
                                                 <DataTrigger Binding="{Binding IsSelected}" Value="True">
                                                     <Setter Property="FontWeight" Value="SemiBold" />
-                                                    <Setter Property="Foreground" Value="White" />
+                                                    <Setter Property="Foreground" Value="{StaticResource Text}" />
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
@@ -158,7 +158,7 @@
                 <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
                     <Button Style="{StaticResource PrimaryButton}" Command="{Binding AddSourceCommand}" Margin="0,0,8,0">
                         <StackPanel Orientation="Horizontal">
-                            <ui:Icon Data="{StaticResource IconPlus}" Foreground="#0E1116" Width="16" Height="16" Margin="0,0,6,0" />
+                            <ui:Icon Data="{StaticResource IconPlus}" Foreground="{StaticResource OnAccent}" Width="16" Height="16" Margin="0,0,6,0" />
                             <TextBlock Text="{x:Static res:Strings.Cmd_AddSource}" />
                         </StackPanel>
                     </Button>

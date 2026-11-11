@@ -4,17 +4,37 @@ using Mixer.App.ViewModels;
 
 namespace Mixer.App.Ui;
 
-/// <summary>Кривая провода: Безье от порта источника к порту выхода, касательные горизонтальны.</summary>
+/// <summary>
+/// Кривая провода. Graphite и Daylight: Безье от порта источника к порту выхода, касательные горизонтальны. Modular
+/// (<see cref="Patch"/>): патч-кабель — квадратичная кривая с провисом 50 + 0,22 × длина кабеля. Попадание мышью и
+/// перетаскивание конца в обеих формах идут через <see cref="At"/>.
+/// </summary>
 public static class WireGeometry
 {
+    /// <summary>Форма патч-кабеля (тема Modular).</summary>
+    public static bool Patch { get; set; }
+
     private static (Point C1, Point C2) Controls(Point a, Point b)
     {
         double c = Math.Max(60, Math.Abs(b.X - a.X) / 2);
         return (new Point(a.X + c, a.Y), new Point(b.X - c, b.Y));
     }
 
+    /// <summary>Контрольная точка патч-кабеля: середина хорды ниже нижнего конца на два провиса (кривая провисает на один).</summary>
+    public static Point SagControl(Point a, Point b)
+    {
+        double len = (b - a).Length;
+        return new Point((a.X + b.X) / 2, Math.Max(a.Y, b.Y) + 2 * Mixer.Core.Editing.RackLayout.Sag(len) - Math.Abs(a.Y - b.Y) / 2);
+    }
+
     public static Point At(Point a, Point b, double t)
     {
+        if (Patch)
+        {
+            var c = SagControl(a, b);
+            double v = 1 - t;
+            return new Point(v * v * a.X + 2 * v * t * c.X + t * t * b.X, v * v * a.Y + 2 * v * t * c.Y + t * t * b.Y);
+        }
         var (c1, c2) = Controls(a, b);
         double u = 1 - t;
         double k0 = u * u * u, k1 = 3 * u * u * t, k2 = 3 * u * t * t, k3 = t * t * t;
@@ -23,12 +43,16 @@ public static class WireGeometry
 
     public static StreamGeometry Build(Point a, Point b)
     {
-        var (c1, c2) = Controls(a, b);
         var g = new StreamGeometry();
         using (var ctx = g.Open())
         {
             ctx.BeginFigure(a, false, false);
-            ctx.BezierTo(c1, c2, b, true, false);
+            if (Patch) ctx.QuadraticBezierTo(SagControl(a, b), b, true, false);
+            else
+            {
+                var (c1, c2) = Controls(a, b);
+                ctx.BezierTo(c1, c2, b, true, false);
+            }
         }
         g.Freeze();
         return g;
@@ -71,8 +95,8 @@ public static class WireGeometry
 /// </summary>
 public sealed class WireLayer : FrameworkElement
 {
-    private static readonly Color Off = Color.FromRgb(0x5F, 0x65, 0x6D);
-    private static readonly Color Bad = Color.FromRgb(0xF2, 0x8B, 0x82);
+    private static readonly Color Off = ThemeColors.Get("WireOff", Color.FromRgb(0x5F, 0x65, 0x6D));
+    private static readonly Color Bad = ThemeColors.Get("Red", Color.FromRgb(0xF2, 0x8B, 0x82));
     private readonly Dictionary<(Color, int, int), Pen> _pens = new();
     private readonly Dictionary<WireViewModel, int> _levels = new();
     private MainViewModel? _vm;

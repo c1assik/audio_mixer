@@ -4,15 +4,13 @@
              xmlns:ui="clr-namespace:Mixer.App.Ui"
              xmlns:res="clr-namespace:Mixer.App.Resources"
              xmlns:views="clr-namespace:Mixer.App.Views"
-             Width="600" MaxHeight="660" FontFamily="{StaticResource UiFont}" FontSize="13">
+             Width="680" MaxHeight="800" FontFamily="{StaticResource UiFont}" FontSize="13">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="Vis" />
     </UserControl.Resources>
-    <Border Background="{StaticResource Card}" BorderBrush="#33373D" BorderThickness="1" CornerRadius="14">
+    <Border Background="{StaticResource Card}" BorderBrush="{StaticResource DialogBorder}" BorderThickness="1" CornerRadius="14">
         <Grid>
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
@@ -26,8 +24,10 @@
                 </Button>
             </Grid>
 
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Focusable="False">
+                <StackPanel>
             <!-- язык: применяется после перезапуска -->
-            <StackPanel Grid.Row="1" Margin="20,16,20,0" DataContext="{Binding Language}"
+            <StackPanel Margin="20,16,20,0" DataContext="{Binding Language}"
                         Visibility="{Binding Converter={x:Static views:MainWindow.NotNullToVisible}}">
                 <TextBlock Text="{x:Static res:Strings.Settings_LanguageHeader}" Style="{StaticResource SectionLabel}" />
                 <ItemsControl ItemsSource="{Binding Options}" Margin="-8,6,0,0" Focusable="False">
@@ -82,7 +82,110 @@
                 </Border>
             </StackPanel>
 
-            <StackPanel Grid.Row="2" Margin="20,16,20,8">
+            <!-- тема: применяется после перезапуска (макет «Theme · settings picker») -->
+            <StackPanel Margin="20,20,20,0" DataContext="{Binding Theme}"
+                        Visibility="{Binding Converter={x:Static views:MainWindow.NotNullToVisible}}">
+                <TextBlock Text="{x:Static res:Strings.Settings_ThemeHeader}" Style="{StaticResource SectionLabel}" />
+                <TextBlock Text="{x:Static res:Strings.Settings_ThemeText}" Foreground="{StaticResource Text2}" TextWrapping="Wrap" Margin="0,6,0,10" />
+                <ItemsControl ItemsSource="{Binding Options}" Focusable="False">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <UniformGrid Columns="3" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Command="{Binding DataContext.ChooseCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
+                                    Cursor="Hand" Margin="0,0,8,0" AutomationProperties.Name="{Binding Title}" FocusVisualStyle="{StaticResource FocusRing}">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="Bd" Background="{StaticResource Raised}" BorderBrush="{StaticResource Line}" BorderThickness="1.5" CornerRadius="10" Padding="8">
+                                            <ContentPresenter />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource LineStrong}" />
+                                            </Trigger>
+                                            <DataTrigger Binding="{Binding IsCurrent}" Value="True">
+                                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}" />
+                                            </DataTrigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                                <StackPanel>
+                                    <ui:ThemePreview Theme="{Binding Code}" Height="84" />
+                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                        <Grid Width="24">
+                                            <Ellipse Width="16" Height="16" StrokeThickness="2" Stroke="{StaticResource LineStrong}" HorizontalAlignment="Left" />
+                                            <Ellipse Width="8" Height="8" Fill="{StaticResource Accent}" HorizontalAlignment="Left" Margin="4,0,0,0"
+                                                     Visibility="{Binding IsCurrent, Converter={StaticResource Vis}}" />
+                                        </Grid>
+                                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" Foreground="{StaticResource Text}" />
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding Text}" FontSize="12" Foreground="{StaticResource Text2}" TextWrapping="Wrap" Margin="0,4,0,0" Height="48" />
+                                </StackPanel>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Border Margin="0,8,8,0" Padding="12,8" CornerRadius="8" Background="{StaticResource Raised}"
+                        Visibility="{Binding Note, Converter={x:Static views:MainWindow.NotNullToVisible}}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{Binding Note}" Foreground="{StaticResource Text2}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                        <Button Grid.Column="1" Content="{x:Static res:Strings.Settings_LanguageRestart}" Style="{StaticResource PrimaryButton}" Height="28"
+                                Command="{Binding RestartCommand}" Margin="12,0,0,0" VerticalAlignment="Center"
+                                Visibility="{Binding NeedsRestart, Converter={StaticResource Vis}}" />
+                    </Grid>
+                </Border>
+            </StackPanel>
+
+            <!-- трей и запуск -->
+            <StackPanel Margin="20,20,20,0">
+                <TextBlock Text="{x:Static res:Strings.Settings_BackgroundHeader}" Style="{StaticResource SectionLabel}" />
+                <CheckBox IsChecked="{Binding Autostart}" Content="{x:Static res:Strings.Settings_Autostart}" Margin="0,10,0,0" />
+                <CheckBox IsChecked="{Binding CloseToTray}" Content="{x:Static res:Strings.Settings_CloseToTray}" Margin="0,8,0,0"
+                          IsEnabled="{Binding HasPreferences}" />
+                <CheckBox IsChecked="{Binding HotkeyToasts}" Content="{x:Static res:Strings.Settings_HotkeyToasts}" Margin="0,8,0,0"
+                          IsEnabled="{Binding HasPreferences}" />
+                <CheckBox IsChecked="{Binding DeviceNotifications}" Content="{x:Static res:Strings.Settings_DeviceNotifications}" Margin="0,8,0,0"
+                          IsEnabled="{Binding HasPreferences}" />
+                <TextBlock Text="{x:Static res:Strings.Settings_MainMic}" Foreground="{StaticResource Text2}" Margin="0,12,0,4" />
+                <ItemsControl ItemsSource="{Binding Mics}" Margin="-8,0,0,0" Focusable="False">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Style="{StaticResource ChoiceRow}" Margin="0,0,4,0" AutomationProperties.Name="{Binding Title}"
+                                    Command="{Binding DataContext.ChooseMicCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
+                                <TextBlock Text="{Binding Title}" Foreground="{StaticResource Text}" />
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+
+            <!-- помощник настройки -->
+            <Grid Margin="20,20,20,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="{x:Static res:Strings.Settings_SetupHeader}" Style="{StaticResource SectionLabel}" />
+                    <TextBlock Text="{x:Static res:Strings.Settings_SetupText}" Foreground="{StaticResource Text2}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                </StackPanel>
+                <Button Grid.Column="1" Content="{x:Static res:Strings.Settings_SetupOpen}" Style="{StaticResource SmallToolButton}" Command="{Binding OpenSetupCommand}"
+                        VerticalAlignment="Center" Margin="12,0,0,0" />
+            </Grid>
+
+            <StackPanel Margin="20,20,20,8">
                 <TextBlock Text="{x:Static res:Strings.Settings_SinkHeader}" Style="{StaticResource SectionLabel}" />
                 <TextBlock Text="{Binding PolicyText}" Foreground="{StaticResource Text2}" TextWrapping="Wrap" Margin="0,6,0,0" LineHeight="18" />
                 <Border Margin="0,12,0,0" Padding="12,10" CornerRadius="8">
@@ -123,8 +226,8 @@
                 </Border>
             </StackPanel>
 
-            <ListBox Grid.Row="3" ItemsSource="{Binding Devices}" Background="Transparent" BorderThickness="0" Margin="12,0"
-                     ScrollViewer.HorizontalScrollBarVisibility="Disabled" Focusable="False">
+            <ListBox ItemsSource="{Binding Devices}" Background="Transparent" BorderThickness="0" Margin="12,0,12,12"
+                     ScrollViewer.VerticalScrollBarVisibility="Disabled" ScrollViewer.HorizontalScrollBarVisibility="Disabled" Focusable="False">
                 <ListBox.ItemContainerStyle>
                     <Style TargetType="ListBoxItem">
                         <Setter Property="Focusable" Value="False" />
@@ -177,15 +280,16 @@
                 </ListBox.ItemTemplate>
             </ListBox>
 
-            <Border Grid.Row="4" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="20,12">
+                </StackPanel>
+            </ScrollViewer>
+
+            <Border Grid.Row="2" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="20,12">
                 <Grid>
                     <StackPanel Orientation="Horizontal">
                         <Button Content="{x:Static res:Strings.Settings_ClearSink}" Style="{StaticResource SmallToolButton}" Command="{Binding ClearCommand}" Margin="0,0,8,0"
                                 Visibility="{Binding HasSink, Converter={StaticResource Vis}}" />
                         <Button Content="{x:Static res:Strings.Settings_VolumeMixer}" Style="{StaticResource SmallToolButton}" Command="{Binding OpenVolumeMixerCommand}"
-                                ToolTip="{x:Static res:Strings.Settings_VolumeMixerTip}" Margin="0,0,8,0" />
-                        <Button Content="{x:Static res:Strings.Settings_SetupOpen}" Style="{StaticResource SmallToolButton}" Command="{Binding OpenSetupCommand}"
-                                ToolTip="{x:Static res:Strings.Settings_SetupText}" />
+                                ToolTip="{x:Static res:Strings.Settings_VolumeMixerTip}" />
                     </StackPanel>
                     <TextBlock Text="{Binding LoopbackText}" Foreground="{StaticResource Faint}" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis" MaxWidth="240" ui:TrimTip.IsEnabled="True" />

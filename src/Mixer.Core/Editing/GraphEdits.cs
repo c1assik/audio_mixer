@@ -19,12 +19,33 @@ public static class GraphEdits
 
     public static GraphConfig AddNode(GraphConfig g, NodeConfig node) => g with { Nodes = [.. g.Nodes, node] };
 
-    /// <summary>Удалить узел вместе с его проводами.</summary>
+    /// <summary>Удалить узел вместе с его проводами и горячими клавишами.</summary>
     public static GraphConfig RemoveNode(GraphConfig g, string id) => g with
     {
         Nodes = g.Nodes.Where(n => n.Id != id).ToList(),
         Wires = g.Wires.Where(w => w.From != id && w.To != id).ToList(),
+        Hotkeys = g.Hotkeys.Where(h => h.Target != id).ToList(),
+        MainMic = g.MainMic == id ? null : g.MainMic,
     };
+
+    /// <summary>
+    /// Горячая клавиша действия над узлом (keys = null — снять). Одно сочетание — одно действие: такая же клавиша у
+    /// другого действия или у сцены снимается.
+    /// </summary>
+    public static GraphConfig SetHotkey(GraphConfig g, HotkeyAction action, string target, string? keys)
+    {
+        bool Same(string? k) => keys is not null && string.Equals(k, keys, StringComparison.OrdinalIgnoreCase);
+        var list = g.Hotkeys.Where(h => !(h.Action == action && h.Target == target) && !Same(h.Keys)).ToList();
+        if (keys is not null) list.Add(new HotkeyConfig { Action = action, Target = target, Keys = keys });
+        return g with
+        {
+            Hotkeys = list,
+            Scenes = g.Scenes.Select(s => Same(s.Hotkey) ? s with { Hotkey = null } : s).ToList(),
+        };
+    }
+
+    /// <summary>Главный микрофон (значок в трее, mute из меню трея).</summary>
+    public static GraphConfig SetMainMic(GraphConfig g, string? id) => g.MainMic == id ? g : g with { MainMic = id };
 
     /// <summary>Добавить exe в исключения узла «Весь звук системы» или убрать его оттуда (имя нормализуется, дубли не пишутся).</summary>
     public static GraphConfig SetExcluded(GraphConfig g, string id, string exe, bool excluded)

@@ -92,6 +92,8 @@ public sealed partial class NodeViewModel : ObservableObject
     /// <summary>Кабель-микрофон: «Микрофон для: OBS Studio» (null — никому не назначен) и состояние назначений.</summary>
     [ObservableProperty] private string? _micForText;
     [ObservableProperty] private string? _micForTip;
+    /// <summary>Push-to-talk / push-to-mute: узел сейчас молчит (true) или звучит (false) по клавише; null — клавиши нет.</summary>
+    [ObservableProperty] private bool? _pushMuted;
 
     // ── взаимодействие ──
     [ObservableProperty] private bool _isSelected;
@@ -135,9 +137,9 @@ public sealed partial class NodeViewModel : ObservableObject
 
     public Brush ColorBrush { get; private set; } = Brushes.Gray;
     public Brush TintBrush { get; private set; } = Brushes.Transparent;
-    public Brush FaderBrush => Muted ? Freeze(new SolidColorBrush(Color.FromRgb(0x5F, 0x65, 0x6D))) : IsSource ? ColorBrush : Freeze(new SolidColorBrush(Color.FromRgb(0xC4, 0xC8, 0xCD)));
+    public Brush FaderBrush => Muted ? ThemeColors.Brush("WireOff", Color.FromRgb(0x5F, 0x65, 0x6D)) : IsSource ? ColorBrush : ThemeColors.Brush("WireNeutral", Color.FromRgb(0xC4, 0xC8, 0xCD));
     /// <summary>Цвет провода из узла: у источника — его цвет, у шины — нейтральный.</summary>
-    public Color WireColor => IsSource ? Color : Color.FromRgb(0xC4, 0xC8, 0xCD);
+    public Color WireColor => IsSource ? Color : ThemeColors.Get("WireNeutral", Color.FromRgb(0xC4, 0xC8, 0xCD));
     public Geometry Glyph => (Geometry)Application.Current.Resources[GlyphKey];
     public bool HasAppIcon => AppIcon is not null;
 
@@ -201,10 +203,10 @@ public sealed partial class NodeViewModel : ObservableObject
     {
         if (hex is { Length: > 0 })
         {
-            try { return (Color)ColorConverter.ConvertFromString(hex); }
+            try { return ThemeColors.Source((Color)ColorConverter.ConvertFromString(hex)); }
             catch (FormatException) { }
         }
-        return source ? Color.FromRgb(0x4F, 0xA3, 0xFF) : Color.FromRgb(0xC4, 0xC8, 0xCD);
+        return source ? ThemeColors.Get("Source0", Color.FromRgb(0x4F, 0xA3, 0xFF)) : ThemeColors.Get("WireNeutral", Color.FromRgb(0xC4, 0xC8, 0xCD));
     }
 
     private static Brush Freeze(Brush b)
@@ -285,6 +287,9 @@ public sealed partial class NodeViewModel : ObservableObject
     partial void OnWarningsChanged(string? value) => OnPropertyChanged(nameof(HasWarnings));
     partial void OnLimiterTextChanged(string? value) => OnPropertyChanged(nameof(HasLimiter));
     partial void OnAppIconChanged(ImageSource? value) => OnPropertyChanged(nameof(HasAppIcon));
+
+    /// <summary>Перетаскивание ручки закончилось: следующая правка — новый шаг истории.</summary>
+    public void EndEdit() => _owner.EndMerge();
 
     [RelayCommand]
     private void ResetGain()

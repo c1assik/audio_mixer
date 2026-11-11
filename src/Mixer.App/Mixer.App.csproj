@@ -17,6 +17,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- шрифт панелей темы Modular (SIL OFL, лицензия — Fonts/Oswald-OFL.txt) -->
+    <Resource Include="Fonts\Oswald.ttf" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
   </ItemGroup>
 

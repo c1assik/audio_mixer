@@ -29,8 +29,74 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         _owner = owner;
         Language = owner.Preferences is { } p ? new LanguageSettings(p, owner.RequestRestart) : null;
+        Theme = owner.Preferences is { } tp ? new ThemeSettings(tp, owner.RequestRestart, App.Theme) : null;
+        _autostart = Ui.Autostart.IsEnabled();
+        Mics.Add(new MicChoice { Id = null, Title = Strings.Settings_MainMicNone, IsCurrent = owner.Graph.MainMic is null });
+        foreach (var n in owner.Nodes.Where(n => n.Kind == Mixer.Core.Config.NodeKind.DeviceInput))
+            Mics.Add(new MicChoice { Id = n.Id, Title = n.Name, IsCurrent = owner.Graph.MainMic == n.Id });
         Refresh();
         Load(owner.ListDevicesAsync());
+    }
+
+    /// <summary>Выбор темы; null — без файла настроек.</summary>
+    public ThemeSettings? Theme { get; }
+
+    public bool HasPreferences => _owner.Preferences is not null;
+
+    /// <summary>Узлы-входы — кандидаты в главный микрофон (значок трея).</summary>
+    public ObservableCollection<MicChoice> Mics { get; } = new();
+
+    private bool _autostart;
+
+    /// <summary>Запуск вместе с Windows (ветка Run), свёрнутым в трей.</summary>
+    public bool Autostart
+    {
+        get => _autostart;
+        set
+        {
+            if (_autostart == value) return;
+            if (_owner.SetAutostart(value)) _autostart = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public bool CloseToTray
+    {
+        get => _owner.Preferences?.CloseToTray ?? true;
+        set => Save(p => p.SetCloseToTray(value));
+    }
+
+    public bool HotkeyToasts
+    {
+        get => _owner.Preferences?.HotkeyToasts ?? true;
+        set => Save(p => p.SetHotkeyToasts(value));
+    }
+
+    public bool DeviceNotifications
+    {
+        get => _owner.Preferences?.DeviceNotifications ?? true;
+        set => Save(p => p.SetDeviceNotifications(value));
+    }
+
+    private void Save(Action<Preferences> write, [System.Runtime.CompilerServices.CallerMemberName] string? name = null)
+    {
+        if (_owner.Preferences is not { } p) return;
+        try
+        {
+            write(p);
+        }
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
+        {
+            _owner.Notify(Fmt.F(Strings.Settings_SaveFailedFormat, ex.Message), error: true);
+        }
+        OnPropertyChanged(name);
+    }
+
+    [RelayCommand]
+    private void ChooseMic(MicChoice row)
+    {
+        _owner.SetMainMic(row.Id);
+        foreach (var m in Mics) m.IsCurrent = m == row;
     }
 
     /// <summary>Устройства читаются заново в управляющем потоке: список в статусе хоста может быть ещё пуст.</summary>

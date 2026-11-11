@@ -1264,7 +1264,7 @@ public static class Strings
     /// <summary>Not enough cables: {0} skipped.</summary>
     public static string Setup_DoneMissingFormat => Get("Setup_DoneMissingFormat");
 
-    /// <summary>Setup assistant</summary>
+    /// <summary>SETUP ASSISTANT</summary>
     public static string Settings_SetupHeader => Get("Settings_SetupHeader");
 
     /// <summary>Builds a ready graph from three questions: where your sound goes and which apps to keep separate</summary>
@@ -1281,4 +1281,238 @@ public static class Strings
 
     /// <summary>Couldn’t change startup with Windows: {0}</summary>
     public static string Settings_AutostartFailedFormat => Get("Settings_AutostartFailedFormat");
+
+    /// <summary>Scene</summary>
+    public static string Scene_Label => Get("Scene_Label");
+
+    /// <summary>none</summary>
+    public static string Scene_None => Get("Scene_None");
+
+    /// <summary>Scene {0}</summary>
+    public static string Scene_NameFormat => Get("Scene_NameFormat");
+
+    /// <summary>Scene “{0}” saved from the current levels</summary>
+    public static string Scene_CreatedFormat => Get("Scene_CreatedFormat");
+
+    /// <summary>Save scene</summary>
+    public static string Scene_Save => Get("Scene_Save");
+
+    /// <summary>Store the current faders, mutes, wire levels and processing switches in this scene</summary>
+    public static string Scene_SaveTip => Get("Scene_SaveTip");
+
+    /// <summary>Reset</summary>
+    public static string Scene_Reset => Get("Scene_Reset");
+
+    /// <summary>Bring the levels back to the scene</summary>
+    public static string Scene_ResetTip => Get("Scene_ResetTip");
+
+    /// <summary>The levels were changed after the scene was applied</summary>
+    public static string Scene_DirtyTip => Get("Scene_DirtyTip");
+
+    /// <summary>Scenes: named sets of levels. A scene changes faders, mutes, wire levels and processing switches, but never adds or removes nodes and wires</summary>
+    public static string Scene_MenuTip => Get("Scene_MenuTip");
+
+    /// <summary>New scene from current levels</summary>
+    public static string Scene_New => Get("Scene_New");
+
+    /// <summary>Name:</summary>
+    public static string Scene_Rename => Get("Scene_Rename");
+
+    /// <summary>Hotkey:</summary>
+    public static string Scene_Hotkey => Get("Scene_Hotkey");
+
+    /// <summary>Delete scene</summary>
+    public static string Scene_Delete => Get("Scene_Delete");
+
+    /// <summary>No scenes yet</summary>
+    public static string Scene_Empty => Get("Scene_Empty");
+
+    /// <summary>Hotkeys</summary>
+    public static string Hotkey_Menu => Get("Hotkey_Menu");
+
+    /// <summary>Global hotkeys work in any app, including a full-screen game. Click a box and press a combination; Backspace clears it</summary>
+    public static string Hotkey_MenuTip => Get("Hotkey_MenuTip");
+
+    /// <summary>Mute / unmute</summary>
+    public static string Hotkey_Mute => Get("Hotkey_Mute");
+
+    /// <summary>Volume +1 dB</summary>
+    public static string Hotkey_VolumeUp => Get("Hotkey_VolumeUp");
+
+    /// <summary>Volume −1 dB</summary>
+    public static string Hotkey_VolumeDown => Get("Hotkey_VolumeDown");
+
+    /// <summary>Push-to-talk</summary>
+    public static string Hotkey_PushToTalk => Get("Hotkey_PushToTalk");
+
+    /// <summary>Push-to-mute</summary>
+    public static string Hotkey_PushToMute => Get("Hotkey_PushToMute");
+
+    /// <summary>Push-to-talk keeps the node silent until the key is held; push-to-mute silences it while held. They watch the keyboard with a hook that is set only when such a key is assigned</summary>
+    public static string Hotkey_PushNote => Get("Hotkey_PushNote");
+
+    /// <summary>not set</summary>
+    public static string Hotkey_None => Get("Hotkey_None");
+
+    /// <summary>press a combination…</summary>
+    public static string Hotkey_Press => Get("Hotkey_Press");
+
+    /// <summary>Add Ctrl, Alt, Shift or Win: a plain key would fire while you type. F1–F24 and the numeric keypad work on their own</summary>
+    public static string Hotkey_NeedModifier => Get("Hotkey_NeedModifier");
+
+    /// <summary>{0} is already taken by another app or by Windows</summary>
+    public static string Hotkey_TakenFormat => Get("Hotkey_TakenFormat");
+
+    /// <summary>{0} was used for {1}; it’s reassigned</summary>
+    public static string Hotkey_ReassignedFormat => Get("Hotkey_ReassignedFormat");
+
+    /// <summary>“{0}” on “{1}”</summary>
+    public static string Hotkey_ActionOnFormat => Get("Hotkey_ActionOnFormat");
+
+    /// <summary>scene “{0}”</summary>
+    public static string Hotkey_SceneFormat => Get("Hotkey_SceneFormat");
+
+    /// <summary>{0}: muted</summary>
+    public static string Hotkey_FiredMutedFormat => Get("Hotkey_FiredMutedFormat");
+
+    /// <summary>{0}: on</summary>
+    public static string Hotkey_FiredOnFormat => Get("Hotkey_FiredOnFormat");
+
+    /// <summary>{0}: {1}</summary>
+    public static string Hotkey_FiredGainFormat => Get("Hotkey_FiredGainFormat");
+
+    /// <summary>Scene: {0}</summary>
+    public static string Hotkey_FiredSceneFormat => Get("Hotkey_FiredSceneFormat");
+
+    /// <summary>Push-to-talk doesn’t work: Windows refused the keyboard hook</summary>
+    public static string Hotkey_HookFailed => Get("Hotkey_HookFailed");
+
+    /// <summary>Hotkey {0} doesn’t work: another app took it</summary>
+    public static string Hotkey_RegisterFailedFormat => Get("Hotkey_RegisterFailedFormat");
+
+    /// <summary>push-to-talk · silent</summary>
+    public static string NodeSub_PushToTalkOff => Get("NodeSub_PushToTalkOff");
+
+    /// <summary>push-to-talk · on air</summary>
+    public static string NodeSub_PushToTalkOn => Get("NodeSub_PushToTalkOn");
+
+    /// <summary>push-to-mute · silent</summary>
+    public static string NodeSub_PushToMuteOn => Get("NodeSub_PushToMuteOn");
+
+    /// <summary>Main microphone</summary>
+    public static string Node_MainMic => Get("Node_MainMic");
+
+    /// <summary>The tray icon shows whether this microphone is on, and the tray menu can mute it</summary>
+    public static string Node_MainMicTip => Get("Node_MainMicTip");
+
+    /// <summary>Mixer · {0}</summary>
+    public static string Tray_TipFormat => Get("Tray_TipFormat");
+
+    /// <summary>microphone on</summary>
+    public static string Tray_MicOn => Get("Tray_MicOn");
+
+    /// <summary>microphone off</summary>
+    public static string Tray_MicOff => Get("Tray_MicOff");
+
+    /// <summary>running</summary>
+    public static string Tray_NoMic => Get("Tray_NoMic");
+
+    /// <summary>{0} · problems: {1}</summary>
+    public static string Tray_ProblemsFormat => Get("Tray_ProblemsFormat");
+
+    /// <summary>Open</summary>
+    public static string Tray_Open => Get("Tray_Open");
+
+    /// <summary>Exit</summary>
+    public static string Tray_Exit => Get("Tray_Exit");
+
+    /// <summary>Mute microphone</summary>
+    public static string Tray_MuteMic => Get("Tray_MuteMic");
+
+    /// <summary>Scenes</summary>
+    public static string Tray_Scenes => Get("Tray_Scenes");
+
+    /// <summary>The mixer keeps running</summary>
+    public static string Tray_HintTitle => Get("Tray_HintTitle");
+
+    /// <summary>It’s in the notification area by the clock. Click the icon to open it; “Exit” is in its menu</summary>
+    public static string Tray_HintText => Get("Tray_HintText");
+
+    /// <summary>“{0}” disconnected</summary>
+    public static string Tray_DeviceLostFormat => Get("Tray_DeviceLostFormat");
+
+    /// <summary>“{0}” is back</summary>
+    public static string Tray_DeviceBackFormat => Get("Tray_DeviceBackFormat");
+
+    /// <summary>The node waits for the device; wires and levels are kept</summary>
+    public static string Tray_DeviceLostText => Get("Tray_DeviceLostText");
+
+    /// <summary>THEME</summary>
+    public static string Settings_ThemeHeader => Get("Settings_ThemeHeader");
+
+    /// <summary>Changes only how the mixer looks. Your graph, levels and positions stay the same</summary>
+    public static string Settings_ThemeText => Get("Settings_ThemeText");
+
+    /// <summary>Graphite</summary>
+    public static string Theme_Graphite => Get("Theme_Graphite");
+
+    /// <summary>The default dark look. Cards and curved wires</summary>
+    public static string Theme_GraphiteText => Get("Theme_GraphiteText");
+
+    /// <summary>Daylight</summary>
+    public static string Theme_Daylight => Get("Theme_Daylight");
+
+    /// <summary>Light version of Graphite for bright rooms</summary>
+    public static string Theme_DaylightText => Get("Theme_DaylightText");
+
+    /// <summary>Modular</summary>
+    public static string Theme_Modular => Get("Theme_Modular");
+
+    /// <summary>A Eurorack case: modules with knobs, jacks and patch cables. Nodes are laid out in rack rows</summary>
+    public static string Theme_ModularText => Get("Theme_ModularText");
+
+    /// <summary>The new theme applies after a restart</summary>
+    public static string Theme_RestartNote => Get("Theme_RestartNote");
+
+    /// <summary>Couldn’t save the theme: {0}</summary>
+    public static string Theme_SaveFailedFormat => Get("Theme_SaveFailedFormat");
+
+    /// <summary>TRAY AND STARTUP</summary>
+    public static string Settings_BackgroundHeader => Get("Settings_BackgroundHeader");
+
+    /// <summary>Start with Windows, minimized to the tray</summary>
+    public static string Settings_Autostart => Get("Settings_Autostart");
+
+    /// <summary>The close button hides the window to the tray</summary>
+    public static string Settings_CloseToTray => Get("Settings_CloseToTray");
+
+    /// <summary>Confirm hotkeys with a short pop-up by the tray</summary>
+    public static string Settings_HotkeyToasts => Get("Settings_HotkeyToasts");
+
+    /// <summary>Notify when a device disconnects or returns while the window is hidden</summary>
+    public static string Settings_DeviceNotifications => Get("Settings_DeviceNotifications");
+
+    /// <summary>Main microphone (tray icon):</summary>
+    public static string Settings_MainMic => Get("Settings_MainMic");
+
+    /// <summary>none</summary>
+    public static string Settings_MainMicNone => Get("Settings_MainMicNone");
+
+    /// <summary>Couldn’t save the setting: {0}</summary>
+    public static string Settings_SaveFailedFormat => Get("Settings_SaveFailedFormat");
+
+    /// <summary>LEVEL</summary>
+    public static string Modular_Level => Get("Modular_Level");
+
+    /// <summary>IN jack: drag a cable here from an OUT jack. Pull a plug out to move or remove the cable</summary>
+    public static string Modular_InTip => Get("Modular_InTip");
+
+    /// <summary>OUT jack: drag a cable from here to an IN jack of a bus or an output</summary>
+    public static string Modular_OutTip => Get("Modular_OutTip");
+
+    /// <summary>Level of the cable plugged into this jack: drag up or down, wheel; double-click for 0 dB</summary>
+    public static string Modular_CableKnobTip => Get("Modular_CableKnobTip");
+
+    /// <summary>Patch from an OUT jack to an IN jack. The small knob above each IN is that cable’s level</summary>
+    public static string Toolbar_HintModular => Get("Toolbar_HintModular");
 }

@@ -49,11 +49,11 @@ public sealed class MeterBar : FrameworkElement
 
     public MeterState? Meter { get => (MeterState?)GetValue(MeterProperty); set => SetValue(MeterProperty, value); }
 
-    private static readonly Brush Track = Freeze(new SolidColorBrush(Color.FromRgb(0x26, 0x29, 0x2E)));
-    private static readonly Brush Green = Freeze(new SolidColorBrush(Color.FromRgb(0x3D, 0xCC, 0x91)));
-    private static readonly Brush Red = Freeze(new SolidColorBrush(Color.FromRgb(0xF2, 0x8B, 0x82)));
-    private static readonly Brush Yellow = Freeze(new SolidColorBrush(Color.FromRgb(0xFF, 0xC4, 0x4D)));
-    private static readonly Brush Hold = Freeze(new SolidColorBrush(Color.FromRgb(0xC4, 0xC8, 0xCD)));
+    private static readonly Brush Track = ThemeColors.Brush("MeterTrack", Color.FromRgb(0x26, 0x29, 0x2E));
+    private static readonly Brush Green = ThemeColors.Brush("Green", Color.FromRgb(0x3D, 0xCC, 0x91));
+    private static readonly Brush Red = ThemeColors.Brush("Red", Color.FromRgb(0xF2, 0x8B, 0x82));
+    private static readonly Brush Yellow = ThemeColors.Brush("Yellow", Color.FromRgb(0xFF, 0xC4, 0x4D));
+    private static readonly Brush Hold = ThemeColors.Brush("MeterHold", Color.FromRgb(0xC4, 0xC8, 0xCD));
 
     private int _seen = -1;
 
