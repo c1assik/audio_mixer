@@ -1166,4 +1166,238 @@
   <data name="List_AndFormat" xml:space="preserve">
     <value>{0} and {1}</value>
   </data>
+  <data name="NodeSub_VirtualMicFormat" xml:space="preserve">
+    <value>virtual mic · {0}</value>
+    <comment>{0} = cable name</comment>
+  </data>
+  <data name="NodeSub_VirtualInputFormat" xml:space="preserve">
+    <value>virtual input · {0}</value>
+    <comment>{0} = cable name</comment>
+  </data>
+  <data name="NodeTip_CableFormat" xml:space="preserve">
+    <value>{0}
+
+Virtual cable “{1}”: apps play into {2}, and record from {3}</value>
+    <comment>{0} = device name, {1} = cable, {2} = input device, {3} = output device</comment>
+  </data>
+  <data name="NodeTip_CableVirtualMic" xml:space="preserve">
+    <value>Role: virtual mic. The mixer plays into the cable, and another app (OBS, Discord) records from its other end as a microphone</value>
+  </data>
+  <data name="NodeTip_CableVirtualInput" xml:space="preserve">
+    <value>Role: virtual input. Another app plays into the cable, and the mixer records from its other end</value>
+  </data>
+  <data name="Node_MicForFormat" xml:space="preserve">
+    <value>Mic for: {0}</value>
+    <comment>{0} = app names</comment>
+  </data>
+  <data name="MicTip_Header" xml:space="preserve">
+    <value>The cable’s output is the microphone of:</value>
+  </data>
+  <data name="MicTip_RowFormat" xml:space="preserve">
+    <value>{0}: {1}</value>
+    <comment>{0} = app name, {1} = MicState_*</comment>
+  </data>
+  <data name="MicState_Bound" xml:space="preserve">
+    <value>set</value>
+  </data>
+  <data name="MicState_NotRunning" xml:space="preserve">
+    <value>not running; it’s set as soon as the app starts</value>
+  </data>
+  <data name="MicState_Waiting" xml:space="preserve">
+    <value>running, waiting until it touches audio</value>
+  </data>
+  <data name="MicState_FailedFormat" xml:space="preserve">
+    <value>couldn’t set it: {0}</value>
+  </data>
+  <data name="MicState_UnavailableFormat" xml:space="preserve">
+    <value>not set: {0}</value>
+  </data>
+  <data name="MicTip_Note" xml:space="preserve">
+    <value>Inside the app, the microphone must be set to “Default”: a device picked there overrides this setting</value>
+  </data>
+  <data name="Node_UseAsMic" xml:space="preserve">
+    <value>Use as microphone in</value>
+  </data>
+  <data name="Node_UseAsMicTip" xml:space="preserve">
+    <value>Makes this cable’s output the recording device of the chosen app (as if you picked it for the app in Windows sound settings). The app keeps it after the mixer exits; unchecking the app or deleting the node removes it</value>
+  </data>
+  <data name="Node_UseAsMicOther" xml:space="preserve">
+    <value>Other app (exe):</value>
+  </data>
+  <data name="Node_UseAsMicOtherTip" xml:space="preserve">
+    <value>Exe name, e.g. obs64.exe; Enter adds it</value>
+  </data>
+  <data name="Node_UseAsMicUnavailable" xml:space="preserve">
+    <value>Assigning a microphone needs the Windows per-app device API, which isn’t available</value>
+  </data>
+  <data name="Node_LinkCable" xml:space="preserve">
+    <value>Link as virtual cable</value>
+  </data>
+  <data name="Node_LinkCableTip" xml:space="preserve">
+    <value>For a virtual cable the mixer doesn’t know: pick the device at its other end. The node then shows as a cable, and loops through it are blocked</value>
+  </data>
+  <data name="Node_UnlinkCable" xml:space="preserve">
+    <value>Unlink cable</value>
+  </data>
+  <data name="Cable_LinkedFormat" xml:space="preserve">
+    <value>“{0}” and “{1}” are now one cable</value>
+    <comment>{0}, {1} = device names</comment>
+  </data>
+  <data name="Palette_GroupCables" xml:space="preserve">
+    <value>VIRTUAL CABLES</value>
+  </data>
+  <data name="Palette_CableMicFormat" xml:space="preserve">
+    <value>virtual mic: the mixer plays into {0}, an app records from {1}</value>
+    <comment>{0} = input device, {1} = output device</comment>
+  </data>
+  <data name="Palette_CableInputFormat" xml:space="preserve">
+    <value>virtual input: an app plays into {0}, the mixer records from {1}</value>
+    <comment>{0} = input device, {1} = output device</comment>
+  </data>
+  <data name="Palette_CableHalf" xml:space="preserve">
+    <value>only one end of this cable is found</value>
+  </data>
+  <data name="Status_CablesFormat" xml:space="preserve">
+    <value>Cables: {0}</value>
+    <comment>{0} = list of Status_CableUsedFormat / Status_CableFreeFormat</comment>
+  </data>
+  <data name="Status_CableUsedFormat" xml:space="preserve">
+    <value>{0} ({1})</value>
+    <comment>{0} = cable, {1} = node names</comment>
+  </data>
+  <data name="Status_CableFreeFormat" xml:space="preserve">
+    <value>{0} free</value>
+    <comment>{0} = cable</comment>
+  </data>
+  <data name="Status_CablesTip" xml:space="preserve">
+    <value>Virtual cables: a cable has two ends. Apps play into its input and record from its output. Add one with “+ Output” (virtual mic) or “+ Source” (virtual input)</value>
+  </data>
+  <data name="Plural_Cable" xml:space="preserve">
+    <value>virtual cable|virtual cables</value>
+    <comment>Plural forms separated by |. EN: one|other. RU: one|few|many</comment>
+  </data>
+  <data name="Setup_Title" xml:space="preserve">
+    <value>Setup assistant</value>
+  </data>
+  <data name="Setup_StepFormat" xml:space="preserve">
+    <value>Step {0} of {1}</value>
+  </data>
+  <data name="Setup_DevicesTitle" xml:space="preserve">
+    <value>Your headphones and microphone</value>
+  </data>
+  <data name="Setup_DevicesText" xml:space="preserve">
+    <value>Pick the devices you actually use. You can change them later on each node</value>
+  </data>
+  <data name="Setup_Headphones" xml:space="preserve">
+    <value>Headphones or speakers</value>
+  </data>
+  <data name="Setup_Microphone" xml:space="preserve">
+    <value>Microphone</value>
+  </data>
+  <data name="Setup_WhereTitle" xml:space="preserve">
+    <value>Where should your sound go?</value>
+  </data>
+  <data name="Setup_WhereText" xml:space="preserve">
+    <value>Pick everything that applies. We’ll build the graph and set up the apps for you; you can change any of it later</value>
+  </data>
+  <data name="Setup_HeadphonesOnly" xml:space="preserve">
+    <value>Just my headphones</value>
+  </data>
+  <data name="Setup_HeadphonesOnlyText" xml:space="preserve">
+    <value>Hear games, calls and music with separate volumes</value>
+  </data>
+  <data name="Setup_Stream" xml:space="preserve">
+    <value>A stream (OBS)</value>
+  </data>
+  <data name="Setup_StreamText" xml:space="preserve">
+    <value>Send your voice, game and chat to OBS as one microphone, with chosen apps kept off-stream</value>
+  </data>
+  <data name="Setup_Call" xml:space="preserve">
+    <value>A call (Discord, Zoom)</value>
+  </data>
+  <data name="Setup_CallText" xml:space="preserve">
+    <value>Send your processed voice to the call app and hear the call on your headphones</value>
+  </data>
+  <data name="Setup_CablesNeedFormat" xml:space="preserve">
+    <value>This needs {0}. Found {1}.</value>
+    <comment>{0} = count with Plural_Cable, {1} = found count and names</comment>
+  </data>
+  <data name="Setup_CablesInstallFormat" xml:space="preserve">
+    <value>Install {0} more, then press Check again</value>
+    <comment>{0} = count with Plural_Cable</comment>
+  </data>
+  <data name="Setup_CablesOkFormat" xml:space="preserve">
+    <value>Cables: {0}</value>
+    <comment>{0} = cable names</comment>
+  </data>
+  <data name="Setup_CheckAgain" xml:space="preserve">
+    <value>Check again</value>
+  </data>
+  <data name="Setup_WhereToGet" xml:space="preserve">
+    <value>Where to get a cable</value>
+  </data>
+  <data name="Setup_AppsTitle" xml:space="preserve">
+    <value>Which apps should stay separate?</value>
+  </data>
+  <data name="Setup_AppsText" xml:space="preserve">
+    <value>Each gets its own volume in your headphones and stays off the stream. Everything else goes through “System audio”</value>
+  </data>
+  <data name="Setup_AppsNone" xml:space="preserve">
+    <value>No apps are open right now. You can add them later with “+ Source”</value>
+  </data>
+  <data name="Setup_AppsLoading" xml:space="preserve">
+    <value>Looking for apps…</value>
+  </data>
+  <data name="Setup_ReplaceNote" xml:space="preserve">
+    <value>The current graph will be replaced; Ctrl+Z brings it back</value>
+  </data>
+  <data name="Setup_Back" xml:space="preserve">
+    <value>Back</value>
+  </data>
+  <data name="Setup_Next" xml:space="preserve">
+    <value>Next</value>
+  </data>
+  <data name="Setup_Finish" xml:space="preserve">
+    <value>Build the graph</value>
+  </data>
+  <data name="Setup_Skip" xml:space="preserve">
+    <value>Skip setup</value>
+  </data>
+  <data name="Setup_None" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="Setup_NeedDevice" xml:space="preserve">
+    <value>Pick headphones and a microphone</value>
+  </data>
+  <data name="Setup_DoneFormat" xml:space="preserve">
+    <value>The graph is ready. {0}</value>
+    <comment>{0} = Setup_DoneMicFormat and Setup_DoneMissingFormat sentences joined with spaces (may be empty)</comment>
+  </data>
+  <data name="Setup_DoneMicFormat" xml:space="preserve">
+    <value>In {0}, choose “Default” as the microphone.</value>
+    <comment>{0} = app names</comment>
+  </data>
+  <data name="Setup_DoneMissingFormat" xml:space="preserve">
+    <value>Not enough cables: {0} skipped.</value>
+    <comment>{0} = count with Plural_Cable</comment>
+  </data>
+  <data name="Settings_SetupHeader" xml:space="preserve">
+    <value>Setup assistant</value>
+  </data>
+  <data name="Settings_SetupText" xml:space="preserve">
+    <value>Builds a ready graph from three questions: where your sound goes and which apps to keep separate</value>
+  </data>
+  <data name="Settings_SetupOpen" xml:space="preserve">
+    <value>Open the assistant</value>
+  </data>
+  <data name="Graph_EmptySetup" xml:space="preserve">
+    <value>Setup assistant</value>
+  </data>
+  <data name="Setup_Autostart" xml:space="preserve">
+    <value>Start the mixer with Windows, minimized to the tray</value>
+  </data>
+  <data name="Settings_AutostartFailedFormat" xml:space="preserve">
+    <value>Couldn’t change startup with Windows: {0}</value>
+    <comment>{0} = error</comment>
+  </data>
 </root>

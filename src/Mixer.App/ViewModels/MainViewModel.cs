@@ -33,6 +33,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private NodeViewModel? _hover;
     private bool _interacting;
     private IReadOnlyList<EndpointInfo> _offlineDevices = [];
+    /// <summary>Устройства заданы снаружи (тесты): свежий список не читается.</summary>
+    private bool _fixedDevices;
 
     /// <param name="offlineDevices">Устройства без хоста (тесты); null — прочитать при запуске.</param>
     public MainViewModel(GraphConfig graph, GraphStore store, MixerHost? host, string? startupMessage = null,
@@ -57,6 +59,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         if (offlineDevices is not null)
         {
             _offlineDevices = offlineDevices;
+            _fixedDevices = true;
         }
         else if (host is null)
         {
@@ -99,14 +102,20 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _toastIsError;
     [ObservableProperty] private PaletteViewModel? _palette;
     [ObservableProperty] private SettingsViewModel? _settings;
+    [ObservableProperty] private SetupViewModel? _setup;
 
     public string ZoomText => Fmt.Percent(Zoom * 100) + "%";
     public bool IsEmpty => Nodes.Count == 0;
-    public bool HasOverlay => Palette is not null || Settings is not null;
+    public bool HasOverlay => Palette is not null || Settings is not null || Setup is not null;
 
     partial void OnZoomChanged(double value) => OnPropertyChanged(nameof(ZoomText));
     partial void OnPaletteChanged(PaletteViewModel? value) => OnPropertyChanged(nameof(HasOverlay));
     partial void OnSettingsChanged(SettingsViewModel? value) => OnPropertyChanged(nameof(HasOverlay));
+    partial void OnSetupChanged(SetupViewModel? oldValue, SetupViewModel? newValue)
+    {
+        oldValue?.Dispose();
+        OnPropertyChanged(nameof(HasOverlay));
+    }
 
     // ── граф → карточки ──
 
@@ -330,6 +339,21 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     /// <summary>Исключить exe из «Весь звук системы» или вернуть его туда.</summary>
     public void SetExcluded(NodeViewModel n, string exe, bool excluded) => Edit(g => GraphEdits.SetExcluded(g, n.Id, exe, excluded));
+
+    /// <summary>Назначить выход кабеля микрофоном приложению или снять назначение.</summary>
+    public void SetMicFor(NodeViewModel n, string exe, bool on) => Edit(g => GraphEdits.SetMicFor(g, n.Id, exe, on));
+
+    /// <summary>Связать узел с другим концом кабеля, которого нет в таблице.</summary>
+    public void LinkCable(NodeViewModel n, EndpointInfo partner)
+    {
+        Edit(g => GraphEdits.LinkCable(g, n.Id, partner));
+        Notify(Fmt.F(Strings.Cable_LinkedFormat, n.Config.EndpointName ?? n.Name, partner.Name));
+    }
+
+    public void UnlinkCable(NodeViewModel n) => Edit(g => GraphEdits.UnlinkCable(g, n.Id));
+
+    /// <summary>Назначения микрофона доступны (есть API привязки устройств приложениям, или хоста нет — схему можно готовить заранее).</summary>
+    public bool CanAssignMic => _host is null || _host.Status.PolicyError is null;
 
     /// <summary>Приложения со звуком на последнем такте хоста (кандидаты в исключения).</summary>
     public IReadOnlyList<string> PlayingApps => _host?.Status.PlayingApps ?? [];
@@ -684,15 +708,20 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public void OpenPalette(PaletteMode mode, double? atY)
     {
         Settings = null;
-        var catalog = _host is not null
-            ? _host.QueryCatalogAsync()
-            : Task.Run(() => MixerHost.ReadCatalog(null));
-        Palette = new PaletteViewModel(this, mode, atY, catalog);
+        Palette = new PaletteViewModel(this, mode, atY, QueryCatalogAsync());
     }
+
+    /// <summary>Каталог для тестов вместо настоящих процессов и устройств.</summary>
+    public Func<Task<Mixer.Core.Apps.SourceCatalog>>? CatalogOverride { get; init; }
+
+    /// <summary>Устройства и приложения для палитры и помощника — в управляющем потоке хоста или в пуле потоков.</summary>
+    public Task<Mixer.Core.Apps.SourceCatalog> QueryCatalogAsync() =>
+        CatalogOverride?.Invoke() ?? (_host is not null ? _host.QueryCatalogAsync() : Task.Run(() => MixerHost.ReadCatalog(null)));
 
     /// <summary>Свежий список устройств — в управляющем потоке хоста (COM не в потоке интерфейса).</summary>
     public Task<List<EndpointInfo>> ListDevicesAsync() =>
-        _host is not null ? _host.RunAsync(DeviceCatalog.ListAll) : Task.Run(DeviceCatalog.ListAll);
+        _fixedDevices ? Task.FromResult(_offlineDevices.ToList())
+        : _host is not null ? _host.RunAsync(DeviceCatalog.ListAll) : Task.Run(DeviceCatalog.ListAll);
 
     [RelayCommand]
     private void OpenSettings()
@@ -706,6 +735,60 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     {
         Palette = null;
         Settings = null;
+        Setup = null;
+    }
+
+    // ── помощник настройки ──
+
+    [RelayCommand]
+    public void OpenSetup()
+    {
+        Palette = null;
+        Settings = null;
+        Setup = new SetupViewModel(this);
+    }
+
+    /// <summary>Первый запуск: схема пустая, помощник ещё не предлагался — открыть его.</summary>
+    public void OfferSetup()
+    {
+        if (Graph.Nodes.Count > 0 || Preferences is not { SetupShown: false } p) return;
+        p.MarkSetupShown();
+        OpenSetup();
+    }
+
+    /// <summary>
+    /// Схема от помощника: одна правка истории (Ctrl+Z вернёт прежнюю), автозапуск по галочке и сообщение, что ещё
+    /// сделать в приложениях: выбрать в них микрофон «По умолчанию».
+    /// </summary>
+    public void ApplySetup(SetupResult result, SetupChoices choices, bool autostart)
+    {
+        Edit(_ => result.Graph);
+        EndMerge();
+        Preferences?.MarkSetupShown();
+        CloseOverlay();
+        SetAutostart(autostart, quiet: true);
+        var parts = new List<string>();
+        var apps = result.Graph.Nodes.SelectMany(n => n.MicFor ?? []).Select(Mixer.Core.Cables.AppNames.Friendly).Distinct().ToList();
+        if (apps.Count > 0) parts.Add(Fmt.F(Strings.Setup_DoneMicFormat, Fmt.List(apps)));
+        if (result.MissingCables > 0) parts.Add(Fmt.F(Strings.Setup_DoneMissingFormat, Fmt.Plural(result.MissingCables, Strings.Plural_Cable)));
+        Notify(Fmt.F(Strings.Setup_DoneFormat, string.Join(" ", parts)).Trim());
+    }
+
+    /// <summary>Включить или выключить автозапуск (ветка Run). Схема не из %AppData% — её путь переносится в строку запуска.</summary>
+    public bool SetAutostart(bool on, bool quiet = false)
+    {
+        if (on == Autostart.IsEnabled()) return true;
+        try
+        {
+            string? graph = string.Equals(_store.Path, System.IO.Path.GetFullPath(AppOptions.DefaultGraphPath), StringComparison.OrdinalIgnoreCase) ? null : _store.Path;
+            Autostart.Set(on, graphPath: graph);
+            return true;
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or System.IO.IOException or InvalidOperationException)
+        {
+            if (!quiet) Notify(Fmt.F(Strings.Settings_AutostartFailedFormat, ex.Message), error: true);
+            return false;
+        }
     }
 
     [RelayCommand]

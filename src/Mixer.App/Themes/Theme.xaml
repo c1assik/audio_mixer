@@ -41,6 +41,8 @@
     <SolidColorBrush x:Key="Yellow" Color="{StaticResource YellowColor}" />
     <SolidColorBrush x:Key="YellowSoft" Color="#29FFC44D" />
     <SolidColorBrush x:Key="Scrim" Color="#B3101215" />
+    <!-- текст и значки на акцентном фоне (основная кнопка, галочка) -->
+    <SolidColorBrush x:Key="OnAccent" Color="#0E1116" />
 
     <FontFamily x:Key="UiFont">Segoe UI Variable Text, Segoe UI</FontFamily>
 
@@ -577,6 +579,133 @@
         <Setter Property="CornerRadius" Value="10" />
         <Setter Property="Padding" Value="14,12" />
         <Setter Property="Margin" Value="0,0,0,12" />
+    </Style>
+
+
+    <!-- ── v2.1: помощник, настройки, сцены ── -->
+    <Style TargetType="CheckBox">
+        <Setter Property="Foreground" Value="{StaticResource Text}" />
+        <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <Grid Background="Transparent">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border x:Name="Box" Width="18" Height="18" CornerRadius="4" BorderThickness="1.5" BorderBrush="{StaticResource LineStrong}"
+                                Background="Transparent" VerticalAlignment="Top" Margin="0,1,0,0">
+                            <Path x:Name="Mark" Data="{StaticResource IconCheck}" Stroke="{StaticResource OnAccent}" StrokeThickness="2.4" Stretch="Uniform"
+                                  Width="10" Height="10" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Visibility="Collapsed" />
+                        </Border>
+                        <ContentPresenter Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" RecognizesAccessKey="True" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Box" Property="Background" Value="{StaticResource Accent}" />
+                            <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource Accent}" />
+                            <Setter TargetName="Mark" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource Accent}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.5" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <!-- вариант в помощнике: значок, заголовок, пояснение и галочка; выбранный — с акцентной рамкой -->
+    <Style x:Key="OptionCard" TargetType="ToggleButton">
+        <Setter Property="Foreground" Value="{StaticResource Text}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="Bd" CornerRadius="10" BorderThickness="1.5" BorderBrush="{StaticResource Line}" Background="{StaticResource Raised}" Padding="14,12">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ContentPresenter />
+                            <Border x:Name="Box" Grid.Column="1" Width="20" Height="20" CornerRadius="5" BorderThickness="1.5" BorderBrush="{StaticResource LineStrong}"
+                                    VerticalAlignment="Center" Margin="12,0,0,0">
+                                <Path x:Name="Mark" Data="{StaticResource IconCheck}" Stroke="{StaticResource OnAccent}" StrokeThickness="2.4" Stretch="Uniform"
+                                      Width="11" Height="11" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Visibility="Collapsed" />
+                            </Border>
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource LineStrong}" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}" />
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentSoft}" />
+                            <Setter TargetName="Box" Property="Background" Value="{StaticResource Accent}" />
+                            <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource Accent}" />
+                            <Setter TargetName="Mark" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <!-- строка выбора (радио): у элемента данных свойство IsCurrent -->
+    <Style x:Key="ChoiceRow" TargetType="Button">
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" Background="Transparent" CornerRadius="8" Padding="8,7,12,7">
+                        <StackPanel Orientation="Horizontal">
+                            <Grid Width="26" VerticalAlignment="Center">
+                                <Ellipse Width="16" Height="16" StrokeThickness="2" Stroke="{StaticResource LineStrong}" HorizontalAlignment="Left" />
+                                <Ellipse x:Name="Dot" Width="8" Height="8" Fill="{StaticResource Accent}" HorizontalAlignment="Left" Margin="4,0,0,0" Visibility="Collapsed" />
+                            </Grid>
+                            <ContentPresenter VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource Raised}" />
+                        </Trigger>
+                        <DataTrigger Binding="{Binding IsCurrent}" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentSoft}" />
+                            <Setter TargetName="Dot" Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <!-- ссылка в тексте -->
+    <Style x:Key="LinkButton" TargetType="Button">
+        <Setter Property="Foreground" Value="{StaticResource Accent}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <TextBlock x:Name="T" Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" TextDecorations="Underline" />
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="T" Property="Foreground" Value="{StaticResource Text}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
 </ResourceDictionary>

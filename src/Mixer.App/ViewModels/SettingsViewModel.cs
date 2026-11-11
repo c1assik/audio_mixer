@@ -163,5 +163,8 @@ public sealed partial class SettingsViewModel : ObservableObject
     private void OpenVolumeMixer() => _owner.OpenVolumeMixerCommand.Execute(null);
 
     [RelayCommand]
+    private void OpenSetup() => _owner.OpenSetup();
+
+    [RelayCommand]
     private void Close() => _owner.CloseOverlay();
 }

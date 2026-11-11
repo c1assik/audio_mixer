@@ -156,7 +156,16 @@ public sealed partial class PaletteViewModel : ObservableObject
             rows.AddRange(other.Select(App));
         }
 
-        var inputs = c.Devices.Where(d => d.Flow == EDataFlow.Capture).OrderByDescending(d => d.IsDefault).ThenBy(d => d.Name).ToList();
+        // кабели одной строкой на кабель: виртуальный вход (приложение играет в кабель, микшер читает его выход)
+        var cables = CableRows(c, NodeKind.DeviceInput);
+        if (cables.Count > 0)
+        {
+            rows.Add(new PaletteRow { Header = Strings.Palette_GroupCables });
+            rows.AddRange(cables);
+        }
+        var cableEnds = cables.Select(r => r.Template!.EndpointId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var inputs = c.Devices.Where(d => d.Flow == EDataFlow.Capture && !cableEnds.Contains(d.Id)).OrderByDescending(d => d.IsDefault).ThenBy(d => d.Name).ToList();
         rows.Add(new PaletteRow { Header = Strings.Palette_GroupInputs });
         rows.AddRange(DefaultRows(c, NodeKind.DeviceInput, "IconMic"));
         {
@@ -212,10 +221,15 @@ public sealed partial class PaletteViewModel : ObservableObject
 
     private List<PaletteRow> OutputRows(SourceCatalog c)
     {
-        var rows = new List<PaletteRow> { new() { Header = Strings.Palette_GroupOutputs } };
+        var rows = new List<PaletteRow>();
+        // кабели одной строкой на кабель (раздел — после выходов): виртуальный микрофон, микшер играет в кабель,
+        // приложение читает его выход
+        var cables = CableRows(c, NodeKind.DeviceOutput);
+        var cableEnds = cables.Select(r => r.Template!.EndpointId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        rows.Add(new PaletteRow { Header = Strings.Palette_GroupOutputs });
         rows.AddRange(DefaultRows(c, NodeKind.DeviceOutput, "IconHeadphones"));
         string? sink = _owner.Graph.SinkEndpoint;
-        foreach (var d in c.Devices.Where(d => d.Flow == EDataFlow.Render).OrderByDescending(d => d.IsDefault).ThenBy(d => d.Name))
+        foreach (var d in c.Devices.Where(d => d.Flow == EDataFlow.Render && !cableEnds.Contains(d.Id)).OrderByDescending(d => d.IsDefault).ThenBy(d => d.Name))
         {
             bool cable = FeedbackRules.IsVirtualCable(d.Name);
             bool vaioOff = d.IsVoicemeeter && !c.VoicemeeterRunning;
@@ -232,6 +246,44 @@ public sealed partial class PaletteViewModel : ObservableObject
                 Enabled = !vaioOff,
                 Reason = vaioOff ? Strings.Palette_VaioOff : null,
                 Template = new NodeConfig { Id = "", Kind = NodeKind.DeviceOutput, Name = Fmt.ShortDevice(d.Name), EndpointId = d.Id, EndpointName = d.Name },
+            });
+        }
+        if (cables.Count > 0)
+        {
+            rows.Add(new PaletteRow { Header = Strings.Palette_GroupCables });
+            rows.AddRange(cables);
+        }
+        return rows;
+    }
+
+    /// <summary>
+    /// Строки кабелей (v2, «Виртуальные кабели»): кабель — одна сущность с ролью. В выходах — виртуальный микрофон
+    /// (узел пишет в основной вход кабеля), в источниках — виртуальный вход (узел читает выход кабеля).
+    /// </summary>
+    private List<PaletteRow> CableRows(SourceCatalog c, NodeKind kind)
+    {
+        var rows = new List<PaletteRow>();
+        bool mic = kind == NodeKind.DeviceOutput;
+        string? sink = _owner.Graph.SinkEndpoint;
+        foreach (var p in Mixer.Core.Cables.CableTable.Default.Pairs(c.Devices))
+        {
+            var end = mic ? p.Input : p.Output;
+            if (end is null) continue;
+            bool isSink = mic && string.Equals(end.Id, sink, StringComparison.OrdinalIgnoreCase);
+            rows.Add(new PaletteRow
+            {
+                Title = p.Label,
+                Subtitle = isSink ? Strings.Palette_IsSink
+                    : OnGraph(end.Id, kind) ? Strings.Palette_AlreadyOnGraph
+                    : !p.Complete ? Strings.Palette_CableHalf
+                    : Fmt.F(mic ? Strings.Palette_CableMicFormat : Strings.Palette_CableInputFormat, Fmt.ShortDevice(p.Input!.Name), Fmt.ShortDevice(p.Output!.Name)),
+                GlyphKey = mic ? "IconBroadcast" : "IconPlug",
+                Keywords = string.Join(" ", p.Inputs.Select(d => d.Name).Append(p.Output?.Name ?? "")),
+                Template = new NodeConfig
+                {
+                    Id = "", Kind = kind, Name = p.Name, EndpointId = end.Id, EndpointName = end.Name,
+                    Cable = new CableLink { PairId = p.Id, Role = mic ? CableRole.VirtualMic : CableRole.VirtualInput },
+                },
             });
         }
         return rows;

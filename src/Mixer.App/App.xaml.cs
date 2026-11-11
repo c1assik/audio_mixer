@@ -147,6 +147,16 @@ public partial class App : Application
             case "palette-sources": _vm.OpenPalette(PaletteMode.Sources, null); break;
             case "palette-outputs": _vm.OpenPalette(PaletteMode.Outputs, null); break;
             case "settings": _vm.OpenSettingsCommand.Execute(null); break;
+            case "setup": _vm.OpenSetup(); break;
+            // «setup:2» — помощник сразу на шаге 2
+            case { } s when s.StartsWith("setup:", StringComparison.Ordinal) && int.TryParse(s[6..], out int step):
+                _vm.OpenSetup();
+                _vm.Setup!.Step = Math.Clamp(step, 1, ViewModels.SetupViewModel.Steps);
+                break;
+            // первый запуск с пустой схемой — помощник (кроме снимков и разовых --open)
+            case null when opt.Snapshot is null && !upgraded:
+                _vm.OfferSetup();
+                break;
             // «fx:n3» — боковая панель обработки узла n3, «fx:n3:comp» — сразу у компрессора
             case { } s when s.StartsWith("fx:", StringComparison.Ordinal) && _vm.FindNode(s[3..].Split(':')[0]) is { } node:
                 _vm.OpenProcessing(node, s[3..].Split(':').ElementAtOrDefault(1));

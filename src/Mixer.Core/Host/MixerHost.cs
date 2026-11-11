@@ -3,6 +3,7 @@ using System.Diagnostics;
 using Mixer.Audio.Engine;
 using Mixer.Audio.Interop;
 using Mixer.Core.Apps;
+using Mixer.Core.Cables;
 using Mixer.Core.Config;
 using Mixer.Core.Graph;
 using Mixer.Core.Sys;
@@ -50,6 +51,11 @@ public sealed record HostStatus
     public IReadOnlyList<string> VolumeApps { get; init; } = [];
     /// <summary>exe процессов с аудиосессией (кроме микшера) на последнем такте: кандидаты в исключения «Весь звук системы».</summary>
     public IReadOnlyList<string> PlayingApps { get; init; } = [];
+    /// <summary>Назначения кабеля микрофоном (micFor) по exe: Bound — приложению назначен выход кабеля.</summary>
+    public IReadOnlyDictionary<string, AppBinding> MicBindings { get; init; } = new Dictionary<string, AppBinding>();
+    public IReadOnlyList<string> MicApps { get; init; } = [];
+    /// <summary>Предупреждения узлов-кабелей по ID узла (<see cref="CableChecks"/>).</summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> CableWarnings { get; init; } = new Dictionary<string, IReadOnlyList<string>>();
 }
 
 /// <summary>
@@ -77,6 +83,11 @@ public sealed class MixerHost : IDisposable
     private WindowsEndpointPolicy? _policy;
     private string? _policyError;
     private TakeOverManager? _takeOver;
+    /// <summary>Назначение кабеля микрофоном приложениям (micFor): тот же механизм, политика устройства записи.</summary>
+    private TakeOverManager? _mic;
+    private Dictionary<string, AppBinding> _lastMic = new(StringComparer.OrdinalIgnoreCase);
+    private IReadOnlyList<AudioSessionInfo>? _captureSessions;
+    private Dictionary<string, IReadOnlyList<string>> _cableWarnings = new();
     private SinkCheck? _sink;
     private string? _sinkCheckedFor;
     private BuildResult? _build;
@@ -159,7 +170,7 @@ public sealed class MixerHost : IDisposable
         var next = Interlocked.Exchange(ref _pendingGraph, null);
         if (next is null) return;
         var prev = _graph;
-        Volatile.Write(ref _graph, next with { BoundApps = prev.BoundApps, VolumeApps = prev.VolumeApps });
+        Volatile.Write(ref _graph, next with { BoundApps = prev.BoundApps, VolumeApps = prev.VolumeApps, MicApps = prev.MicApps });
         var change = GraphChange.Classify(prev, _graph);
         if (change is GraphChangeKind.None or GraphChangeKind.Layout)
         {
@@ -326,6 +337,7 @@ public sealed class MixerHost : IDisposable
             {
                 _takeOver = new TakeOverManager(_policy, new Journal(this));
                 _direct = new DirectVolumes(AppSession.Open, new VolumeJournal(this));
+                _mic = new TakeOverManager(_policy.ForCapture(), new MicJournal(this), checkPlayback: false);
             }
             else
                 Emit("Take over unavailable: " + _policyError + ". Fallback: pick the app's device in the Windows volume mixer");
@@ -336,6 +348,8 @@ public sealed class MixerHost : IDisposable
             Emit($"redirect journal from the last run: {string.Join(", ", _graph.BoundApps)}");
         if (_graph.VolumeApps.Count > 0)
             Emit($"session volume journal from the last run: {string.Join(", ", _graph.VolumeApps)}");
+        if (_graph.MicApps.Count > 0)
+            Emit($"microphone assignments: {string.Join(", ", _graph.MicApps)}");
         CheckSink(world);
         Rebuild(world, "start", reopenSessions: true);
         EnsureNotifier();
@@ -344,7 +358,11 @@ public sealed class MixerHost : IDisposable
 
     /// <summary>Процессы и сессии нужны, только если в графе есть приложения или в журнале остались привязки.</summary>
     private bool NeedsWorld =>
-        _graph.BoundApps.Count > 0 || _graph.VolumeApps.Count > 0 || _graph.Nodes.Any(n => n.Kind is NodeKind.App or NodeKind.System) || UsesVoicemeeter;
+        _graph.BoundApps.Count > 0 || _graph.VolumeApps.Count > 0 || _graph.MicApps.Count > 0
+        || _graph.Nodes.Any(n => n.Kind is NodeKind.App or NodeKind.System || n.MicFor is { Count: > 0 }) || UsesVoicemeeter || HasCableMics;
+
+    /// <summary>На схеме есть кабель-микрофон: по сессиям проверяется, не пишет ли в него кто-то ещё.</summary>
+    private bool HasCableMics => _graph.Nodes.Any(n => n.Kind == NodeKind.DeviceOutput && CableTable.Default.LinkOf(n)?.Role == CableRole.VirtualMic);
 
     /// <summary>Узлы на эндпоинтах Voicemeeter ждут его запуска — за процессами надо следить.</summary>
     private bool UsesVoicemeeter =>
@@ -371,6 +389,7 @@ public sealed class MixerHost : IDisposable
         EnsureNotifier();
         if (!NeedsWorld)
         {
+            CheckCables(null);
             Publish();
             return;
         }
@@ -380,6 +399,7 @@ public sealed class MixerHost : IDisposable
         {
             ReconcileBindings(world);
             UpdateDirect(world, reopen: true);
+            ReconcileMics(world);
         }
         RunWatchdog(world);
         Publish();
@@ -435,6 +455,7 @@ public sealed class MixerHost : IDisposable
         {
             ReconcileBindings(world);
             UpdateDirect(world, reopen: true);
+            ReconcileMics(world);
         }
         Publish();
     }
@@ -575,6 +596,7 @@ public sealed class MixerHost : IDisposable
             }.Where(s => s is not null)));
         ReconcileBindings(world);
         UpdateDirect(world, reopenSessions);
+        ReconcileMics(world);
     }
 
     /// <summary>Сколько ждать разогрева захвата при уходе с прямого маршрута, мс. Приложение, которое молчит, пакетов не даёт — тогда переносится по таймауту.</summary>
@@ -800,6 +822,59 @@ public sealed class MixerHost : IDisposable
         _ => Loc.F(CoreStrings.Bind_StateErrorFormat, b.Message),
     };
 
+    // ── кабели: назначенный микрофон и проверки ──
+
+    /// <summary>
+    /// Назначить приложениям из micFor выход кабеля устройством записи и снять назначение у тех, кого убрали из списков
+    /// (журнал micApps). При выходе из микшера назначения остаются: приложение и дальше читает кабель, как после Earmark.
+    /// </summary>
+    private void ReconcileMics(AppSnapshot world)
+    {
+        if (_mic is not null)
+        {
+            var desired = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+            foreach (var n in _graph.Nodes)
+            {
+                if (n.MicFor is not { Count: > 0 } apps || n.Kind != NodeKind.DeviceOutput) continue;
+                string? target = CableTable.Default.PairOf(n, _devices)?.Output?.Id;
+                foreach (string app in apps) desired.TryAdd(ProcessSnapshot.NormalizeExe(app), target);
+            }
+            var journalBefore = _graph.MicApps.ToList();
+            _mic.Reconcile(desired, world, CoreStrings.Mic_CableOutputMissing);
+            foreach (var (exe, b) in _mic.Status)
+            {
+                if (_lastMic.TryGetValue(exe, out var prev) && prev.State == b.State && string.Equals(prev.Target, b.Target, StringComparison.OrdinalIgnoreCase)) continue;
+                string what = b.State == BindingState.Bound
+                    ? $"set to \"{_devices.FirstOrDefault(d => string.Equals(d.Id, b.Target, StringComparison.OrdinalIgnoreCase))?.Name ?? b.Target}\""
+                    : Describe(b);
+                Emit($"{exe}: microphone {what}");
+            }
+            foreach (string exe in journalBefore.Except(_graph.MicApps, StringComparer.OrdinalIgnoreCase))
+                Emit($"{exe}: microphone assignment removed, the app records from its own device again");
+            _lastMic = new Dictionary<string, AppBinding>(_mic.Status, StringComparer.OrdinalIgnoreCase);
+        }
+        CheckCables(world);
+    }
+
+    /// <summary>Проверки кабелей: кто ещё пишет в кабель-микрофон, частоты концов, кого читает приложение с назначенным кабелем.</summary>
+    private void CheckCables(AppSnapshot? world)
+    {
+        bool assigned = world is not null && _graph.Nodes.Any(n => n.MicFor is { Count: > 0 });
+        _captureSessions = assigned ? AudioSessions.List(_devices.Where(d => d.Flow == EDataFlow.Capture && !d.IsVoicemeeter).Select(d => d.Id)) : null;
+        _cableWarnings = CableChecks.Check(_graph, _devices, CableTable.Default, world, _captureSessions, RateOf)
+            .ToDictionary(kv => kv.Key, kv => (IReadOnlyList<string>)kv.Value);
+    }
+
+    /// <summary>Частота микса устройства (кэш общий с выходами); эндпоинты Voicemeeter не опрашиваются.</summary>
+    private int? RateOf(string endpointId)
+    {
+        if (_rateCache.TryGetValue(endpointId, out int? cached)) return cached;
+        var ep = _devices.FirstOrDefault(d => d.Id == endpointId);
+        int? rate = ep is null || ep.IsVoicemeeter ? null : DeviceCatalog.TryGetMixFormat(endpointId)?.SampleRate;
+        _rateCache[endpointId] = rate;
+        return rate;
+    }
+
     // ── сторожевой таймер ──
 
     private void RunWatchdog(AppSnapshot world)
@@ -836,6 +911,9 @@ public sealed class MixerHost : IDisposable
             DirectErrors = _direct is null ? new Dictionary<string, string>() : new Dictionary<string, string>(_direct.Errors, StringComparer.OrdinalIgnoreCase),
             VolumeApps = _graph.VolumeApps.ToList(),
             PlayingApps = PlayingApps(_world),
+            MicBindings = _mic is null ? new Dictionary<string, AppBinding>() : new Dictionary<string, AppBinding>(_mic.Status, StringComparer.OrdinalIgnoreCase),
+            MicApps = _graph.MicApps.ToList(),
+            CableWarnings = _cableWarnings,
         };
     }
 
@@ -880,6 +958,23 @@ public sealed class MixerHost : IDisposable
         {
             var g = host._graph with { VolumeApps = apps };
             host._save?.Invoke(g); // сначала на диск: при ошибке громкость не меняется
+            Volatile.Write(ref host._graph, g);
+        }
+    }
+
+    /// <summary>Журнал micApps в конфиге: приложения, которым микшер назначил кабель микрофоном.</summary>
+    private sealed class MicJournal(MixerHost host) : IBindingJournal
+    {
+        public IReadOnlyCollection<string> Apps => host._graph.MicApps;
+
+        public void Add(string exe) => Commit(host._graph.MicApps.Append(exe).Distinct(StringComparer.OrdinalIgnoreCase).ToList());
+
+        public void Remove(string exe) => Commit(host._graph.MicApps.Where(a => !a.Equals(exe, StringComparison.OrdinalIgnoreCase)).ToList());
+
+        private void Commit(List<string> apps)
+        {
+            var g = host._graph with { MicApps = apps };
+            host._save?.Invoke(g); // сначала на диск: при ошибке назначение не ставится
             Volatile.Write(ref host._graph, g);
         }
     }

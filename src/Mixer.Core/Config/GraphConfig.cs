@@ -77,6 +77,17 @@ public sealed record NodeConfig
     /// </summary>
     public bool? LowLatency { get; init; }
 
+    /// <summary>
+    /// Связь узла с виртуальным кабелем и его роль (v2, «Виртуальные кабели»). null — по таблице сопоставления, если
+    /// устройство узла — конец известного кабеля (<see cref="Cables.CableTable.LinkOf"/>).
+    /// </summary>
+    public CableLink? Cable { get; init; }
+    /// <summary>
+    /// Узел-кабель с ролью «виртуальный микрофон»: каким приложениям микшер назначил выход кабеля устройством записи
+    /// (IAudioPolicyConfig). Назначение снимается, когда exe убран из списка или узел удалён.
+    /// </summary>
+    public List<string>? MicFor { get; init; }
+
     public double X { get; init; }
     public double Y { get; init; }
     public string? Color { get; init; }
@@ -109,6 +120,83 @@ public sealed record NodeConfig
         && (LowLatency ?? (Kind == NodeKind.DeviceOutput && !(deviceName is not null && Graph.FeedbackRules.IsVirtualCable(deviceName))));
 }
 
+/// <summary>Роль виртуального кабеля.</summary>
+public enum CableRole
+{
+    /// <summary>«Виртуальный микрофон»: микшер пишет в Input кабеля, другое приложение (OBS, Discord) читает Output.</summary>
+    VirtualMic,
+    /// <summary>«Виртуальный вход»: приложение играет в Input кабеля, микшер читает Output.</summary>
+    VirtualInput,
+}
+
+/// <summary>Связь узла с виртуальным кабелем: ID пары из таблицы сопоставления или связанной вручную.</summary>
+public sealed record CableLink
+{
+    public required string PairId { get; init; }
+    public CableRole Role { get; init; }
+    /// <summary>Кабель связан вручную (его нет в таблице): ID второго конца.</summary>
+    public string? PartnerId { get; init; }
+    /// <summary>Имя второго конца (поиск, если ID сменился после переустановки драйвера).</summary>
+    public string? PartnerName { get; init; }
+}
+
+/// <summary>
+/// Сцена — снимок уровней (v2, «Сцены»): фейдеры и mute узлов, усиление и включение проводов, включение блоков
+/// обработки. Структуру схемы сцена не меняет: узел или провод, которого в ней нет, при её применении не трогается.
+/// </summary>
+public sealed record SceneConfig
+{
+    public required string Id { get; init; }
+    public string Name { get; init; } = "";
+    /// <summary>Глобальная клавиша сцены («Ctrl+1»).</summary>
+    public string? Hotkey { get; init; }
+    /// <summary>Уровни узлов по ID.</summary>
+    public Dictionary<string, SceneNode> Nodes { get; init; } = new();
+    public List<SceneWire> Wires { get; init; } = [];
+}
+
+public sealed record SceneNode
+{
+    public float GainDb { get; init; }
+    public bool Muted { get; init; }
+    /// <summary>Включение блоков обработки (null — у узла нет цепочки, блок не трогается).</summary>
+    public bool? Gate { get; init; }
+    public bool? Eq { get; init; }
+    public bool? Comp { get; init; }
+}
+
+public sealed record SceneWire
+{
+    public required string From { get; init; }
+    public required string To { get; init; }
+    public float GainDb { get; init; }
+    public bool Enabled { get; init; } = true;
+}
+
+/// <summary>Что делает горячая клавиша с узлом.</summary>
+public enum HotkeyAction
+{
+    /// <summary>mute / unmute узла.</summary>
+    Mute,
+    /// <summary>Уровень узла +1 дБ.</summary>
+    VolumeUp,
+    /// <summary>Уровень узла −1 дБ.</summary>
+    VolumeDown,
+    /// <summary>Узел звучит, пока клавиша зажата.</summary>
+    PushToTalk,
+    /// <summary>Узел молчит, пока клавиша зажата.</summary>
+    PushToMute,
+}
+
+public sealed record HotkeyConfig
+{
+    public HotkeyAction Action { get; init; }
+    /// <summary>ID узла.</summary>
+    public required string Target { get; init; }
+    /// <summary>Сочетание: «Ctrl+Shift+M», «F13», «Ctrl+Alt+Numpad1».</summary>
+    public required string Keys { get; init; }
+}
+
 public sealed record WireConfig
 {
     public required string From { get; init; }
@@ -132,6 +220,20 @@ public sealed record GraphConfig
     /// устройством, поэтому после сбоя микшера громкость возвращается на 100% при следующем запуске.
     /// </summary>
     public List<string> VolumeApps { get; init; } = [];
+    /// <summary>
+    /// Журнал приложений, которым микшер назначил кабель микрофоном (micFor). Назначение хранится в Windows за exe,
+    /// поэтому exe попадает сюда до первого Set и вычёркивается после сброса — так назначение снимается и после
+    /// удаления узла, и после сбоя.
+    /// </summary>
+    public List<string> MicApps { get; init; } = [];
+    /// <summary>Сцены: именованные снимки уровней (v2, «Сцены»).</summary>
+    public List<SceneConfig> Scenes { get; init; } = [];
+    /// <summary>Текущая сцена (ID): её имя видно в шапке, правка руками помечает её точкой.</summary>
+    public string? ActiveScene { get; init; }
+    /// <summary>Глобальные горячие клавиши узлов (сцены держат свою клавишу в <see cref="SceneConfig.Hotkey"/>).</summary>
+    public List<HotkeyConfig> Hotkeys { get; init; } = [];
+    /// <summary>Главный микрофон (ID узла): его состояние показывает значок в трее, его глушит меню трея.</summary>
+    public string? MainMic { get; init; }
     public List<NodeConfig> Nodes { get; init; } = [];
     public List<WireConfig> Wires { get; init; } = [];
 }

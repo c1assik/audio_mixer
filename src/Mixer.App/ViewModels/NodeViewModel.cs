@@ -49,7 +49,13 @@ public sealed partial class NodeViewModel : ObservableObject
     public bool HasDevice => Kind is NodeKind.DeviceInput or NodeKind.Loopback or NodeKind.DeviceOutput;
     /// <summary>У узла есть «Низкая задержка» (вход и выход устройства).</summary>
     public bool SupportsLowLatency => Config.SupportsLowLatency;
-    public bool IsCable => Config.DefaultRole is null && Config.EndpointName is { } n && FeedbackRules.IsVirtualCable(n);
+    public bool IsCable => Cable is not null || Config.DefaultRole is null && Config.EndpointName is { } n && FeedbackRules.IsVirtualCable(n);
+    /// <summary>Связь с виртуальным кабелем: записанная в узле или найденная по таблице сопоставления.</summary>
+    public CableLink? Cable => Mixer.Core.Cables.CableTable.Default.LinkOf(Config);
+    /// <summary>Выход в кабель с ролью «виртуальный микрофон»: его можно назначить микрофоном приложению.</summary>
+    public bool IsVirtualMic => IsOutput && Cable?.Role == CableRole.VirtualMic;
+    /// <summary>Кому назначен кабель микрофоном (micFor).</summary>
+    public IReadOnlyList<string> MicFor => Config.MicFor ?? [];
     /// <summary>Узел «Устройство по умолчанию»: устройство меняется вслед за Windows.</summary>
     public bool FollowsDefault => Config.FollowsDefault;
 
@@ -83,6 +89,9 @@ public sealed partial class NodeViewModel : ObservableObject
     /// <summary>«Весь звук системы»: значок «пропущено: N» (null — пропущенных нет) и список с причинами.</summary>
     [ObservableProperty] private string? _skippedText;
     [ObservableProperty] private string? _skippedTip;
+    /// <summary>Кабель-микрофон: «Микрофон для: OBS Studio» (null — никому не назначен) и состояние назначений.</summary>
+    [ObservableProperty] private string? _micForText;
+    [ObservableProperty] private string? _micForTip;
 
     // ── взаимодействие ──
     [ObservableProperty] private bool _isSelected;
@@ -108,7 +117,8 @@ public sealed partial class NodeViewModel : ObservableObject
     public ChainMeterState ChainMeter { get; } = new();
 
     /// <summary>Подпись под тип узла: шина показывает чипы обработки и «+ FX» так же, как источник.</summary>
-    public bool ShowFx => !HasGate && !HasEq && !HasComp;
+    public bool ShowFx => !HasGate && !HasEq && !HasComp && !HasMicFor;
+    public bool HasMicFor => MicForText is not null;
     public bool HasReduction => ReductionText is not null;
 
     /// <summary>Узлы движка этого узла (у приложения — по захвату на корень). Обновляется опросом, читается в кадре.</summary>
@@ -177,6 +187,9 @@ public sealed partial class NodeViewModel : ObservableObject
             HasGate = c.Chain?.Gate.Enabled == true;
             HasEq = c.Chain?.Eq.Enabled == true;
             HasComp = c.Chain?.Comp.Enabled == true;
+            MicForText = c.MicFor is { Count: > 0 } apps && IsOutput
+                ? Fmt.F(Strings.Node_MicForFormat, string.Join(", ", apps.Select(Mixer.Core.Cables.AppNames.Friendly)))
+                : null;
         }
         finally
         {
@@ -258,6 +271,11 @@ public sealed partial class NodeViewModel : ObservableObject
     }
 
     partial void OnSkippedTextChanged(string? value) => OnPropertyChanged(nameof(HasSkipped));
+    partial void OnMicForTextChanged(string? value)
+    {
+        OnPropertyChanged(nameof(HasMicFor));
+        OnPropertyChanged(nameof(ShowFx));
+    }
 
     partial void OnLookChanged(NodeLook value) => OnPropertyChanged(nameof(ShowBody));
     partial void OnHasGateChanged(bool value) => OnPropertyChanged(nameof(ShowFx));

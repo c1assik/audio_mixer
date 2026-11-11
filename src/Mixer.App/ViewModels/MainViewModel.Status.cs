@@ -121,9 +121,7 @@ public sealed partial class MainViewModel
 
     private void PollFooter(HostStatus? st, IReadOnlyList<Mixer.Audio.Interop.EndpointInfo> devices)
     {
-        bool cable = devices.Any(d => FeedbackRules.IsVirtualCable(d.Name));
-        CableText = devices.Count == 0 ? "" : cable ? Strings.Status_VbCableFound : Strings.Status_VbCableMissing;
-        CableTip = cable ? Strings.Status_VbCableFoundTip : Strings.Status_VbCableMissingTip;
+        (CableText, CableTip) = CableFooter(devices);
         string win = Environment.OSVersion.Version.Build >= 22000 ? "Windows 11" : "Windows 10";
         if (_host is null)
         {
@@ -140,6 +138,50 @@ public sealed partial class MainViewModel
         SystemWarn = pl is not null || st?.PolicyError is not null;
         if (st?.DeviceWatchError is { } dw)
             SystemTip += "\n\n" + Fmt.F(Strings.Status_DeviceWatchFailedFormat, dw);
+    }
+
+    /// <summary>
+    /// Подвал: «Кабели: CABLE-A (Микрофон стрима) · CABLE-B свободен» — кабели среди устройств и узлы, которые ими
+    /// пользуются. Кабелей нет — подсказка, где их взять.
+    /// </summary>
+    public (string Text, string Tip) CableFooter(IReadOnlyList<Mixer.Audio.Interop.EndpointInfo> devices)
+    {
+        if (devices.Count == 0) return ("", "");
+        var pairs = Mixer.Core.Cables.CableTable.Default.Pairs(devices).Where(p => p.Complete).ToList();
+        if (pairs.Count == 0)
+        {
+            bool any = devices.Any(d => FeedbackRules.IsVirtualCable(d.Name));
+            return any ? (Strings.Status_VbCableFound, Strings.Status_VbCableFoundTip) : (Strings.Status_VbCableMissing, Strings.Status_VbCableMissingTip);
+        }
+        var table = Mixer.Core.Cables.CableTable.Default;
+        var parts = pairs.Select(p =>
+        {
+            var users = Graph.Nodes.Where(n => table.LinkOf(n) is { } l && l.PairId == p.Id).Select(n => n.Name).Distinct().ToList();
+            return users.Count == 0 ? Fmt.F(Strings.Status_CableFreeFormat, p.Name) : Fmt.F(Strings.Status_CableUsedFormat, p.Name, string.Join(", ", users));
+        });
+        string tip = Strings.Status_CablesTip + "\n\n" + string.Join("\n", pairs.Select(p => $"{p.Label}: {p.Input!.Name} → {p.Output!.Name}"));
+        return (Fmt.F(Strings.Status_CablesFormat, string.Join(" · ", parts)), tip);
+    }
+
+    /// <summary>Подсказка «Микрофон для: …»: состояние назначения у каждого приложения и напоминание про «По умолчанию».</summary>
+    private static string MicForTooltip(NodeConfig c, HostStatus? st)
+    {
+        var sb = new StringBuilder(Strings.MicTip_Header);
+        foreach (string app in c.MicFor ?? [])
+        {
+            string exe = ProcessSnapshot.NormalizeExe(app);
+            string state = st?.MicBindings.GetValueOrDefault(exe) is not { } b ? Strings.MicState_NotRunning : b.State switch
+            {
+                BindingState.Bound => Strings.MicState_Bound,
+                BindingState.NotRunning => Strings.MicState_NotRunning,
+                BindingState.WaitingAudio => Strings.MicState_Waiting,
+                BindingState.Unavailable => Fmt.F(Strings.MicState_UnavailableFormat, b.Message),
+                _ => Fmt.F(Strings.MicState_FailedFormat, b.Message),
+            };
+            sb.Append("\n• ").Append(Fmt.F(Strings.MicTip_RowFormat, Mixer.Core.Cables.AppNames.Friendly(exe), state));
+        }
+        sb.Append("\n\n").Append(Strings.MicTip_Note);
+        return sb.ToString();
     }
 
     private static string StripSubject(string message, string name)
@@ -202,8 +244,27 @@ public sealed partial class MainViewModel
 
         // узел «по умолчанию»: какое устройство сейчас за ним стоит
         var current = c.FollowsDefault ? GraphBuilder.Resolve(c, Devices) : null;
-        string sub = BaseSubtitle(n, format?.SampleRate, current?.Name);
+        var cable = n.Cable is not null ? Mixer.Core.Cables.CableTable.Default.PairOf(c, Devices) : null;
+        string sub = BaseSubtitle(n, format?.SampleRate, current?.Name, cable?.Name);
         bool warn = false;
+        // кабель: проверки хоста и назначения микрофона
+        if (st?.CableWarnings.GetValueOrDefault(n.Id) is { Count: > 0 } cableWarnings)
+        {
+            warn = true;
+            warnings.AddRange(cableWarnings);
+        }
+        if (n.IsVirtualMic && c.MicFor is { Count: > 0 } micFor)
+        {
+            n.MicForTip = MicForTooltip(c, st);
+            foreach (string app in micFor)
+            {
+                if (st?.MicBindings.GetValueOrDefault(ProcessSnapshot.NormalizeExe(app)) is not { State: BindingState.Failed or BindingState.Unavailable } b) continue;
+                warn = true;
+                warnings.Add(Fmt.F(Strings.MicTip_RowFormat, Mixer.Core.Cables.AppNames.Friendly(app),
+                    Fmt.F(b.State == BindingState.Failed ? Strings.MicState_FailedFormat : Strings.MicState_UnavailableFormat, b.Message)));
+            }
+        }
+        else n.MicForTip = null;
         if (c.Kind == NodeKind.App && st is not null)
         {
             string exe = ProcessSnapshot.NormalizeExe(c.Exe ?? "");
@@ -331,6 +392,9 @@ public sealed partial class MainViewModel
             _ when c.DefaultRole is { } role => Fmt.F(Strings.NodeTip_DefaultFormat,
                 role == DefaultRole.Communications ? Strings.NodeTip_DefaultCommsDevice : Strings.NodeTip_DefaultDevice,
                 current is null ? Strings.NodeTip_DefaultNowNone : Fmt.F(Strings.NodeTip_DefaultNowFormat, current.Name)),
+            _ when cable is { Input: { } ci, Output: { } co } && n.Cable is { } link =>
+                Fmt.F(Strings.NodeTip_CableFormat, c.EndpointName, cable.Name, ci.Name, co.Name) + "\n\n"
+                + (link.Role == CableRole.VirtualMic ? Strings.NodeTip_CableVirtualMic : Strings.NodeTip_CableVirtualInput),
             _ => c.EndpointName,
         };
         if (LowLatencyTip(lowLatency) is { } llTip) n.Tooltip = string.IsNullOrEmpty(n.Tooltip) ? llTip : n.Tooltip + "\n\n" + llTip;
@@ -397,8 +461,16 @@ public sealed partial class MainViewModel
     }
 
     /// <param name="current">Устройство узла «по умолчанию» сейчас (у обычного узла не нужно).</param>
-    private static string BaseSubtitle(NodeViewModel n, int? rate, string? current = null)
+    private static string BaseSubtitle(NodeViewModel n, int? rate, string? current = null, string? cableName = null)
     {
+        // кабель с ролью: «виртуальный микрофон · CABLE-A», «виртуальный вход · CABLE»; системное имя — в подсказке
+        if (n.Cable is { } link && n.Config.DefaultRole is null)
+        {
+            string pair = cableName ?? (n.Config.EndpointName is { } en ? Fmt.ShortDevice(en) : n.Name);
+            if (n.IsOutput && link.Role == CableRole.VirtualMic) return Fmt.F(Strings.NodeSub_VirtualMicFormat, pair);
+            if (n.Kind == NodeKind.DeviceInput && link.Role == CableRole.VirtualInput)
+                return Fmt.F(Strings.NodeSub_VirtualInputFormat, pair) + (n.Config.Mono == true ? " · " + Strings.NodeSub_Mono : "");
+        }
         var c = n.Config;
         string? name = c.FollowsDefault ? current : c.EndpointName;
         string? dev = name is null ? null : Fmt.ShortDevice(name);

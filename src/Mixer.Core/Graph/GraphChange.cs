@@ -34,9 +34,10 @@ public static class GraphChange
             if (old == n) continue;
             if (old.Kind != n.Kind || old.EndpointId != n.EndpointId || old.EndpointName != n.EndpointName || old.DefaultRole != n.DefaultRole
                 || old.Exe != n.Exe || old.TakeOver != n.TakeOver || old.DirectRoute != n.DirectRoute || old.LowLatency != n.LowLatency
-                || old.IncludeOwnNodes != n.IncludeOwnNodes || !(old.Exclude ?? []).SequenceEqual(n.Exclude ?? [], StringComparer.OrdinalIgnoreCase))
+                || old.IncludeOwnNodes != n.IncludeOwnNodes || !(old.Exclude ?? []).SequenceEqual(n.Exclude ?? [], StringComparer.OrdinalIgnoreCase)
+                || old.Cable != n.Cable || !(old.MicFor ?? []).SequenceEqual(n.MicFor ?? [], StringComparer.OrdinalIgnoreCase))
                 return GraphChangeKind.Structure;
-            var stripped = n with { X = old.X, Y = old.Y, Color = old.Color, Exclude = old.Exclude };
+            var stripped = n with { X = old.X, Y = old.Y, Color = old.Color, Exclude = old.Exclude, MicFor = old.MicFor };
             kind = Max(kind, stripped == old ? GraphChangeKind.Layout : GraphChangeKind.Parameters);
         }
 

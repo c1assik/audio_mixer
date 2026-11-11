@@ -1068,4 +1068,217 @@ public static class Strings
 
     /// <summary>{0} and {1}</summary>
     public static string List_AndFormat => Get("List_AndFormat");
+
+    /// <summary>virtual mic · {0}</summary>
+    public static string NodeSub_VirtualMicFormat => Get("NodeSub_VirtualMicFormat");
+
+    /// <summary>virtual input · {0}</summary>
+    public static string NodeSub_VirtualInputFormat => Get("NodeSub_VirtualInputFormat");
+
+    /// <summary>{0} Virtual cable “{1}”: apps play into {2}, and record from {3}</summary>
+    public static string NodeTip_CableFormat => Get("NodeTip_CableFormat");
+
+    /// <summary>Role: virtual mic. The mixer plays into the cable, and another app (OBS, Discord) records from its other end as a microphone</summary>
+    public static string NodeTip_CableVirtualMic => Get("NodeTip_CableVirtualMic");
+
+    /// <summary>Role: virtual input. Another app plays into the cable, and the mixer records from its other end</summary>
+    public static string NodeTip_CableVirtualInput => Get("NodeTip_CableVirtualInput");
+
+    /// <summary>Mic for: {0}</summary>
+    public static string Node_MicForFormat => Get("Node_MicForFormat");
+
+    /// <summary>The cable’s output is the microphone of:</summary>
+    public static string MicTip_Header => Get("MicTip_Header");
+
+    /// <summary>{0}: {1}</summary>
+    public static string MicTip_RowFormat => Get("MicTip_RowFormat");
+
+    /// <summary>set</summary>
+    public static string MicState_Bound => Get("MicState_Bound");
+
+    /// <summary>not running; it’s set as soon as the app starts</summary>
+    public static string MicState_NotRunning => Get("MicState_NotRunning");
+
+    /// <summary>running, waiting until it touches audio</summary>
+    public static string MicState_Waiting => Get("MicState_Waiting");
+
+    /// <summary>couldn’t set it: {0}</summary>
+    public static string MicState_FailedFormat => Get("MicState_FailedFormat");
+
+    /// <summary>not set: {0}</summary>
+    public static string MicState_UnavailableFormat => Get("MicState_UnavailableFormat");
+
+    /// <summary>Inside the app, the microphone must be set to “Default”: a device picked there overrides this setting</summary>
+    public static string MicTip_Note => Get("MicTip_Note");
+
+    /// <summary>Use as microphone in</summary>
+    public static string Node_UseAsMic => Get("Node_UseAsMic");
+
+    /// <summary>Makes this cable’s output the recording device of the chosen app (as if you picked it for the app in Windows sound settings). The app keeps it after the mixer exits; unchecking the app or deleting the node removes it</summary>
+    public static string Node_UseAsMicTip => Get("Node_UseAsMicTip");
+
+    /// <summary>Other app (exe):</summary>
+    public static string Node_UseAsMicOther => Get("Node_UseAsMicOther");
+
+    /// <summary>Exe name, e.g. obs64.exe; Enter adds it</summary>
+    public static string Node_UseAsMicOtherTip => Get("Node_UseAsMicOtherTip");
+
+    /// <summary>Assigning a microphone needs the Windows per-app device API, which isn’t available</summary>
+    public static string Node_UseAsMicUnavailable => Get("Node_UseAsMicUnavailable");
+
+    /// <summary>Link as virtual cable</summary>
+    public static string Node_LinkCable => Get("Node_LinkCable");
+
+    /// <summary>For a virtual cable the mixer doesn’t know: pick the device at its other end. The node then shows as a cable, and loops through it are blocked</summary>
+    public static string Node_LinkCableTip => Get("Node_LinkCableTip");
+
+    /// <summary>Unlink cable</summary>
+    public static string Node_UnlinkCable => Get("Node_UnlinkCable");
+
+    /// <summary>“{0}” and “{1}” are now one cable</summary>
+    public static string Cable_LinkedFormat => Get("Cable_LinkedFormat");
+
+    /// <summary>VIRTUAL CABLES</summary>
+    public static string Palette_GroupCables => Get("Palette_GroupCables");
+
+    /// <summary>virtual mic: the mixer plays into {0}, an app records from {1}</summary>
+    public static string Palette_CableMicFormat => Get("Palette_CableMicFormat");
+
+    /// <summary>virtual input: an app plays into {0}, the mixer records from {1}</summary>
+    public static string Palette_CableInputFormat => Get("Palette_CableInputFormat");
+
+    /// <summary>only one end of this cable is found</summary>
+    public static string Palette_CableHalf => Get("Palette_CableHalf");
+
+    /// <summary>Cables: {0}</summary>
+    public static string Status_CablesFormat => Get("Status_CablesFormat");
+
+    /// <summary>{0} ({1})</summary>
+    public static string Status_CableUsedFormat => Get("Status_CableUsedFormat");
+
+    /// <summary>{0} free</summary>
+    public static string Status_CableFreeFormat => Get("Status_CableFreeFormat");
+
+    /// <summary>Virtual cables: a cable has two ends. Apps play into its input and record from its output. Add one with “+ Output” (virtual mic) or “+ Source” (virtual input)</summary>
+    public static string Status_CablesTip => Get("Status_CablesTip");
+
+    /// <summary>virtual cable|virtual cables</summary>
+    public static string Plural_Cable => Get("Plural_Cable");
+
+    /// <summary>Setup assistant</summary>
+    public static string Setup_Title => Get("Setup_Title");
+
+    /// <summary>Step {0} of {1}</summary>
+    public static string Setup_StepFormat => Get("Setup_StepFormat");
+
+    /// <summary>Your headphones and microphone</summary>
+    public static string Setup_DevicesTitle => Get("Setup_DevicesTitle");
+
+    /// <summary>Pick the devices you actually use. You can change them later on each node</summary>
+    public static string Setup_DevicesText => Get("Setup_DevicesText");
+
+    /// <summary>Headphones or speakers</summary>
+    public static string Setup_Headphones => Get("Setup_Headphones");
+
+    /// <summary>Microphone</summary>
+    public static string Setup_Microphone => Get("Setup_Microphone");
+
+    /// <summary>Where should your sound go?</summary>
+    public static string Setup_WhereTitle => Get("Setup_WhereTitle");
+
+    /// <summary>Pick everything that applies. We’ll build the graph and set up the apps for you; you can change any of it later</summary>
+    public static string Setup_WhereText => Get("Setup_WhereText");
+
+    /// <summary>Just my headphones</summary>
+    public static string Setup_HeadphonesOnly => Get("Setup_HeadphonesOnly");
+
+    /// <summary>Hear games, calls and music with separate volumes</summary>
+    public static string Setup_HeadphonesOnlyText => Get("Setup_HeadphonesOnlyText");
+
+    /// <summary>A stream (OBS)</summary>
+    public static string Setup_Stream => Get("Setup_Stream");
+
+    /// <summary>Send your voice, game and chat to OBS as one microphone, with chosen apps kept off-stream</summary>
+    public static string Setup_StreamText => Get("Setup_StreamText");
+
+    /// <summary>A call (Discord, Zoom)</summary>
+    public static string Setup_Call => Get("Setup_Call");
+
+    /// <summary>Send your processed voice to the call app and hear the call on your headphones</summary>
+    public static string Setup_CallText => Get("Setup_CallText");
+
+    /// <summary>This needs {0}. Found {1}.</summary>
+    public static string Setup_CablesNeedFormat => Get("Setup_CablesNeedFormat");
+
+    /// <summary>Install {0} more, then press Check again</summary>
+    public static string Setup_CablesInstallFormat => Get("Setup_CablesInstallFormat");
+
+    /// <summary>Cables: {0}</summary>
+    public static string Setup_CablesOkFormat => Get("Setup_CablesOkFormat");
+
+    /// <summary>Check again</summary>
+    public static string Setup_CheckAgain => Get("Setup_CheckAgain");
+
+    /// <summary>Where to get a cable</summary>
+    public static string Setup_WhereToGet => Get("Setup_WhereToGet");
+
+    /// <summary>Which apps should stay separate?</summary>
+    public static string Setup_AppsTitle => Get("Setup_AppsTitle");
+
+    /// <summary>Each gets its own volume in your headphones and stays off the stream. Everything else goes through “System audio”</summary>
+    public static string Setup_AppsText => Get("Setup_AppsText");
+
+    /// <summary>No apps are open right now. You can add them later with “+ Source”</summary>
+    public static string Setup_AppsNone => Get("Setup_AppsNone");
+
+    /// <summary>Looking for apps…</summary>
+    public static string Setup_AppsLoading => Get("Setup_AppsLoading");
+
+    /// <summary>The current graph will be replaced; Ctrl+Z brings it back</summary>
+    public static string Setup_ReplaceNote => Get("Setup_ReplaceNote");
+
+    /// <summary>Back</summary>
+    public static string Setup_Back => Get("Setup_Back");
+
+    /// <summary>Next</summary>
+    public static string Setup_Next => Get("Setup_Next");
+
+    /// <summary>Build the graph</summary>
+    public static string Setup_Finish => Get("Setup_Finish");
+
+    /// <summary>Skip setup</summary>
+    public static string Setup_Skip => Get("Setup_Skip");
+
+    /// <summary>None</summary>
+    public static string Setup_None => Get("Setup_None");
+
+    /// <summary>Pick headphones and a microphone</summary>
+    public static string Setup_NeedDevice => Get("Setup_NeedDevice");
+
+    /// <summary>The graph is ready. {0}</summary>
+    public static string Setup_DoneFormat => Get("Setup_DoneFormat");
+
+    /// <summary>In {0}, choose “Default” as the microphone.</summary>
+    public static string Setup_DoneMicFormat => Get("Setup_DoneMicFormat");
+
+    /// <summary>Not enough cables: {0} skipped.</summary>
+    public static string Setup_DoneMissingFormat => Get("Setup_DoneMissingFormat");
+
+    /// <summary>Setup assistant</summary>
+    public static string Settings_SetupHeader => Get("Settings_SetupHeader");
+
+    /// <summary>Builds a ready graph from three questions: where your sound goes and which apps to keep separate</summary>
+    public static string Settings_SetupText => Get("Settings_SetupText");
+
+    /// <summary>Open the assistant</summary>
+    public static string Settings_SetupOpen => Get("Settings_SetupOpen");
+
+    /// <summary>Setup assistant</summary>
+    public static string Graph_EmptySetup => Get("Graph_EmptySetup");
+
+    /// <summary>Start the mixer with Windows, minimized to the tray</summary>
+    public static string Setup_Autostart => Get("Setup_Autostart");
+
+    /// <summary>Couldn’t change startup with Windows: {0}</summary>
+    public static string Settings_AutostartFailedFormat => Get("Settings_AutostartFailedFormat");
 }

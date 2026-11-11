@@ -33,8 +33,10 @@ public sealed record AppBinding(string Exe, BindingState State, string? Message 
 /// Привязка хранится в Windows за exe и переживает и приложение, и микшер, поэтому каждое приложение с привязкой
 /// записано в журнал boundApps <b>до</b> вызова Set и вычёркивается только после успешного сброса.
 /// Вызывается из одного управляющего потока, без блокировок.
+/// Тот же механизм назначает приложениям кабель микрофоном (micFor): политика устройства записи, свой журнал micApps,
+/// без проверки «играет мимо» (checkPlayback — она про воспроизведение).
 /// </summary>
-public sealed class TakeOverManager(IAppEndpointPolicy policy, IBindingJournal journal)
+public sealed class TakeOverManager(IAppEndpointPolicy policy, IBindingJournal journal, bool checkPlayback = true)
 {
     public static readonly ERole[] Roles = [ERole.Console, ERole.Multimedia, ERole.Communications];
 
@@ -129,7 +131,7 @@ public sealed class TakeOverManager(IAppEndpointPolicy policy, IBindingJournal j
             }
         }
 
-        bool direct = world.SessionsOf(exe).Any(s => s.IsActive && !string.Equals(s.EndpointId, target, StringComparison.OrdinalIgnoreCase));
+        bool direct = checkPlayback && world.SessionsOf(exe).Any(s => s.IsActive && !string.Equals(s.EndpointId, target, StringComparison.OrdinalIgnoreCase));
         _status[exe] = failure is not null
             ? new AppBinding(exe, BindingState.Failed, Loc.F(CoreStrings.Bind_FailedFormat, failure))
             : applied.Count == 0

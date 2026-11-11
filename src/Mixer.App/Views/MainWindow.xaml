@@ -20,6 +20,9 @@
         <DataTemplate DataType="{x:Type vm:ProcessingViewModel}">
             <views:ProcessingPanel />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:SetupViewModel}">
+            <views:SetupView />
+        </DataTemplate>
     </Window.Resources>
 
     <Grid Background="{StaticResource Bg}">
@@ -230,6 +233,7 @@
         <Grid Grid.RowSpan="4" Background="{StaticResource Scrim}" Visibility="{Binding HasOverlay, Converter={StaticResource Vis}}" MouseLeftButtonDown="OnScrimClick">
             <ContentControl Content="{Binding Palette}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24" Focusable="False" />
             <ContentControl Content="{Binding Settings}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24" Focusable="False" />
+            <ContentControl Content="{Binding Setup}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24" Focusable="False" />
         </Grid>
     </Grid>
 </Window>

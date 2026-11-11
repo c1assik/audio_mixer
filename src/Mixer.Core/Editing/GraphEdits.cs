@@ -40,6 +40,38 @@ public static class GraphEdits
         });
     }
 
+    /// <summary>Назначить выход кабеля микрофоном приложению или снять назначение (micFor; имя нормализуется, дубли не пишутся).</summary>
+    public static GraphConfig SetMicFor(GraphConfig g, string id, string exe, bool on)
+    {
+        if (string.IsNullOrWhiteSpace(exe)) return g;
+        string name = Sys.ProcessSnapshot.NormalizeExe(exe);
+        return UpdateNode(g, id, n =>
+        {
+            var list = (n.MicFor ?? []).Where(e => !Sys.ProcessSnapshot.NormalizeExe(e).Equals(name, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (on) list.Add(name);
+            return n with { MicFor = list.Count == 0 ? null : list };
+        });
+    }
+
+    /// <summary>
+    /// Связать узел устройства с другим концом кабеля, которого нет в таблице сопоставления. Роль — по типу узла: выход
+    /// пишет в кабель (виртуальный микрофон), вход читает из него (виртуальный вход).
+    /// </summary>
+    public static GraphConfig LinkCable(GraphConfig g, string id, Mixer.Audio.Interop.EndpointInfo partner) =>
+        UpdateNode(g, id, n => n.Kind is not (NodeKind.DeviceInput or NodeKind.DeviceOutput) ? n : n with
+        {
+            Cable = new CableLink
+            {
+                PairId = "manual:" + partner.Id.ToLowerInvariant(),
+                Role = n.Kind == NodeKind.DeviceOutput ? CableRole.VirtualMic : CableRole.VirtualInput,
+                PartnerId = partner.Id,
+                PartnerName = partner.Name,
+            },
+        });
+
+    /// <summary>Отвязать кабель, связанный вручную; назначения микрофона снимаются вместе с ним.</summary>
+    public static GraphConfig UnlinkCable(GraphConfig g, string id) => UpdateNode(g, id, n => n with { Cable = null, MicFor = null });
+
     public static GraphConfig UpdateNode(GraphConfig g, string id, Func<NodeConfig, NodeConfig> change)
     {
         bool hit = false;

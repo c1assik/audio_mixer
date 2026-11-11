@@ -1,0 +1,12 @@
+{
+  "_comment": "Таблица сопоставления виртуальных кабелей: какие устройства воспроизведения (input) и записи (output) — два конца одного кабеля. Имя устройства в Windows: «Описание (Драйвер)». В шаблонах * — любые символы. pairByName: концы кабеля называются одинаково (Virtual Audio Cable: «Line 1» и там и там). Свои записи можно добавить в cables.json рядом с Mixer.exe — они идут раньше встроенных.",
+  "cables": [
+    { "id": "vb-cable", "name": "CABLE", "vendor": "VB-Audio", "driver": "VB-Audio Virtual Cable", "inputs": [ "CABLE Input", "CABLE In 16ch" ], "outputs": [ "CABLE Output" ], "url": "https://vb-audio.com/Cable/" },
+    { "id": "vb-cable-a", "name": "CABLE-A", "vendor": "VB-Audio", "driver": "VB-Audio Cable A", "inputs": [ "CABLE-A Input", "CABLE-A In 16ch" ], "outputs": [ "CABLE-A Output" ], "url": "https://vb-audio.com/Cable/" },
+    { "id": "vb-cable-b", "name": "CABLE-B", "vendor": "VB-Audio", "driver": "VB-Audio Cable B", "inputs": [ "CABLE-B Input", "CABLE-B In 16ch" ], "outputs": [ "CABLE-B Output" ], "url": "https://vb-audio.com/Cable/" },
+    { "id": "vb-cable-c", "name": "CABLE-C", "vendor": "VB-Audio", "driver": "VB-Audio Cable C", "inputs": [ "CABLE-C Input", "CABLE-C In 16ch" ], "outputs": [ "CABLE-C Output" ], "url": "https://vb-audio.com/Cable/" },
+    { "id": "vb-cable-d", "name": "CABLE-D", "vendor": "VB-Audio", "driver": "VB-Audio Cable D", "inputs": [ "CABLE-D Input", "CABLE-D In 16ch" ], "outputs": [ "CABLE-D Output" ], "url": "https://vb-audio.com/Cable/" },
+    { "id": "vb-hifi", "name": "Hi-Fi Cable", "vendor": "VB-Audio", "driver": "VB-Audio Hi-Fi Cable", "inputs": [ "Hi-Fi Cable Input" ], "outputs": [ "Hi-Fi Cable Output" ], "url": "https://vb-audio.com/Cable/" },
+    { "id": "vac", "name": "Virtual Audio Cable", "vendor": "Muzychenko", "driver": "Virtual Audio Cable", "inputs": [ "Line *" ], "outputs": [ "Line *" ], "pairByName": true, "url": "https://vac.muzychenko.net/" }
+  ]
+}

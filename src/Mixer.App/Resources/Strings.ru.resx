@@ -1057,4 +1057,219 @@
   <data name="List_AndFormat" xml:space="preserve">
     <value>{0} и {1}</value>
   </data>
+  <data name="NodeSub_VirtualMicFormat" xml:space="preserve">
+    <value>кабель-микрофон · {0}</value>
+  </data>
+  <data name="NodeSub_VirtualInputFormat" xml:space="preserve">
+    <value>кабель-вход · {0}</value>
+  </data>
+  <data name="NodeTip_CableFormat" xml:space="preserve">
+    <value>{0}
+
+Виртуальный кабель «{1}»: в него играют через {2}, а записывают с {3}</value>
+  </data>
+  <data name="NodeTip_CableVirtualMic" xml:space="preserve">
+    <value>Роль: виртуальный микрофон. Микшер играет в кабель, а другое приложение (OBS, Discord) записывает с его второго конца как с микрофона</value>
+  </data>
+  <data name="NodeTip_CableVirtualInput" xml:space="preserve">
+    <value>Роль: виртуальный вход. Другое приложение играет в кабель, а микшер записывает с его второго конца</value>
+  </data>
+  <data name="Node_MicForFormat" xml:space="preserve">
+    <value>Микрофон для: {0}</value>
+  </data>
+  <data name="MicTip_Header" xml:space="preserve">
+    <value>Выход кабеля — микрофон для:</value>
+  </data>
+  <data name="MicTip_RowFormat" xml:space="preserve">
+    <value>{0}: {1}</value>
+  </data>
+  <data name="MicState_Bound" xml:space="preserve">
+    <value>назначен</value>
+  </data>
+  <data name="MicState_NotRunning" xml:space="preserve">
+    <value>не запущено; назначится, как только приложение запустится</value>
+  </data>
+  <data name="MicState_Waiting" xml:space="preserve">
+    <value>запущено, ждём, когда приложение обратится к звуку</value>
+  </data>
+  <data name="MicState_FailedFormat" xml:space="preserve">
+    <value>не удалось назначить: {0}</value>
+  </data>
+  <data name="MicState_UnavailableFormat" xml:space="preserve">
+    <value>не назначен: {0}</value>
+  </data>
+  <data name="MicTip_Note" xml:space="preserve">
+    <value>Внутри приложения микрофон должен стоять «По умолчанию»: выбранное там устройство важнее этой настройки</value>
+  </data>
+  <data name="Node_UseAsMic" xml:space="preserve">
+    <value>Использовать как микрофон в</value>
+  </data>
+  <data name="Node_UseAsMicTip" xml:space="preserve">
+    <value>Назначает выход этого кабеля устройством записи выбранного приложения (как если бы его выбрали для приложения в параметрах звука Windows). Назначение остаётся и после выхода из микшера; снимается, если убрать галочку или удалить узел</value>
+  </data>
+  <data name="Node_UseAsMicOther" xml:space="preserve">
+    <value>Другое приложение (exe):</value>
+  </data>
+  <data name="Node_UseAsMicOtherTip" xml:space="preserve">
+    <value>Имя exe, например obs64.exe; Enter — добавить</value>
+  </data>
+  <data name="Node_UseAsMicUnavailable" xml:space="preserve">
+    <value>Для назначения микрофона нужен API Windows для устройств приложений, а он недоступен</value>
+  </data>
+  <data name="Node_LinkCable" xml:space="preserve">
+    <value>Связать как виртуальный кабель</value>
+  </data>
+  <data name="Node_LinkCableTip" xml:space="preserve">
+    <value>Для виртуального кабеля, которого микшер не знает: выберите устройство на втором его конце. Узел станет кабелем, а петли через него будут запрещены</value>
+  </data>
+  <data name="Node_UnlinkCable" xml:space="preserve">
+    <value>Отвязать кабель</value>
+  </data>
+  <data name="Cable_LinkedFormat" xml:space="preserve">
+    <value>«{0}» и «{1}» теперь один кабель</value>
+  </data>
+  <data name="Palette_GroupCables" xml:space="preserve">
+    <value>ВИРТУАЛЬНЫЕ КАБЕЛИ</value>
+  </data>
+  <data name="Palette_CableMicFormat" xml:space="preserve">
+    <value>виртуальный микрофон: микшер играет в {0}, приложение записывает с {1}</value>
+  </data>
+  <data name="Palette_CableInputFormat" xml:space="preserve">
+    <value>виртуальный вход: приложение играет в {0}, микшер записывает с {1}</value>
+  </data>
+  <data name="Palette_CableHalf" xml:space="preserve">
+    <value>найден только один конец кабеля</value>
+  </data>
+  <data name="Status_CablesFormat" xml:space="preserve">
+    <value>Кабели: {0}</value>
+  </data>
+  <data name="Status_CableUsedFormat" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
+  <data name="Status_CableFreeFormat" xml:space="preserve">
+    <value>{0} свободен</value>
+  </data>
+  <data name="Status_CablesTip" xml:space="preserve">
+    <value>Виртуальные кабели: у кабеля два конца. В его вход играют, с его выхода записывают. Добавляется через «+ Выход» (виртуальный микрофон) или «+ Источник» (виртуальный вход)</value>
+  </data>
+  <data name="Plural_Cable" xml:space="preserve">
+    <value>виртуальный кабель|виртуальных кабеля|виртуальных кабелей</value>
+  </data>
+  <data name="Setup_Title" xml:space="preserve">
+    <value>Помощник настройки</value>
+  </data>
+  <data name="Setup_StepFormat" xml:space="preserve">
+    <value>Шаг {0} из {1}</value>
+  </data>
+  <data name="Setup_DevicesTitle" xml:space="preserve">
+    <value>Ваши наушники и микрофон</value>
+  </data>
+  <data name="Setup_DevicesText" xml:space="preserve">
+    <value>Выберите устройства, которыми пользуетесь. Потом их можно сменить на каждом узле</value>
+  </data>
+  <data name="Setup_Headphones" xml:space="preserve">
+    <value>Наушники или колонки</value>
+  </data>
+  <data name="Setup_Microphone" xml:space="preserve">
+    <value>Микрофон</value>
+  </data>
+  <data name="Setup_WhereTitle" xml:space="preserve">
+    <value>Куда отдать звук?</value>
+  </data>
+  <data name="Setup_WhereText" xml:space="preserve">
+    <value>Отметьте всё, что нужно. Помощник соберёт схему и настроит приложения; потом всё можно поменять</value>
+  </data>
+  <data name="Setup_HeadphonesOnly" xml:space="preserve">
+    <value>Только наушники</value>
+  </data>
+  <data name="Setup_HeadphonesOnlyText" xml:space="preserve">
+    <value>Игры, звонки и музыка в наушниках — каждое своей громкостью</value>
+  </data>
+  <data name="Setup_Stream" xml:space="preserve">
+    <value>Стрим (OBS)</value>
+  </data>
+  <data name="Setup_StreamText" xml:space="preserve">
+    <value>Голос, игра и чат идут в OBS одним микрофоном, а выбранные приложения в стрим не попадают</value>
+  </data>
+  <data name="Setup_Call" xml:space="preserve">
+    <value>Звонок (Discord, Zoom)</value>
+  </data>
+  <data name="Setup_CallText" xml:space="preserve">
+    <value>Обработанный голос идёт в приложение звонка, а звонок слышен в наушниках</value>
+  </data>
+  <data name="Setup_CablesNeedFormat" xml:space="preserve">
+    <value>Для этого нужно {0}. Найдено: {1}.</value>
+  </data>
+  <data name="Setup_CablesInstallFormat" xml:space="preserve">
+    <value>Установите ещё {0} и нажмите «Проверить снова»</value>
+  </data>
+  <data name="Setup_CablesOkFormat" xml:space="preserve">
+    <value>Кабели: {0}</value>
+  </data>
+  <data name="Setup_CheckAgain" xml:space="preserve">
+    <value>Проверить снова</value>
+  </data>
+  <data name="Setup_WhereToGet" xml:space="preserve">
+    <value>Где взять кабель</value>
+  </data>
+  <data name="Setup_AppsTitle" xml:space="preserve">
+    <value>Какие приложения держать отдельно?</value>
+  </data>
+  <data name="Setup_AppsText" xml:space="preserve">
+    <value>У каждого будет своя громкость в наушниках, и в стрим они не попадут. Всё остальное идёт через «Весь звук системы»</value>
+  </data>
+  <data name="Setup_AppsNone" xml:space="preserve">
+    <value>Сейчас приложений нет. Их можно добавить потом через «+ Источник»</value>
+  </data>
+  <data name="Setup_AppsLoading" xml:space="preserve">
+    <value>Ищем приложения…</value>
+  </data>
+  <data name="Setup_ReplaceNote" xml:space="preserve">
+    <value>Текущая схема будет заменена; Ctrl+Z вернёт её</value>
+  </data>
+  <data name="Setup_Back" xml:space="preserve">
+    <value>Назад</value>
+  </data>
+  <data name="Setup_Next" xml:space="preserve">
+    <value>Далее</value>
+  </data>
+  <data name="Setup_Finish" xml:space="preserve">
+    <value>Собрать схему</value>
+  </data>
+  <data name="Setup_Skip" xml:space="preserve">
+    <value>Пропустить</value>
+  </data>
+  <data name="Setup_None" xml:space="preserve">
+    <value>Нет</value>
+  </data>
+  <data name="Setup_NeedDevice" xml:space="preserve">
+    <value>Выберите наушники и микрофон</value>
+  </data>
+  <data name="Setup_DoneFormat" xml:space="preserve">
+    <value>Схема готова. {0}</value>
+  </data>
+  <data name="Setup_DoneMicFormat" xml:space="preserve">
+    <value>Выберите в {0} микрофон «По умолчанию».</value>
+  </data>
+  <data name="Setup_DoneMissingFormat" xml:space="preserve">
+    <value>Не хватило кабелей: пропущено {0}.</value>
+  </data>
+  <data name="Settings_SetupHeader" xml:space="preserve">
+    <value>Помощник настройки</value>
+  </data>
+  <data name="Settings_SetupText" xml:space="preserve">
+    <value>Собирает готовую схему по трём вопросам: куда отдать звук и какие приложения держать отдельно</value>
+  </data>
+  <data name="Settings_SetupOpen" xml:space="preserve">
+    <value>Открыть помощник</value>
+  </data>
+  <data name="Graph_EmptySetup" xml:space="preserve">
+    <value>Помощник настройки</value>
+  </data>
+  <data name="Setup_Autostart" xml:space="preserve">
+    <value>Запускать микшер вместе с Windows, свёрнутым в трей</value>
+  </data>
+  <data name="Settings_AutostartFailedFormat" xml:space="preserve">
+    <value>Не удалось изменить запуск вместе с Windows: {0}</value>
+  </data>
 </root>

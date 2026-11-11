@@ -50,5 +50,20 @@ public sealed class WindowsEndpointPolicy : IAppEndpointPolicy, IDisposable
     public int Get(uint pid, ERole role, out string? endpointId) =>
         _config.GetPersistedDefaultAudioEndpoint(pid, EDataFlow.Render, role, out endpointId);
 
+    /// <summary>
+    /// То же для устройства записи: «Использовать как микрофон в…» назначает приложению выход виртуального кабеля
+    /// (v2, «Виртуальные кабели»; так делает Earmark). Тот же объект, те же правила PID и E_INVALIDARG.
+    /// </summary>
+    public IAppEndpointPolicy ForCapture() => new CapturePolicy(_config);
+
     public void Dispose() => _config.Dispose();
+
+    private sealed class CapturePolicy(AudioPolicyConfig config) : IAppEndpointPolicy
+    {
+        public int Set(uint pid, ERole role, string? endpointId) =>
+            config.SetPersistedDefaultAudioEndpoint(pid, EDataFlow.Capture, role, endpointId);
+
+        public int Get(uint pid, ERole role, out string? endpointId) =>
+            config.GetPersistedDefaultAudioEndpoint(pid, EDataFlow.Capture, role, out endpointId);
+    }
 }

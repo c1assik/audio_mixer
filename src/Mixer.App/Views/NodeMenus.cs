@@ -68,6 +68,12 @@ public static class NodeMenus
             menu.Items.Add(ExcludeItem(main, n));
             menu.Items.Add(Check(Strings.Node_IncludeOwnNodes, n.IncludeOwnNodes, () => n.IncludeOwnNodes = !n.IncludeOwnNodes, Strings.Node_IncludeOwnNodesTip));
         }
+        if (n.IsVirtualMic) menu.Items.Add(MicItem(main, n));
+        if (n.Kind is NodeKind.DeviceInput or NodeKind.DeviceOutput && !n.FollowsDefault)
+        {
+            if (n.Config.Cable is { PartnerId: not null }) menu.Items.Add(Item(Strings.Node_UnlinkCable, () => main.UnlinkCable(n)));
+            else if (n.Cable is null) menu.Items.Add(LinkCableItem(main, n));
+        }
         if (n.SupportsLowLatency)
         {
             // на входах режим экспериментальный: у части драйверов поток записи с малым периодом сбоит
@@ -158,6 +164,73 @@ public static class NodeMenus
         row.Children.Add(new TextBlock { Text = Strings.Node_ExcludeOther, VerticalAlignment = VerticalAlignment.Center });
         row.Children.Add(box);
         item.Items.Add(new MenuItem { Header = row, StaysOpenOnClick = true, ToolTip = Strings.Node_ExcludeOtherTip });
+        return item;
+    }
+
+    /// <summary>
+    /// «Использовать как микрофон в…»: назначенные приложения (галочка, клик снимает), известные приложения для стрима и
+    /// звонков, играющие сейчас и поле для любого exe. Внизу — напоминание выбрать «По умолчанию» внутри приложения.
+    /// </summary>
+    private static MenuItem MicItem(MainViewModel main, NodeViewModel n)
+    {
+        var item = new MenuItem { Header = Strings.Node_UseAsMic, ToolTip = Strings.Node_UseAsMicTip };
+        if (!main.CanAssignMic)
+        {
+            item.Items.Add(new MenuItem { Header = Strings.Node_UseAsMicUnavailable, IsEnabled = false });
+            return item;
+        }
+        var on = n.MicFor.Select(Mixer.Core.Sys.ProcessSnapshot.NormalizeExe).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var candidates = on.Order(StringComparer.Ordinal)
+            .Concat(Mixer.Core.Cables.AppNames.StreamApps.Take(1))
+            .Concat(Mixer.Core.Cables.AppNames.CallApps)
+            .Concat(main.PlayingApps)
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        foreach (string exe in candidates)
+        {
+            string e = exe;
+            bool isOn = on.Contains(e);
+            string name = Mixer.Core.Cables.AppNames.Friendly(e);
+            var mi = new MenuItem { Header = name == e ? e : $"{name} ({e})", IsCheckable = true, IsChecked = isOn };
+            mi.Click += (_, _) => main.SetMicFor(n, e, !isOn);
+            item.Items.Add(mi);
+        }
+        item.Items.Add(new Separator());
+        var box = new TextBox { Width = 150, Margin = new Thickness(6, 0, 0, 0), ToolTip = Strings.Node_UseAsMicOtherTip };
+        box.KeyDown += (_, e) =>
+        {
+            if (e.Key != System.Windows.Input.Key.Enter || string.IsNullOrWhiteSpace(box.Text)) return;
+            main.SetMicFor(n, box.Text, true);
+            e.Handled = true;
+            for (DependencyObject? p = item; p is not null; p = LogicalTreeHelper.GetParent(p))
+                if (p is ContextMenu cm)
+                {
+                    cm.IsOpen = false;
+                    break;
+                }
+        };
+        var row = new StackPanel { Orientation = Orientation.Horizontal };
+        row.Children.Add(new TextBlock { Text = Strings.Node_UseAsMicOther, VerticalAlignment = VerticalAlignment.Center });
+        row.Children.Add(box);
+        item.Items.Add(new MenuItem { Header = row, StaysOpenOnClick = true });
+        item.Items.Add(new MenuItem
+        {
+            Header = new TextBlock { Text = Strings.MicTip_Note, TextWrapping = TextWrapping.Wrap, MaxWidth = 300 },
+            IsEnabled = false,
+        });
+        return item;
+    }
+
+    /// <summary>«Связать как виртуальный кабель»: устройства другого направления — кандидаты во второй конец.</summary>
+    private static MenuItem LinkCableItem(MainViewModel main, NodeViewModel n)
+    {
+        var item = new MenuItem { Header = Strings.Node_LinkCable, ToolTip = Strings.Node_LinkCableTip };
+        var flow = n.Kind == NodeKind.DeviceInput ? EDataFlow.Render : EDataFlow.Capture;
+        foreach (var d in main.Devices.Where(d => d.Flow == flow && !d.IsVoicemeeter).OrderBy(d => d.Name))
+        {
+            var dev = d;
+            item.Items.Add(Item(d.Name, () => main.LinkCable(n, dev)));
+        }
+        if (item.Items.Count == 0) item.Items.Add(new MenuItem { Header = Strings.Node_NoDevices, IsEnabled = false });
         return item;
     }
 

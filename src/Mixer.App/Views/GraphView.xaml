@@ -168,6 +168,7 @@
                             <TextBlock Text="{x:Static res:Strings.Cmd_AddOutput}" />
                         </StackPanel>
                     </Button>
+                    <Button Style="{StaticResource ToolButton}" Command="{Binding OpenSetupCommand}" Content="{x:Static res:Strings.Graph_EmptySetup}" Margin="8,0,0,0" />
                 </StackPanel>
             </StackPanel>
         </Border>
