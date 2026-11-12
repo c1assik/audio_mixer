@@ -1,6 +1,6 @@
 # Mixer for Windows: developer notes
 
-The user guide is in the [README](../README.md). The specification and plan (in Russian) is `Микшер для Windows спецификация и план.md` in the repository root; section names from it are quoted below in Russian. Stage 0 (risk check): [tools/Mixer.Probe](../tools/Mixer.Probe/README.md). The v2 specification is `Микшер для Windows v2 спецификация и план.md`; its stage 0 results (captures, new applications, direct route, `IAudioClient3`) are in the same Mixer.Probe README; stages 1 (buses), 2 (processing), 3 (applications), 4 (low latency), 5 (migration and release 2.0), 6 (virtual cables and the setup assistant), 7 (scenes, hotkeys, tray, autostart, themes) and 8 (tests and release 2.1) are described below in «v2 stage 1» … «v2 stage 8».
+The user guide is in the [README](../README.md). The specification and plan (in Russian) is `Микшер для Windows спецификация и план.md` in the repository root; section names from it are quoted below in Russian. Stage 0 (risk check): [tools/Mixer.Probe](../tools/Mixer.Probe/README.md). The v2 specification is `Микшер для Windows v2 спецификация и план.md`; its stage 0 results (captures, new applications, direct route, `IAudioClient3`) are in the same Mixer.Probe README; stages 1 (buses), 2 (processing), 3 (applications), 4 (low latency), 5 (migration and release 2.0), 6 (virtual cables and the setup assistant), 7 (scenes, hotkeys, tray, autostart, themes) and 8 (tests and release 2.1) are described below in «v2 stage 1» … «v2 stage 8». The VST support specification is `Микшер для Windows поддержка VST.md`; its stage 0 is in «VST stage 0» below.
 
 The UI is in English, or in Russian when Windows is in Russian (see "Localization"). Log messages are in English; code comments are in Russian. Russian strings quoted below are shown as they appear in the Russian UI.
 
@@ -11,6 +11,8 @@ The UI is in English, or in Russian when Windows is in Russian (see "Localizatio
 | `src/Mixer.Audio` | Audio engine and WASAPI interop, no WPF: source and output nodes, wires, buses (per-output instances and mix plans), resamplers, PI controller, ramps, limiter, processing chain (gate, EQ, compressor), peak meters; low-latency streams (`IAudioClient3`) with automatic fallback; process loopback, `IAudioPolicyConfig`, audio sessions with their volume, meter and new-session notifications, probe stream, device change notifications (`IMMNotificationClient`) |
 | `src/Mixer.Core` | Graph model and `graph.json` (scenes, hotkeys, cable links), the cable pairing table and cable checks, the setup assistant's layout builder, the Modular rack layout, device lookup by ID, name and default role, the feedback rule, paths through buses, building the engine snapshot; process snapshot, Take over with the `boundApps` journal, sink validation, watchdog, the `MixerHost` control layer with hot-plug and sleep handling; a WPF-free editor: history, edits (including grouping into a bus), wire validation, layout, store with backups, chain presets, application catalog; file log |
 | `src/Mixer.App` | UI (WPF, CommunityToolkit.Mvvm): graph canvas, cards, wires, palette, settings, processing side panel with the EQ curve, setup assistant, scenes, global hotkeys and push-to-talk, tray icon, autostart, themes (Graphite, Daylight, Modular with its rack view). Builds `Mixer.exe` |
+| `src/Mixer.PluginHost` | C++ process hosting one VST3 plug-in (VST stage 0: the audio channel only). Built by `tools/build-pluginhost.ps1`, not by `dotnet build` |
+| `tools/Mixer.PluginBench` | VST stage 0: the mixer side of the audio channel and a benchmark of the exchange with the host |
 | `tools/Mixer.Run` | Console host for stages 1–2: runs a JSON graph through `MixerHost` with statistics, lists applications, checks a sink, measures loop latency (also with low latency) |
 | `tests/Mixer.Tests` | xUnit tests without a sound card, including UI view models (on their own STA thread, without a window) |
 | `tools/publish.ps1`, `tools/make-icon.ps1` | Release build of a single `Mixer.exe` and the program icon (stage 5) |
@@ -661,6 +663,35 @@ All new strings are in `Strings.resx` / `Strings.ru.resx` and `CoreStrings`; `Lo
 - Version 2.1.0 (`Directory.Build.props`); README describes the assistant, cables, scenes, hotkeys, tray, autostart, themes and upgrading from 2.0.
 - **Not done**: the device checks listed under stages 6 and 7 and the two acceptance criteria above. The GitHub release is made by pushing the `v2.1.0` tag.
 
+## VST stage 0: host exchange prototype
+
+The specification is `Микшер для Windows поддержка VST.md`. Stage 0 checks the riskiest assumption of the design: a synchronous call into a separate plug-in process per block (shared memory and a pair of events) is cheap enough for the audio thread. The gate is an exchange cost of at most 100 µs at p99.
+
+### How it works
+
+- **`src/Mixer.PluginHost`** (C++20, CMake, VST3 SDK 3.8.1 fetched at build time) loads one VST3 effect through the SDK's `PlugProvider`, negotiates stereo (or mono) buses and activates the plug-in. Its audio thread (MMCSS "Pro Audio", FTZ/DAZ) waits for `Request`, calls `process` on the shared buffers, and answers with `Done`. The host exits when the parent process dies. `--builtin copy` runs it without a plug-in. Layout and protocol are in its [README](../src/Mixer.PluginHost/README.md).
+- **`tools/Mixer.PluginBench`** is the mixer side (`HostChannel`) and a benchmark. Per block it spins on the answer for up to 50 µs, then waits on `Done` together with a high-resolution timer at the deadline (40% of the period). A late answer is recognised by its block number. Hosts run in a Job Object with kill-on-close. See its [README](../tools/Mixer.PluginBench/README.md).
+- CI builds the host and AGain in a separate `pluginhost` job. `Mixer.exe` does not include the host yet.
+
+### Deviations from the specification
+
+1. **No control pipe yet.** Load parameters come on the command line, and the host reports its state (starting / ready / failed), latency and channel counts in the shared header. The pipe and its messages are stage 1.
+2. **"Busy" blocks.** With one pair of buffers, the mixer may not write the next input while the host is still processing an overdue block. Such blocks go dry without being sent. The specification only says that a late answer is dropped by number.
+3. **The deadline wait uses a high-resolution waitable timer** together with `Done` (`WaitForMultipleObjects`). The millisecond timeout of `WaitForSingleObject` is too coarse for the 1.07 ms deadline at the 2.67 ms period. A millisecond timeout stays as a backstop in case the timer cannot be set.
+4. **Warm-up and prefaulting.** Both sides touch every page of the section before the first block, and the mixer sends 8 silent blocks with a 1 s deadline before audio (the slot is still "loading"). Without the warm-up, the first `process` missed the deadline once at 128 frames.
+5. **The header** carries `requestQpc`, `wakeQpc`, `doneQpc` and `processResult` for diagnostics, and a stop flag instead of a bypass flag: bypass is decided in the mixer.
+6. **The mono downmix is done in the host**, so the section is always stereo.
+7. **AGain needs VSTGUI**, so the stage 0 build also fetches `vstgui4`. `-NoAgain` (`MIXER_BUILD_AGAIN=OFF`) builds the host alone.
+
+### Results
+
+The gate is passed: over one hour with AGain, exchange p99 was 28.9 µs at 480 frames and 31.0 µs at 128 frames. There were 0 deadline misses in 1.71 million blocks, and every output matched its input bit for bit. Memory per host is 1.2 MB private without a plug-in and 25–27 MB private (36–38 MB working set) with AGain, with no growth. The CPU cost of the exchange is ≤ 0.05% of all cores per plug-in. Details, tails and the deadline check are in the [Mixer.PluginBench README](../tools/Mixer.PluginBench/README.md#results-windows-11-25h2-26200-ryzen-5-5600g-12-logical-cores-12-november-2026).
+
+### Status as of 12 November 2026
+
+- Done: the host with AGain, the benchmark, a one-hour run at 480 and 128 frames, a 5-minute run without a plug-in, the stall check, and the CI build.
+- Next (stage 1): the control pipe, the editor window, even blocks, embedding the host into `Mixer.exe`, and the MIT license text for the SDK in the licenses folder and the About window.
+
 ## Localization
 
 The UI is in English by default and in Russian when the Windows display language is Russian. The user can pick the language in Settings (⚙) → "Language": "Same as Windows", "English" or "Русский" (language names are shown in their own language). The choice is saved at once to `settings.json` next to `graph.json` (`%AppData%\Mixer`; with `--graph`, next to that file) and applies after a restart: the panel then shows "Restart now", which exits normally (graph saved, Take over redirects released) and starts a new instance with the same switches, minus `--lang`, `--open` and `--snapshot`. Strings are not swapped live: XAML takes them once, when elements are created.
@@ -674,4 +705,4 @@ Order at startup: `--lang en|ru`, then `settings.json`, then the Windows languag
 - **Log** messages are English literals in the code in both languages. Exceptions: messages that are also shown in the UI (sink check results, Take over states, node errors) go to the log in the UI language.
 - The audio threads don't touch `ResourceManager`: stream names used in the render loop are read once when the node is created.
 - **Tests** run in Russian (`Culture` module initializer in `tests/Mixer.Tests/LocalizationTests.cs`), so text checks don't depend on the machine. `LocalizationTests` check that both languages have the same keys and placeholders, the plural form counts, the generated classes, English numbers and plurals, language selection, the main window and palette in English, saving the language choice, when a restart is offered, and the restart switches.
-- `tools/Mixer.Run` and `tools/Mixer.Probe` are developer consoles and stay in Russian.
+- `tools/Mixer.Run`, `tools/Mixer.Probe` and `tools/Mixer.PluginBench` are developer consoles and stay in Russian.

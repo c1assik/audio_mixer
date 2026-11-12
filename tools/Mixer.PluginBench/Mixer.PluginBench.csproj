@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Этап 0 поддержки VST: замер стоимости обмена с Mixer.PluginHost.exe (см. README.md рядом) -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Mixer.PluginBench</RootNamespace>
+    <AssemblyName>Mixer.PluginBench</AssemblyName>
+    <TieredPGO>true</TieredPGO>
+  </PropertyGroup>
+
+</Project>

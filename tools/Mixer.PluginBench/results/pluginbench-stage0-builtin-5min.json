@@ -1,0 +1,245 @@
+{
+  "date": "2026-11-12T15:15:10",
+  "machine": {
+    "cpu": "AMD Ryzen 5 5600G with Radeon Graphics",
+    "logicalCores": 12,
+    "os": "Microsoft Windows NT 10.0.26200.0"
+  },
+  "plugin": "builtin copy",
+  "rate": 48000,
+  "minutes": 5,
+  "spinUs": 50,
+  "deadlinePct": 40,
+  "gateUs": 100,
+  "pass": true,
+  "runs": [
+    {
+      "frames": 480,
+      "periodMs": 10,
+      "deadlineMs": 4,
+      "seconds": 300,
+      "error": null,
+      "pass": true,
+      "blocks": 30000,
+      "processed": 30000,
+      "missed": 0,
+      "busy": 0,
+      "mismatches": 0,
+      "badResults": 0,
+      "overruns": 0,
+      "spinHits": 29965,
+      "hostStartupMs": 45,
+      "latencySamples": 0,
+      "us": {
+        "exchange": {
+          "count": 30000,
+          "mean": 14.83,
+          "p50": 12.7,
+          "p90": 25.5,
+          "p99": 41.3,
+          "p999": 72.2,
+          "p9999": 271.8,
+          "max": 314.6
+        },
+        "roundTrip": {
+          "count": 30000,
+          "mean": 15.38,
+          "p50": 13.3,
+          "p90": 26,
+          "p99": 42.4,
+          "p999": 74.4,
+          "p9999": 272.5,
+          "max": 314.9
+        },
+        "hostWake": {
+          "count": 30000,
+          "mean": 12.9,
+          "p50": 11,
+          "p90": 23.8,
+          "p99": 29,
+          "p999": 53,
+          "p9999": 258.8,
+          "max": 302.5
+        },
+        "returnPath": {
+          "count": 30000,
+          "mean": 0.75,
+          "p50": 0.3,
+          "p90": 0.5,
+          "p99": 18.1,
+          "p999": 42.2,
+          "p9999": 62,
+          "max": 133.6
+        },
+        "process": {
+          "count": 30000,
+          "mean": 0.55,
+          "p50": 0.5,
+          "p90": 1,
+          "p99": 1.7,
+          "p999": 3.1,
+          "p9999": 33,
+          "max": 126.3
+        },
+        "timerLate": {
+          "count": 30000,
+          "mean": 282.13,
+          "p50": 283.7,
+          "p90": 490.2,
+          "p99": 608,
+          "p999": 999.9,
+          "p9999": 2110,
+          "max": 2638
+        }
+      },
+      "exchangeOverGate": 9,
+      "overGatePerMinute": [
+        1,
+        0,
+        0,
+        0,
+        8,
+        0
+      ],
+      "maxExchangePerMinuteUs": [
+        114.3,
+        79.9,
+        84.4,
+        67.1,
+        314.6,
+        18.1
+      ],
+      "cpu": {
+        "hostCoreSeconds": 0.188,
+        "mixerThreadCoreSeconds": 0.781,
+        "hostPctOfCore": 0.0625,
+        "mixerThreadPctOfCore": 0.2604,
+        "mixerExchangePctOfCoreUpperBound": 0.1538,
+        "exchangePctOfAllCoresUpperBound": 0.01802
+      },
+      "missedAtBlock": [],
+      "memoryBytes": {
+        "privateAtReady": 1294336,
+        "privateAtEnd": 1232896,
+        "privateMax": 1294336,
+        "workingSetAtReady": 7954432,
+        "workingSetAtEnd": 7966720,
+        "peakWorkingSet": 7966720
+      }
+    },
+    {
+      "frames": 128,
+      "periodMs": 2.6666666666666665,
+      "deadlineMs": 1.0666666666666667,
+      "seconds": 300,
+      "error": null,
+      "pass": true,
+      "blocks": 112500,
+      "processed": 112500,
+      "missed": 0,
+      "busy": 0,
+      "mismatches": 0,
+      "badResults": 0,
+      "overruns": 0,
+      "spinHits": 112342,
+      "hostStartupMs": 38,
+      "latencySamples": 0,
+      "us": {
+        "exchange": {
+          "count": 112500,
+          "mean": 10.97,
+          "p50": 8.7,
+          "p90": 18.3,
+          "p99": 28.9,
+          "p999": 82.2,
+          "p9999": 320.6,
+          "max": 494
+        },
+        "roundTrip": {
+          "count": 112500,
+          "mean": 11.17,
+          "p50": 8.8,
+          "p90": 19,
+          "p99": 29.4,
+          "p999": 87.2,
+          "p9999": 320.8,
+          "max": 494.3
+        },
+        "hostWake": {
+          "count": 112500,
+          "mean": 10.03,
+          "p50": 8,
+          "p90": 15.5,
+          "p99": 26.3,
+          "p999": 64.8,
+          "p9999": 312.5,
+          "max": 480.4
+        },
+        "returnPath": {
+          "count": 112500,
+          "mean": 0.45,
+          "p50": 0.3,
+          "p90": 0.5,
+          "p99": 7,
+          "p999": 29.9,
+          "p9999": 47.4,
+          "max": 235.9
+        },
+        "process": {
+          "count": 112500,
+          "mean": 0.2,
+          "p50": 0.2,
+          "p90": 0.4,
+          "p99": 1.1,
+          "p999": 1.8,
+          "p9999": 7.7,
+          "max": 186.5
+        },
+        "timerLate": {
+          "count": 112500,
+          "mean": 274.63,
+          "p50": 274.2,
+          "p90": 479,
+          "p99": 556.1,
+          "p999": 965.7,
+          "p9999": 2020,
+          "max": 2447.4
+        }
+      },
+      "exchangeOverGate": 103,
+      "overGatePerMinute": [
+        40,
+        2,
+        1,
+        4,
+        56,
+        0
+      ],
+      "maxExchangePerMinuteUs": [
+        400.8,
+        145.3,
+        246.3,
+        442.1,
+        494,
+        25.2
+      ],
+      "cpu": {
+        "hostCoreSeconds": 0.5,
+        "mixerThreadCoreSeconds": 2.188,
+        "hostPctOfCore": 0.1667,
+        "mixerThreadPctOfCore": 0.7292,
+        "mixerExchangePctOfCoreUpperBound": 0.4189,
+        "exchangePctOfAllCoresUpperBound": 0.0488
+      },
+      "missedAtBlock": [],
+      "memoryBytes": {
+        "privateAtReady": 1294336,
+        "privateAtEnd": 1265664,
+        "privateMax": 1294336,
+        "workingSetAtReady": 7950336,
+        "workingSetAtEnd": 7979008,
+        "peakWorkingSet": 7979008
+      }
+    }
+  ]
+}

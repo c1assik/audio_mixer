@@ -72,6 +72,19 @@ jobs:
             dist/Mixer.exe.sha256
           if-no-files-found: error
 
+  pluginhost:
+    # Mixer.PluginHost.exe (C++, VST3 SDK) и пример AGain; в Mixer.exe хост вшивается с этапа 1 поддержки VST
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Сборка Mixer.PluginHost
+        run: ./tools/build-pluginhost.ps1
+
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build
