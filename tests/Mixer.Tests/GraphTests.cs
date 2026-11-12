@@ -191,6 +191,6 @@ public class ConfigTests
     [Fact]
     public void Newer_version_is_rejected()
     {
-        Assert.Throws<InvalidDataException>(() => GraphSerializer.Deserialize("""{ "version": 3, "nodes": [], "wires": [] }"""));
+        Assert.Throws<InvalidDataException>(() => GraphSerializer.Deserialize($$"""{ "version": {{GraphConfig.CurrentVersion + 1}}, "nodes": [], "wires": [] }"""));
     }
 }

@@ -18,6 +18,10 @@ namespace mixer::host {
 
 class ComponentHandler;
 
+// Путь, который отдаём загрузчику SDK. Он ищет в бандле Contents\x86_64-win\<имя бандла>, но у некоторых
+// плагинов (Elgato) DLL внутри названа иначе: тогда берём единственный .vst3 из x86_64-win.
+std::string ResolveModulePath(const std::string& path);
+
 // Один аудиоэффект VST3: модуль → фабрика → компонент и контроллер (через PlugProvider из SDK).
 class Vst3Processor final : public Processor {
 public:

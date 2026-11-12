@@ -71,6 +71,14 @@ public sealed record NodeConfig
     public ChainSettings? Chain { get; init; }
 
     /// <summary>
+    /// Слоты плагинов VST3 (до двух «до» и двух «после» встроенной обработки). Не в <see cref="Chain"/>: цепочку
+    /// пересобирают пресеты и нормализация, слоты при этом терять нельзя.
+    /// </summary>
+    public List<PluginConfig>? Plugins { get; init; }
+    /// <summary>Шина с плагинами: по часам какого выхода её считать («Считать по часам…»; null — выбирает движок).</summary>
+    public string? ClockOutput { get; init; }
+
+    /// <summary>
     /// «Низкая задержка»: поток устройства через IAudioClient3 с наименьшим периодом, который даёт драйвер
     /// (v2, «Низкая задержка»). null — по умолчанию: у выходов включена, у входов выключена (там она экспериментальная),
     /// у выхода в виртуальный кабель выключена (см. <see cref="LowLatencyFor"/>). Только у входа и выхода устройства.
@@ -104,6 +112,7 @@ public sealed record NodeConfig
     [JsonIgnore] public NodeColumn Column => IsSource ? NodeColumn.Sources : IsBus ? NodeColumn.Buses : NodeColumn.Outputs;
     /// <summary>Включён хотя бы один блок обработки.</summary>
     [JsonIgnore] public bool HasChain => Chain is { IsActive: true };
+    [JsonIgnore] public bool HasPlugins => Plugins is { Count: > 0 };
     [JsonIgnore] public bool HasDevice => Kind is NodeKind.DeviceInput or NodeKind.Loopback or NodeKind.DeviceOutput;
     [JsonIgnore] public bool FollowsDefault => DefaultRole is not null && HasDevice;
     /// <summary>У узла есть режим «Низкая задержка»: вход или выход устройства (у loopback период задаёт чужой поток).</summary>
@@ -118,6 +127,32 @@ public sealed record NodeConfig
     /// </summary>
     public bool LowLatencyFor(string? deviceName) => SupportsLowLatency
         && (LowLatency ?? (Kind == NodeKind.DeviceOutput && !(deviceName is not null && Graph.FeedbackRules.IsVirtualCable(deviceName))));
+}
+
+public enum PluginGroup
+{
+    /// <summary>До встроенной обработки (шумоподавление перед гейтом и компрессором).</summary>
+    Pre,
+    /// <summary>После встроенной обработки (реверберация на очищенный сигнал).</summary>
+    Post,
+}
+
+/// <summary>Слот плагина в graph.json. Плагин ищется по <see cref="ClassId"/>, путь — подсказка.</summary>
+public sealed record PluginConfig
+{
+    /// <summary>ID слота внутри узла (p1, p2…).</summary>
+    public required string Id { get; init; }
+    public PluginGroup Group { get; init; }
+    public bool Enabled { get; init; } = true;
+    public string Format { get; init; } = "vst3";
+    /// <summary>GUID класса (32 hex-цифры).</summary>
+    public string? ClassId { get; init; }
+    public string Name { get; init; } = "";
+    public string Vendor { get; init; } = "";
+    public string? Path { get; init; }
+    /// <summary>Файл состояния (формат <c>PluginState</c>); относительный путь — от папки graph.json.</summary>
+    public string? State { get; init; }
+    public bool EvenBlocks { get; init; }
 }
 
 /// <summary>Роль виртуального кабеля.</summary>
@@ -207,8 +242,11 @@ public sealed record WireConfig
 
 public sealed record GraphConfig
 {
-    /// <summary>2 — v2: шины, обработка. Файл v1 читается как есть (новых полей в нём нет).</summary>
-    public const int CurrentVersion = 2;
+    /// <summary>
+    /// 2 — v2: шины, обработка; 3 — слоты плагинов. Старый файл читается как есть (новых полей в нём нет), схему
+    /// версии 3 микшер 2.1 не откроет.
+    /// </summary>
+    public const int CurrentVersion = 3;
 
     public int Version { get; init; } = CurrentVersion;
     /// <summary>Эндпоинт-заглушка для режима «Забрать себе» (этап 2).</summary>

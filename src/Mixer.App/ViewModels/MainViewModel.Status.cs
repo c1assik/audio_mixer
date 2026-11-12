@@ -8,6 +8,7 @@ using Mixer.Audio.Engine;
 using Mixer.Core.Apps;
 using Mixer.Core.Config;
 using Mixer.Core.Graph;
+using Mixer.Core.Plugins;
 using Mixer.Core.Host;
 using Mixer.Core.Sys;
 
@@ -82,6 +83,7 @@ public sealed partial class MainViewModel
         if (Wires.Count(x => x.ShowDirect) != directBefore) UpdateCounts();
 
         // ── шапка ──
+        var pluginMs = PluginPathMs(st);
         double latency = 0;
         int failures = 0, under = 0, over = 0, resync = 0;
         foreach (var w in snap.Wires.Values)
@@ -92,7 +94,7 @@ public sealed partial class MainViewModel
             if (w.State != WireState.Running) continue;
             var s = snap.Sources.GetValueOrDefault(w.FromId);
             var o = snap.Outputs.GetValueOrDefault(w.OutputId);
-            latency = Math.Max(latency, (s?.CaptureLatencyMs ?? 0) + w.LatencyMs + (o?.RenderLatencyMs ?? 0));
+            latency = Math.Max(latency, (s?.CaptureLatencyMs ?? 0) + w.LatencyMs + (o?.RenderLatencyMs ?? 0) + PluginMs(pluginMs, w));
         }
         failures = under + over + resync;
         LatencyText = latency > 0 ? Fmt.F(Strings.Header_LatencyFormat, Fmt.Ms(latency)) : Strings.Header_LatencyNone;
@@ -529,6 +531,13 @@ public sealed partial class MainViewModel
         };
     }
 
+    /// <summary>Наибольшая задержка плагинов от источника до выхода, мс (по слотам с последнего такта хоста).</summary>
+    private IReadOnlyDictionary<(string Source, string Output), double>? PluginPathMs(HostStatus? st) =>
+        st?.Plugins is { Count: > 0 } slots ? PluginLatency.Max(Graph, PluginLatency.ByNode(slots)) : null;
+
+    private static double PluginMs(IReadOnlyDictionary<(string Source, string Output), double>? ms, Wire w) =>
+        ms?.GetValueOrDefault((GraphBuilder.NodeIdOf(w.FromId), w.OutputId)) ?? 0;
+
     private void PollWire(WireViewModel w, EngineSnapshot snap, IReadOnlyList<Mixer.Audio.Interop.EndpointInfo> devices, GraphPaths? paths, BuildResult? build)
     {
         bool direct = _host is not null && build?.DirectRoutes.GetValueOrDefault(w.From) is { } route && route.OutputId == w.To;
@@ -595,7 +604,7 @@ public sealed partial class MainViewModel
         {
             var src = snap.Sources.GetValueOrDefault(running.FromId);
             var dst = snap.Outputs.GetValueOrDefault(running.OutputId);
-            double total = (src?.CaptureLatencyMs ?? 0) + running.LatencyMs + (dst?.RenderLatencyMs ?? 0);
+            double total = (src?.CaptureLatencyMs ?? 0) + running.LatencyMs + (dst?.RenderLatencyMs ?? 0) + PluginMs(PluginPathMs(_host?.Status), running);
             w.TipFormat = Fmt.F(Strings.Wire_TooltipRateFormat, Fmt.Khz(running.InputRate), Fmt.Khz(running.OutputRate), Fmt.Ms(running.FillMs), Fmt.Ms(total)) +
                           (list.Count > 1 ? " · " + Fmt.Plural(list.Count, Strings.Plural_Capture) : "");
         }

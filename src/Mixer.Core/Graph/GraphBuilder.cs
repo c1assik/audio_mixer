@@ -88,6 +88,8 @@ public sealed record RuntimeContext
     public Func<IReadOnlyCollection<string>, SystemPlan>? PlanSystem { get; init; }
     /// <summary>Прямые маршруты возможны: IAudioPolicyConfig доступен и привязки разрешены.</summary>
     public bool DirectRoutes { get; init; }
+    /// <summary>Слоты плагинов узла по его ID (<see cref="Plugins.PluginRack"/>); null — без плагинов.</summary>
+    public Func<string, IReadOnlyList<PluginSlot>>? Plugins { get; init; }
 }
 
 /// <summary>Граф из конфига → снимок маршрутизации для движка: поиск устройств, процессов, проверка проводов.</summary>
@@ -146,6 +148,8 @@ public static class GraphBuilder
     public static BuildResult Build(GraphConfig graph, IReadOnlyList<EndpointInfo> devices, bool allowFeedback = false, RuntimeContext? apps = null)
     {
         apps ??= new RuntimeContext();
+        var plugins = apps.Plugins;
+        IReadOnlyList<PluginSlot> Slots(NodeConfig n) => n.HasPlugins && plugins is not null ? plugins(n.Id) : [];
         var issues = new List<GraphIssue>();
         var resolved = new Dictionary<string, EndpointInfo>();
         var sources = new List<SourceSpec>();
@@ -174,7 +178,7 @@ public static class GraphBuilder
 
             if (n.IsBus)
             {
-                buses.Add(new BusSpec(n.Id, n.GainDb, n.Muted) { Chain = ChainOf(n) });
+                buses.Add(new BusSpec(n.Id, n.GainDb, n.Muted) { Chain = ChainOf(n), Plugins = Slots(n), ClockOutput = n.ClockOutput });
                 engineBuses[n.Id] = n.Id;
                 continue;
             }
@@ -244,15 +248,16 @@ public static class GraphBuilder
                     {
                         Chain = ChainOf(n),
                         LowLatency = n.LowLatencyFor(ep.Name),
+                        Plugins = Slots(n),
                     });
                     engineSources[n.Id] = [n.Id];
                     break;
                 case NodeKind.Loopback:
-                    sources.Add(new SourceSpec(n.Id, SourceKind.Loopback, ep.Id, n.GainDb, n.Muted, n.Mono ?? false, n.Balance ?? 0) { Chain = ChainOf(n) });
+                    sources.Add(new SourceSpec(n.Id, SourceKind.Loopback, ep.Id, n.GainDb, n.Muted, n.Mono ?? false, n.Balance ?? 0) { Chain = ChainOf(n), Plugins = Slots(n) });
                     engineSources[n.Id] = [n.Id];
                     break;
                 case NodeKind.DeviceOutput:
-                    outputs.Add(new OutputSpec(n.Id, ep.Id, n.GainDb, n.Muted) { Chain = ChainOf(n), LowLatency = n.LowLatencyFor(ep.Name) });
+                    outputs.Add(new OutputSpec(n.Id, ep.Id, n.GainDb, n.Muted) { Chain = ChainOf(n), LowLatency = n.LowLatencyFor(ep.Name), Plugins = Slots(n) });
                     break;
             }
         }
@@ -353,7 +358,8 @@ public static class GraphBuilder
             // Обработка у узла из нескольких захватов — на их сумме, а не на каждом процессе по отдельности (иначе
             // компрессор «Весь звук системы» жал бы каждое приложение порознь). Захваты сводятся в неявную шину,
             // фейдер и цепочка — на ней. Шина остаётся и при выключенных блоках: включение блока не меняет схему.
-            string? fx = n.Chain is not null ? n.Id + FxSuffix : null;
+            // Плагины — там же: слот один на узел, а не на каждый захват.
+            string? fx = n.Chain is not null || n.HasPlugins ? n.Id + FxSuffix : null;
             foreach (uint pid in pids)
             {
                 string eid = EngineId(n, pid, perProcess);
@@ -366,7 +372,7 @@ public static class GraphBuilder
             engineSources[id] = ids;
             if (fx is not null)
             {
-                buses.Add(new BusSpec(fx, n.GainDb, n.Muted, n.Balance ?? 0) { Chain = ChainOf(n) });
+                buses.Add(new BusSpec(fx, n.GainDb, n.Muted, n.Balance ?? 0) { Chain = ChainOf(n), Plugins = Slots(n), ClockOutput = n.ClockOutput });
                 engineBuses[id] = fx;
             }
         }
@@ -416,7 +422,7 @@ public static class GraphBuilder
         IReadOnlyDictionary<string, EndpointInfo> resolved, RuntimeContext ctx)
     {
         if (!ctx.DirectRoutes || !TakesOver(n) || n.DirectRoute == false) return null;
-        if (n.HasChain || n.Mono == true || (n.Balance ?? 0) != 0) return null;
+        if (n.HasChain || n.HasPlugins || n.Mono == true || (n.Balance ?? 0) != 0) return null;
         WireConfig? only = null;
         foreach (var w in wires)
         {
@@ -424,7 +430,7 @@ public static class GraphBuilder
             if (only is not null) return null;
             only = w;
         }
-        if (only is null || !nodes.TryGetValue(only.To, out var o) || !o.IsOutput || o.HasChain) return null;
+        if (only is null || !nodes.TryGetValue(only.To, out var o) || !o.IsOutput || o.HasChain || o.HasPlugins) return null;
         if (!resolved.TryGetValue(o.Id, out var ep)) return null;
         if (string.Equals(ep.Id, ctx.ActiveSinkEndpointId, StringComparison.OrdinalIgnoreCase)) return null;
         float gain = n.GainDb + only.GainDb + o.GainDb;

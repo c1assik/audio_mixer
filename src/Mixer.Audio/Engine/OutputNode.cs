@@ -127,7 +127,7 @@ public sealed class OutputNode : AudioNode
                 // провод с целью, пониженной малым периодом, опустел — это тоже сбой режима (цель слишком мала для этой машины)
                 if (_plan.Render(block, scratch, n, rate, now, period) > 0) CountGlitch(now);
 
-                Chain.Process(block, n, rate);
+                Chain.Process(block, n, rate, PluginSlot.Deadline(now, period > 0 ? period : Options.PeriodMs / 1000.0));
                 gain.SetTargets(GainL, GainR, Muted);
                 gain.Apply(block, n);
                 float minGain = limiter.Process(block, n);
@@ -150,6 +150,7 @@ public sealed class OutputNode : AudioNode
         finally
         {
             foreach (var w in _plan.AllWires) w.Deactivate();
+            foreach (var step in _plan.Steps) step.Bus.StopClock();
             if (started) client!.Stop();
             Release(render);
             Release(client);

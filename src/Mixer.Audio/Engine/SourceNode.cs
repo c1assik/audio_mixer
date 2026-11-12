@@ -35,6 +35,8 @@ public sealed class SourceNode : AudioNode
     private long _frames;
     private int _discontinuities;
     private double _captureLatencyMs;
+    /// <summary>Период пакетов захвата, с: от него дедлайн плагинов в цепочке.</summary>
+    private double _blockPeriod = 0.01;
     private long _activityTicks;
 
     public SourceKind Kind { get; }
@@ -158,6 +160,7 @@ public sealed class SourceNode : AudioNode
             if (client.GetStreamLatency(out long latency100ns) < 0) latency100ns = 0;
             double period = StreamPeriodSeconds(format.SampleRate);
             Volatile.Write(ref _captureLatencyMs, latency100ns / 10_000.0 + (period > 0 ? period * 1000 : Options.PeriodMs));
+            _blockPeriod = period > 0 ? period : Options.PeriodMs / 1000.0;
 
             uint keepAliveFrames = 0;
             if (Kind == SourceKind.Loopback)
@@ -265,7 +268,7 @@ public sealed class SourceNode : AudioNode
             }
         }
 
-        Chain.Process(span, frames, rate);
+        Chain.Process(span, frames, rate, PluginSlot.Deadline(now, _blockPeriod));
         gain.SetTargets(GainL, GainR, Muted);
         gain.Apply(span, frames);
         Peak.Update(span, frames);

@@ -87,6 +87,8 @@ add_executable(Mixer.PluginHost
     src/editor_window.h
     src/param_queue.h
     src/processor.h
+    src/scan.cpp
+    src/scan.h
     src/builtin_processors.cpp
     src/builtin_processors.h
     src/vst3_processor.cpp
@@ -109,3 +111,20 @@ set_target_properties(Mixer.PluginHost PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}/bin"
     RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/bin")
+
+# --- тестовые модули для сканера: зависает, падает, «VST2» (build/test-modules) ------------------
+foreach(_kind hang crash vst2)
+    add_library(mixer_test_${_kind} SHARED test/test_module.cpp)
+    string(TOUPPER ${_kind} _define)
+    target_compile_definitions(mixer_test_${_kind} PRIVATE MIXER_TEST_${_define})
+    if(_kind STREQUAL "vst2")
+        set_target_properties(mixer_test_${_kind} PROPERTIES OUTPUT_NAME vst2 SUFFIX ".dll")
+    else()
+        set_target_properties(mixer_test_${_kind} PROPERTIES OUTPUT_NAME ${_kind} SUFFIX ".vst3")
+    endif()
+    set_target_properties(mixer_test_${_kind} PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/test-modules"
+        RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}/test-modules"
+        RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/test-modules")
+    add_dependencies(Mixer.PluginHost mixer_test_${_kind})
+endforeach()

@@ -9,4 +9,9 @@
     <InternalsVisibleTo Include="Mixer.Tests" />
   </ItemGroup>
 
+  <!-- слоты плагинов в цепочке обработки отдают блоки хосту через AudioLink -->
+  <ItemGroup>
+    <ProjectReference Include="..\Mixer.Plugins\Mixer.Plugins.csproj" />
+  </ItemGroup>
+
 </Project>

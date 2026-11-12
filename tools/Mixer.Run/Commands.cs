@@ -362,6 +362,11 @@ public sealed class StatusMonitor(MixerHost host)
         foreach (var (id, warnings) in st.CableWarnings)
             foreach (string w in warnings)
                 Console.WriteLine($"  ⚠ {Name(id),-24} {w}");
+        foreach (var p in st.Plugins)
+            Console.WriteLine($"  ♦ {Name(p.NodeId) + "/" + p.SlotId,-24} {p.Name}: {p.State}{(p.Fault != Mixer.Audio.Dsp.PluginFault.None ? $" ({p.Fault}: {p.Detail})" : "")}, " +
+                              $"{p.Rate} Гц, задержка {p.LatencySamples} ({(p.Rate > 0 ? p.LatencySamples * 1000.0 / p.Rate : 0):F1} мс), нагрузка {p.Load * 100:F1}%{(p.Loud ? ", ГРОМКО > +12 dBFS" : "")}");
+        foreach (var m in st.LatencyWarnings)
+            Console.WriteLine($"  ⚠ {Name(m.OutputId),-24} пути из «{Name(m.SourceId)}» расходятся на {m.DifferenceMs:F1} мс: {string.Join(" → ", m.Fast)} / {string.Join(" → ", m.Slow)}");
         foreach (var (id, plan) in st.Build?.SystemPlans ?? new Dictionary<string, SystemPlan>())
             if (plan.Skipped.Count > 0)
                 Console.WriteLine($"  ⊘ {Name(id),-24} пропущено: {string.Join(", ", plan.Skipped.Select(s => s.Reason == SkipReason.ContainsExcluded ? $"{s.Exe} ({s.Reason}: {s.Because})" : $"{s.Exe} ({s.Reason})"))}");
