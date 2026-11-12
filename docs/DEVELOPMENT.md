@@ -801,7 +801,9 @@ Stage 3 of `Микшер для Windows поддержка VST.md`: `PluginSlot`
 ### Status as of 12 November 2026
 
 - Done: everything above. 380 tests pass (2 manual sweeps skipped); the plug-in tests passed three runs in a row; the solution builds without warnings.
-- **Not checked on devices**: the engine with a plug-in on a real microphone, a pinned bus going to two outputs with different clocks, the 8-hour run with 6 plug-ins, CPU per plug-in. Nothing in the UI shows the slots yet.
+- **Device check, 12 November 2026** (`Mixer.Run run`, which now prints a line per slot and the latency warnings). Elgato Noise Removal on the source and Elgato EQ on a bus going to the fifine speakers and CABLE Input. Both plug-ins loaded in under 1 s (Elgato's DLLs are not named after their bundles, see stage 2). The bus was pinned to the speakers, and CABLE Input read it through its tap: ring at its 20 ms target, 0 underruns. Load was 1.2% (Noise Removal) and 0.3% (EQ) of the period; the mixer's CPU averaged 0.37%. When both hosts stopped answering, each slot went dry and was back 2 s later.
+- **Windows Audio hung during that check** (svchost AppHang at 17:08:41 and 17:11:31, then a restart by the service manager). In the first run, `IAudioClient.Initialize` on the fifine microphone hung from the start, as on 11 November without plug-ins. In the second run the source was a tone in an App node: process loopback delivered no packets, both hosts stopped answering together, and then every endpoint disconnected. No hosts were left over after the runs. The plug-ins are not ruled out as a cause: the check has to be repeated on a healthy audio service, with the Elgato Wave Link service stopped.
+- **Not checked on devices**: plug-ins with real signal through them (no packets reached them in either run), killing a host while audio flows, the 8-hour run with 6 plug-ins. Nothing in the UI shows the slots yet.
 
 ## Localization
 
