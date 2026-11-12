@@ -4,17 +4,54 @@
 #include <cstring>
 
 #include "pluginterfaces/base/funknownimpl.h"
-#include "pluginterfaces/vst/ivsteditcontroller.h"
+#include "pluginterfaces/gui/iplugview.h"
 #include "pluginterfaces/vst/vstspeaker.h"
+#include "public.sdk/source/common/memorystream.h"
+#include "public.sdk/source/vst/utility/stringconvert.h"
 
 using namespace Steinberg;
 using namespace Steinberg::Vst;
 
 namespace mixer::host {
 
+// IComponentHandler: так контроллер плагина сообщает хосту о правках в своём окне и о перезапуске.
+class ComponentHandler final : public U::Implements<U::Directly<IComponentHandler, IComponentHandler2>> {
+public:
+    explicit ComponentHandler(ProcessorEvents& events) : events_(events) {}
+
+    tresult PLUGIN_API beginEdit(ParamID) override { return kResultOk; }
+    tresult PLUGIN_API performEdit(ParamID id, ParamValue value) override {
+        events_.OnEdit(id, value);
+        return kResultOk;
+    }
+    tresult PLUGIN_API endEdit(ParamID) override {
+        events_.OnDirty();
+        return kResultOk;
+    }
+    tresult PLUGIN_API restartComponent(int32 flags) override {
+        events_.OnRestart(flags);
+        return kResultOk;
+    }
+
+    tresult PLUGIN_API setDirty(TBool state) override {
+        if (state) events_.OnDirty();
+        return kResultOk;
+    }
+    tresult PLUGIN_API requestOpenEditor(FIDString) override { return kNotImplemented; }
+    tresult PLUGIN_API startGroupEdit() override { return kResultOk; }
+    tresult PLUGIN_API finishGroupEdit() override { return kResultOk; }
+
+private:
+    ProcessorEvents& events_;
+};
+
+Vst3Processor::Vst3Processor(ProcessorEvents& events) : events_(events) {}
+
 Vst3Processor::~Vst3Processor() {
     if (processor_ && processing_) processor_->setProcessing(false);
     if (component_ && active_) component_->setActive(false);
+    if (controller_) controller_->setComponentHandler(nullptr);
+    controller_ = nullptr;
     processor_ = nullptr;
     component_ = nullptr;
     provider_ = nullptr;  // terminate компонента и контроллера
@@ -44,6 +81,9 @@ bool Vst3Processor::Load(const std::string& path, const std::string& classId, st
         if (wanted && *wanted != info.ID()) continue;
         provider_ = owned(new PlugProvider(factory, info, true));
         name_ = info.name();
+        vendor_ = info.vendor().empty() ? factory.info().vendor() : info.vendor();
+        version_ = info.version();
+        classId_ = info.ID().toString();
         break;
     }
     if (!provider_) {
@@ -63,6 +103,11 @@ bool Vst3Processor::Load(const std::string& path, const std::string& classId, st
     if (!processor_) {
         error = "component is not an IAudioProcessor";
         return false;
+    }
+    controller_ = provider_->getControllerPtr();
+    if (controller_) {
+        handler_ = owned(new ComponentHandler(events_));
+        controller_->setComponentHandler(handler_);
     }
     return true;
 }
@@ -137,7 +182,6 @@ void Vst3Processor::BuildBusBuffers(int32_t maxFrames) {
     scratch_.reserve(64);  // указатели на данные векторов не должны переезжать
     build(kInput, inBuses_, inPtrs_);
     build(kOutput, outBuses_, outPtrs_);
-    mono_.assign(size_t(maxFrames), 0.0f);
 
     data_ = ProcessData{};
     data_.processMode = kRealtime;
@@ -148,7 +192,7 @@ void Vst3Processor::BuildBusBuffers(int32_t maxFrames) {
     data_.outputs = outBuses_.data();
     data_.inputParameterChanges = &inParams_;
     data_.outputParameterChanges = &outParams_;
-    data_.inputEvents = &events_;
+    data_.inputEvents = &events_list_;
     data_.processContext = &context_;
 }
 
@@ -166,8 +210,7 @@ bool Vst3Processor::Prepare(double sampleRate, int32_t maxFrames, std::string& e
     }
 
     // очереди параметров — заранее, чтобы плагин не выделял память в аудиопотоке
-    int32 paramCount = 0;
-    if (auto controller = provider_->getControllerPtr()) paramCount = controller->getParameterCount();
+    int32 paramCount = controller_ ? controller_->getParameterCount() : 0;
     inParams_.setMaxParameters(std::max<int32>(paramCount, 1));
     outParams_.setMaxParameters(std::max<int32>(paramCount, 1));
 
@@ -180,10 +223,17 @@ bool Vst3Processor::Prepare(double sampleRate, int32_t maxFrames, std::string& e
     active_ = true;
     latency_ = int32_t(processor_->getLatencySamples());
 
+    const auto keptTime = context_.continousTimeSamples;
     context_ = ProcessContext{};
     context_.sampleRate = sampleRate;
+    context_.continousTimeSamples = keptTime;
     context_.state = ProcessContext::kContTimeValid;
     return true;
+}
+
+void Vst3Processor::Unprepare() {
+    if (component_ && active_) component_->setActive(false);
+    active_ = false;
 }
 
 void Vst3Processor::BeginProcessing() {
@@ -198,32 +248,143 @@ void Vst3Processor::EndProcessing() {
     processing_ = false;
 }
 
-int32_t Vst3Processor::Process(float* const in[2], float* const out[2], int32_t frames) {
+int32_t Vst3Processor::Process(float* const* in, float* const* out, int32_t frames, const ParamChange* changes,
+                               int32_t changeCount, ParamQueue& outChanges) {
     auto& inMain = inPtrs_[0];
     auto& outMain = outPtrs_[0];
-    if (inChannels_ == 1) {
-        float* m = mono_.data();
-        for (int32_t i = 0; i < frames; ++i) m[i] = 0.5f * (in[0][i] + in[1][i]);
-        inMain[0] = m;
-    } else {
-        inMain[0] = in[0];
-        inMain[1] = in[1];
-    }
-    outMain[0] = out[0];
-    if (outChannels_ == 2) outMain[1] = out[1];
+    for (int32_t c = 0; c < inChannels_; ++c) inMain[size_t(c)] = in[c];
+    for (int32_t c = 0; c < outChannels_; ++c) outMain[size_t(c)] = out[c];
 
     for (auto& b : inBuses_) b.silenceFlags = 0;
     for (auto& b : outBuses_) b.silenceFlags = 0;
     inParams_.clearQueue();
     outParams_.clearQueue();
-    events_.clear();
+    events_list_.clear();
+    for (int32_t i = 0; i < changeCount; ++i) {
+        int32 queueIndex = 0, pointIndex = 0;
+        if (auto* q = inParams_.addParameterData(changes[i].id, queueIndex)) q->addPoint(0, changes[i].value, pointIndex);
+    }
 
     data_.numSamples = frames;
     tresult r = processor_->process(data_);
 
-    if (outChannels_ == 1) std::memcpy(out[1], out[0], size_t(frames) * sizeof(float));
+    // что плагин выдал сам (индикаторы, зависимые параметры) — в контроллер, последнее значение блока
+    for (int32 i = 0, n = outParams_.getParameterCount(); i < n; ++i) {
+        auto* q = outParams_.getParameterData(i);
+        if (!q || q->getPointCount() <= 0) continue;
+        int32 offset = 0;
+        double value = 0;
+        if (q->getPoint(q->getPointCount() - 1, offset, value) == kResultTrue) outChanges.Push(q->getParameterId(), value);
+    }
     context_.continousTimeSamples += frames;
     return int32_t(r);
+}
+
+// --- параметры ----------------------------------------------------------------------------------
+
+std::vector<ParamInfo> Vst3Processor::Params() {
+    std::vector<ParamInfo> list;
+    if (!controller_) return list;
+    const int32 n = controller_->getParameterCount();
+    list.reserve(size_t(std::max<int32>(n, 0)));
+    for (int32 i = 0; i < n; ++i) {
+        ParameterInfo pi{};
+        if (controller_->getParameterInfo(i, pi) != kResultOk) continue;
+        ParamInfo p;
+        p.id = pi.id;
+        p.title = Steinberg::Vst::StringConvert::convert(pi.title);
+        p.units = Steinberg::Vst::StringConvert::convert(pi.units);
+        p.stepCount = pi.stepCount;
+        p.defaultValue = pi.defaultNormalizedValue;
+        p.readOnly = (pi.flags & ParameterInfo::kIsReadOnly) != 0;
+        p.hidden = (pi.flags & ParameterInfo::kIsHidden) != 0;
+        p.bypass = (pi.flags & ParameterInfo::kIsBypass) != 0;
+        p.list = (pi.flags & ParameterInfo::kIsList) != 0;
+        p.value = controller_->getParamNormalized(pi.id);
+        p.text = ParamText(pi.id, p.value);
+        list.push_back(std::move(p));
+    }
+    return list;
+}
+
+bool Vst3Processor::SetParam(uint32_t id, double value) {
+    if (!controller_) return false;
+    return controller_->setParamNormalized(id, std::clamp(value, 0.0, 1.0)) == kResultOk;
+}
+
+double Vst3Processor::ParamValue(uint32_t id) { return controller_ ? controller_->getParamNormalized(id) : 0; }
+
+std::string Vst3Processor::ParamText(uint32_t id, double value) {
+    if (!controller_) return {};
+    String128 text{};
+    if (controller_->getParamStringByValue(id, value, text) != kResultOk) return {};
+    return Steinberg::Vst::StringConvert::convert(text);
+}
+
+void Vst3Processor::OnOutputParam(uint32_t id, double value) {
+    if (controller_) controller_->setParamNormalized(id, value);
+}
+
+// --- состояние ----------------------------------------------------------------------------------
+
+bool Vst3Processor::GetState(std::string& component, std::string& controller, std::string& error) {
+    MemoryStream cs;
+    if (component_->getState(&cs) != kResultOk) {
+        error = "IComponent::getState failed";
+        return false;
+    }
+    component.assign(cs.getData() ? cs.getData() : "", size_t(cs.getSize()));
+    controller.clear();
+    if (controller_) {
+        MemoryStream es;
+        // kNotImplemented — у контроллера нет своего состояния, это не ошибка
+        if (controller_->getState(&es) == kResultOk && es.getData())
+            controller.assign(es.getData(), size_t(es.getSize()));
+    }
+    return true;
+}
+
+bool Vst3Processor::SetState(const std::string& component, const std::string& controller, std::string& error) {
+    {
+        MemoryStream cs(const_cast<char*>(component.data()), TSize(component.size()));
+        if (component_->setState(&cs) != kResultOk) {
+            error = "IComponent::setState failed";
+            return false;
+        }
+    }
+    if (controller_) {
+        MemoryStream cs(const_cast<char*>(component.data()), TSize(component.size()));
+        controller_->setComponentState(&cs);
+        if (!controller.empty()) {
+            MemoryStream es(const_cast<char*>(controller.data()), TSize(controller.size()));
+            controller_->setState(&es);
+        }
+    }
+    return true;
+}
+
+// --- окно ---------------------------------------------------------------------------------------
+
+bool Vst3Processor::HasEditor() {
+    if (hasEditor_ < 0) {
+        hasEditor_ = 0;
+        if (IPlugView* view = CreateEditor()) {
+            hasEditor_ = 1;
+            view->release();
+        }
+    }
+    return hasEditor_ == 1;
+}
+
+IPlugView* Vst3Processor::CreateEditor() {
+    if (!controller_) return nullptr;
+    IPlugView* view = controller_->createView(ViewType::kEditor);
+    if (!view) return nullptr;
+    if (view->isPlatformTypeSupported(kPlatformTypeHWND) != kResultTrue) {
+        view->release();
+        return nullptr;
+    }
+    return view;
 }
 
 }  // namespace mixer::host

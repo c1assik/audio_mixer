@@ -1,11 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Этап 0 поддержки VST: замер стоимости обмена с Mixer.PluginHost.exe (см. README.md рядом) -->
+  <!-- Поддержка VST: замер стоимости обмена с Mixer.PluginHost.exe (этап 0) и ручная проверка окна редактора (этап 1) -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <RootNamespace>Mixer.PluginBench</RootNamespace>
     <AssemblyName>Mixer.PluginBench</AssemblyName>
     <TieredPGO>true</TieredPGO>
   </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Mixer.Plugins\Mixer.Plugins.csproj" />
+  </ItemGroup>
 
 </Project>

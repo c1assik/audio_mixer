@@ -1,3 +1,4 @@
+using Mixer.Plugins.Host;
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
@@ -9,9 +10,12 @@ namespace Mixer.PluginBench;
 internal static class Program
 {
     private const string Usage = """
-        Mixer.PluginBench — этап 0 поддержки VST: стоимость обмена с Mixer.PluginHost.exe и память хоста.
+        Mixer.PluginBench — поддержка VST: стоимость обмена с Mixer.PluginHost.exe и память хоста (этап 0),
+        ручная проверка окна редактора (этап 1).
 
           Mixer.PluginBench [--plugin <path.vst3> | --builtin] [--frames 480,128] [--minutes 60]
+          Mixer.PluginBench --editor [--plugin <path.vst3>] [--png <file.png>] [--close] [--seconds 60]
+                            [--x <px> --y <px> [--w <px> --h <px>]]
 
           --host <exe>         Mixer.PluginHost.exe (по умолчанию src/Mixer.PluginHost/build/bin)
           --plugin <path>      плагин VST3 (по умолчанию again.vst3 из сборки хоста)
@@ -24,6 +28,11 @@ internal static class Program
           --gate-us <us>       ворота этапа: p99 обмена не больше, мкс, по умолчанию 100
           --stall-every <n> --stall-ms <ms>   хост спит каждый n-й блок (проверка дедлайна)
           --out <file.json>    куда записать результат (по умолчанию probe-out/pluginbench-*.json)
+
+          --editor             открыть окно плагина (владелец — окно консоли), напечатать события и геометрию
+          --png <file>         снять окно в PNG
+          --close              закрыть окно самому, не ждать пользователя
+          --x --y --w --h      запомненные положение и размер окна (размер — если плагин его меняет)
         """;
 
     private static int Main(string[] argv)
@@ -45,6 +54,9 @@ internal static class Program
             Console.Error.WriteLine(Usage);
             return 2;
         }
+
+        if (o.Editor)
+            return EditorCheck.Run(o.HostExe, o.PluginPath!, o.Seconds, o.Png, o.Bounds, o.Close);
 
         using var cts = new CancellationTokenSource();
         Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
@@ -307,12 +319,18 @@ internal sealed class Options
     public double GateUs = 100;
     public int StallEvery, StallMs;
     public string? OutPath;
+    public bool Editor, Close;
+    public double Seconds = 60;
+    public string? Png;
+    public EditorBounds? Bounds;
 
     public static Options Parse(string[] argv)
     {
         var o = new Options();
         string? host = null, plugin = null;
         bool builtin = false;
+        int? x = null, y = null;
+        int w = 0, h = 0;
         for (int i = 0; i < argv.Length; i++)
         {
             string Next() => i + 1 < argv.Length ? argv[++i] : throw new ArgumentException($"{argv[i]}: нет значения");
@@ -331,10 +349,20 @@ internal sealed class Options
                 case "--stall-every": o.StallEvery = (int)Num(); break;
                 case "--stall-ms": o.StallMs = (int)Num(); break;
                 case "--out": o.OutPath = Next(); break;
+                case "--editor": o.Editor = true; break;
+                case "--close": o.Close = true; break;
+                case "--seconds": o.Seconds = Num(); break;
+                case "--png": o.Png = Next(); break;
+                case "--x": x = (int)Num(); break;
+                case "--y": y = (int)Num(); break;
+                case "--w": w = (int)Num(); break;
+                case "--h": h = (int)Num(); break;
                 default: throw new ArgumentException($"неизвестный аргумент {argv[i]}");
             }
         }
         if (o.Frames.Any(f => f < 1 || f > 8192)) throw new ArgumentException("--frames: от 1 до 8192");
+        if (x is { } bx && y is { } by) o.Bounds = new EditorBounds(bx, by, w, h);
+        if (o.Editor && builtin) throw new ArgumentException("--editor: нужен настоящий плагин, у встроенных окна нет");
 
         string? build = Paths.RepoRoot() is { } root ? Path.Combine(root, "src", "Mixer.PluginHost", "build") : null;
         o.HostExe = host ?? (build != null ? Path.Combine(build, "bin", "Mixer.PluginHost.exe") : "Mixer.PluginHost.exe");

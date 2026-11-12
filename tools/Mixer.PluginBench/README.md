@@ -1,6 +1,6 @@
-# Mixer.PluginBench: VST stage 0
+# Mixer.PluginBench: VST stages 0 and 1
 
-A console tool for stage 0 of «Микшер для Windows: поддержка VST»: how much the exchange with `Mixer.PluginHost.exe` costs, and how much memory one host takes. `HostChannel.cs` is the mixer side of the audio channel (the section, events, deadline, host in a Job Object). It is the prototype of the transport behind the future `PluginSlot`.
+A console tool for «Микшер для Windows: поддержка VST»: how much the exchange with `Mixer.PluginHost.exe` costs and how much memory one host takes (stage 0), and a manual check of the editor window (stage 1). Since stage 1 it drives the host through [src/Mixer.Plugins](../../src/Mixer.Plugins) (`PluginHost`, `AudioLink`), the same code the mixer uses; in stage 0 the channel lived here in `HostChannel.cs`, which is now a thin wrapper.
 
 Build: `./tools/build-pluginhost.ps1` (host and AGain), then `dotnet build tools/Mixer.PluginBench -c Release`. Run:
 
@@ -16,6 +16,8 @@ tools\Mixer.PluginBench\bin\Release\net8.0-windows\Mixer.PluginBench.exe --frame
 | `--deadline-pct`, `--spin-us`, `--gate-us` | deadline in % of the period (40), spin before the kernel wait (50 µs), stage gate (100 µs) |
 | `--stall-every N --stall-ms M` | the host sleeps M ms on every N-th block (deadline check) |
 | `--out` | result JSON, default `probe-out/pluginbench-*.json` |
+| `--editor` | stage 1: load the plug-in, open its editor over a window of the bench (standing in for the mixer's main window), print the control messages and the window geometry, minimize and restore the owner, close the editor, read the state |
+| `--png <file>`, `--close`, `--x --y --w --h` | with `--editor`: capture the window (`PrintWindow`), close it without waiting for the user, pass a remembered position and size |
 
 Each run is a thread registered with MMCSS as "Pro Audio", like a device thread in the engine. A high-resolution waitable timer wakes it once per period. The thread sends a 440/660 Hz sine through the host with a deadline of 40% of the period and compares the output with the input bit for bit (AGain at its default gain of 1.0 and the copy are both exact). It reports:
 
@@ -48,3 +50,10 @@ AGain from SDK 3.8.1, 48 kHz. The 480-frame (10 ms) and 128-frame (2.67 ms) runs
 5. **Memory per host.** Without a plug-in: 1.2 MB private and 7.6 MB working set. With AGain: 25–27 MB private and 36–38 MB working set. It did not grow over the hour (+0.1 MB). Most of AGain's cost is its own module (VSTGUI, a second static CRT), so real plug-ins will cost more. 16 small plug-ins come to about 0.6 GB of working set. The ceiling of 16 and the "one host for all" fallback from the specification stand.
 6. **Startup.** From process start to "ready", 40 ms without a plug-in and 100–150 ms with AGain. Eight warm-up blocks follow; without them, the first `process` at 128 frames missed its deadline once in a 15 s test.
 7. **The deadline logic works.** With `--stall-every 300 --stall-ms 50` at 480 frames, the misses fell on exactly the stalled requests (blocks 291, 596, 901, 1206; the first 8 requests are the warm-up). Each miss was followed by 5 "busy" blocks (50 ms of stall ÷ 10 ms period), and the late answers were dropped by block number. There were no mismatches.
+
+## Stage 1 checks, 12 November 2026
+
+Same machine. The bench now goes through `Mixer.Plugins` and protocol version 2 (the `doneFlags` field, parameter queues in the host, the control pipe beside the audio channel).
+
+- **The exchange did not get more expensive.** A 15-second run with AGain at 480 and 128 frames in parallel: exchange p99 30.9 and 43.5 µs, 0 misses in 7,125 blocks, outputs bit-exact, 25.6–27.6 MB private per host. That is within the noise of the stage 0 hour (28.9 / 31.0 µs); 15 seconds do not say more about the tail.
+- **The editor window.** `--editor --close --png` with AGain: the window opens with the title «AGain VST3 — проверка» (UTF-8 → UTF-16 works), the view is 350×120 inside a 366×159 frame at 96 DPI, and VSTGUI draws into it (captured with `PrintWindow`). The owner is the bench's window from another process (`GW_OWNER` matches). Minimizing the owner hides the editor, and restoring the owner shows it again. A remembered position (300, 250) is used. A remembered size 500×200 is refused by AGain's `checkSizeConstraint` and stays 350×120. `editorClosed` reports the same rectangle, and the state after closing is 277 bytes. Not checked: a monitor above 100% scaling (none on this machine) and a resizable plug-in.

@@ -24,7 +24,7 @@
                 </Button>
             </Grid>
 
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Focusable="False">
+            <ScrollViewer x:Name="Scroll" Grid.Row="1" VerticalScrollBarVisibility="Auto" Focusable="False">
                 <StackPanel>
             <!-- язык: применяется после перезапуска -->
             <StackPanel Margin="20,16,20,0" DataContext="{Binding Language}"
@@ -279,6 +279,42 @@
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
+
+            <!-- о программе: версия и лицензии сторонних компонентов (текст MIT VST 3 SDK обязан быть в программе) -->
+            <StackPanel Margin="20,8,20,16">
+                <TextBlock Text="{x:Static res:Strings.Settings_AboutHeader}" Style="{StaticResource SectionLabel}" />
+                <TextBlock Text="{Binding VersionText}" Foreground="{StaticResource Text}" FontWeight="Medium" Margin="0,8,0,0" />
+                <TextBlock Text="{x:Static res:Strings.Settings_AboutVst}" Foreground="{StaticResource Text2}" TextWrapping="Wrap" Margin="0,6,0,0" LineHeight="18" />
+                <TextBlock Text="{x:Static res:Strings.Settings_AboutLicenses}" Foreground="{StaticResource Text2}" Margin="0,10,0,4" />
+                <ItemsControl ItemsSource="{Binding Licenses}" Focusable="False">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="0,2">
+                                <ToggleButton x:Name="Head" Cursor="Hand" HorizontalAlignment="Left" AutomationProperties.Name="{Binding Title}">
+                                    <ToggleButton.Template>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <Border Background="Transparent" Padding="0,3">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock x:Name="Arrow" Text="▸" Width="14" Foreground="{StaticResource Muted}" />
+                                                    <TextBlock Text="{Binding Title}" Foreground="{StaticResource Text}" />
+                                                </StackPanel>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsChecked" Value="True">
+                                                    <Setter TargetName="Arrow" Property="Text" Value="▾" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </ToggleButton.Template>
+                                </ToggleButton>
+                                <TextBox Text="{Binding Text, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" MaxHeight="180" FontSize="11"
+                                         VerticalScrollBarVisibility="Auto" Margin="14,4,0,6"
+                                         Visibility="{Binding IsChecked, ElementName=Head, Converter={StaticResource Vis}}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
 
                 </StackPanel>
             </ScrollViewer>

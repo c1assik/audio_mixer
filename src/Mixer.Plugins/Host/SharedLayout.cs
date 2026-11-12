@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace Mixer.PluginBench;
+namespace Mixer.Plugins.Host;
 
 /// <summary>
 /// Зеркало src/Mixer.PluginHost/src/shared_audio.h. Смещения сверены там через static_assert;
@@ -9,13 +9,14 @@ namespace Mixer.PluginBench;
 internal static class SharedLayout
 {
     public const uint Magic = 0x4850584D; // 'MXPH'
-    public const uint ProtocolVersion = 1;
+    public const uint ProtocolVersion = 2;
     public const int Channels = 2;
     public const int HeaderBytes = 4096;
     public const int ErrorOffset = 256;
     public const int ErrorBytes = 1024;
 
     public const uint FlagStop = 1;
+    public const uint DoneBypassed = 1;
 
     public static long SectionBytes(int maxFrames) => HeaderBytes + 2L * Channels * maxFrames * sizeof(float);
     public static long InputOffset(int maxFrames, int ch) => HeaderBytes + (long)ch * maxFrames * sizeof(float);
@@ -40,7 +41,7 @@ internal struct SharedHeader
     [FieldOffset(12)] public uint MaxFrames;
     [FieldOffset(16)] public uint Channels;
 
-    // строка 1: хост, один раз
+    // строка 1: хост, при загрузке и изменениях
     [FieldOffset(64)] public int State;
     [FieldOffset(68)] public int LatencySamples;
     [FieldOffset(72)] public int PluginInChannels;
@@ -59,4 +60,5 @@ internal struct SharedHeader
     [FieldOffset(208)] public long DoneQpc;
     [FieldOffset(216)] public long ProcessTicks;
     [FieldOffset(224)] public int ProcessResult;
+    [FieldOffset(228)] public uint DoneFlags;
 }

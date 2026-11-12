@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Плагины VST3: запуск и надзор за Mixer.PluginHost.exe, протокол обмена (см. «Микшер для Windows: поддержка VST») -->
+  <PropertyGroup>
+    <RootNamespace>Mixer.Plugins</RootNamespace>
+    <AssemblyName>Mixer.Plugins</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Mixer.Tests" />
+    <InternalsVisibleTo Include="Mixer.PluginBench" />
+  </ItemGroup>
+
+  <!-- Mixer.PluginHost.exe (C++, собирает tools/build-pluginhost.ps1) вшит в сборку и при первом использовании
+       распаковывается в %LocalAppData%\Mixer\bin\<версия>\. Без C++-сборки библиотека собирается без него. -->
+  <PropertyGroup>
+    <PluginHostExe>$(MSBuildThisFileDirectory)..\Mixer.PluginHost\build\bin\Mixer.PluginHost.exe</PluginHostExe>
+  </PropertyGroup>
+  <ItemGroup Condition="Exists('$(PluginHostExe)')">
+    <EmbeddedResource Include="$(PluginHostExe)" LogicalName="Mixer.PluginHost.exe" Link="Host\Mixer.PluginHost.exe" />
+  </ItemGroup>
+  <Target Name="ReportPluginHost" BeforeTargets="Build" Condition="!Exists('$(PluginHostExe)')">
+    <Message Importance="high" Text="Mixer.Plugins: Mixer.PluginHost.exe не собран (tools/build-pluginhost.ps1) — сборка без хоста плагинов" />
+  </Target>
+
+  <!-- лицензии сторонних компонентов хоста: окно «О программе» и папка рядом с распакованным хостом -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\licenses\*.txt" LogicalName="licenses/%(Filename)%(Extension)" Link="Licenses\%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

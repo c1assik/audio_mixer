@@ -37,6 +37,8 @@ public sealed record AppOptions
     public string? Theme { get; init; }
     /// <summary>Трей и горячие клавиши и в режиме --no-audio (проверка без звука).</summary>
     public bool Tray { get; init; }
+    /// <summary>Только проверить хост плагинов (распаковка, запуск, один блок) и выйти: код 0 — работает.</summary>
+    public bool CheckPluginHost { get; init; }
 
     public static AppOptions Parse(string[] args)
     {
@@ -50,6 +52,7 @@ public sealed record AppOptions
                 "--no-audio" => o with { NoAudio = true },
                 "--minimized" => o with { Minimized = true },
                 "--tray" => o with { Tray = true },
+                "--check-plugin-host" => o with { CheckPluginHost = true },
                 "--theme" => o with { Theme = Next() },
                 "--snapshot" => o with { Snapshot = Next() },
                 "--open" => o with { Open = Next() },
@@ -108,6 +111,15 @@ public partial class App : Application
             _log?.Dispose(); // процесс сейчас упадёт: дописать журнал
         };
         TaskScheduler.UnobservedTaskException += (_, a) => _log?.Error("task", a.Exception);
+
+        if (opt.CheckPluginHost)
+        {
+            var log = _log;
+            string? failure = Task.Run(() => Mixer.Plugins.Host.HostSelfTest.RunAsync(s => log.Write("plugins", s))).GetAwaiter().GetResult();
+            if (failure != null) _log.Write("plugins", "Plug-in host check failed: " + failure);
+            Shutdown(failure == null ? 0 : 1);
+            return;
+        }
 
         // один экземпляр за раз: два микшера дрались бы за устройства и за журнал привязок
         if (!opt.NoAudio)
@@ -176,6 +188,11 @@ public partial class App : Application
             case "palette-sources": _vm.OpenPalette(PaletteMode.Sources, null); break;
             case "palette-outputs": _vm.OpenPalette(PaletteMode.Outputs, null); break;
             case "settings": _vm.OpenSettingsCommand.Execute(null); break;
+            // «settings:about» — настройки, прокрученные до «О программе» (снимки)
+            case "settings:about":
+                _vm.OpenSettingsCommand.Execute(null);
+                _vm.Settings!.StartAtAbout = true;
+                break;
             case "setup": _vm.OpenSetup(); break;
             // «setup:2» — помощник сразу на шаге 2
             case { } s when s.StartsWith("setup:", StringComparison.Ordinal) && int.TryParse(s[6..], out int step):

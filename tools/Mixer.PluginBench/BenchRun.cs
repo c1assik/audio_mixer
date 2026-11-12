@@ -1,3 +1,4 @@
+using Mixer.Plugins.Host;
 using System.Diagnostics;
 
 namespace Mixer.PluginBench;
@@ -152,6 +153,7 @@ internal sealed unsafe class BenchRun
                     if (!inL.SequenceEqual(outL) || !inR.SequenceEqual(outR)) Mismatches++;
                     break;
                 case BlockOutcome.Missed:
+                case BlockOutcome.Bypassed:
                     if (Missed < MissedAt.Length) MissedAt[Missed] = Blocks - 1;
                     Missed++;
                     break;

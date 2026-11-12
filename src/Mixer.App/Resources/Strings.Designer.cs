@@ -1515,4 +1515,16 @@ public static class Strings
 
     /// <summary>Patch from an OUT jack to an IN jack. The small knob above each IN is that cable’s level</summary>
     public static string Toolbar_HintModular => Get("Toolbar_HintModular");
+
+    /// <summary>ABOUT</summary>
+    public static string Settings_AboutHeader => Get("Settings_AboutHeader");
+
+    /// <summary>Mixer {0}</summary>
+    public static string Settings_AboutVersionFormat => Get("Settings_AboutVersionFormat");
+
+    /// <summary>VST3 plug-ins are hosted with the VST 3 SDK by Steinberg Media Technologies GmbH. VST is a trademark of Steinberg Media Technologies GmbH.</summary>
+    public static string Settings_AboutVst => Get("Settings_AboutVst");
+
+    /// <summary>Third-party components and their licenses:</summary>
+    public static string Settings_AboutLicenses => Get("Settings_AboutLicenses");
 }

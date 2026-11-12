@@ -18,6 +18,7 @@
     <ProjectReference Include="..\..\src\Mixer.Audio\Mixer.Audio.csproj" />
     <ProjectReference Include="..\..\src\Mixer.Core\Mixer.Core.csproj" />
     <ProjectReference Include="..\..\src\Mixer.App\Mixer.App.csproj" />
+    <ProjectReference Include="..\..\src\Mixer.Plugins\Mixer.Plugins.csproj" />
   </ItemGroup>
 
   <ItemGroup>

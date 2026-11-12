@@ -1,6 +1,6 @@
 # Mixer for Windows: developer notes
 
-The user guide is in the [README](../README.md). The specification and plan (in Russian) is `Микшер для Windows спецификация и план.md` in the repository root; section names from it are quoted below in Russian. Stage 0 (risk check): [tools/Mixer.Probe](../tools/Mixer.Probe/README.md). The v2 specification is `Микшер для Windows v2 спецификация и план.md`; its stage 0 results (captures, new applications, direct route, `IAudioClient3`) are in the same Mixer.Probe README; stages 1 (buses), 2 (processing), 3 (applications), 4 (low latency), 5 (migration and release 2.0), 6 (virtual cables and the setup assistant), 7 (scenes, hotkeys, tray, autostart, themes) and 8 (tests and release 2.1) are described below in «v2 stage 1» … «v2 stage 8». The VST support specification is `Микшер для Windows поддержка VST.md`; its stage 0 is in «VST stage 0» below.
+The user guide is in the [README](../README.md). The specification and plan (in Russian) is `Микшер для Windows спецификация и план.md` in the repository root; section names from it are quoted below in Russian. Stage 0 (risk check): [tools/Mixer.Probe](../tools/Mixer.Probe/README.md). The v2 specification is `Микшер для Windows v2 спецификация и план.md`; its stage 0 results (captures, new applications, direct route, `IAudioClient3`) are in the same Mixer.Probe README; stages 1 (buses), 2 (processing), 3 (applications), 4 (low latency), 5 (migration and release 2.0), 6 (virtual cables and the setup assistant), 7 (scenes, hotkeys, tray, autostart, themes) and 8 (tests and release 2.1) are described below in «v2 stage 1» … «v2 stage 8». The VST support specification is `Микшер для Windows поддержка VST.md`; its stages 0 (exchange prototype) and 1 (the host) are in «VST stage 0» and «VST stage 1» below.
 
 The UI is in English, or in Russian when Windows is in Russian (see "Localization"). Log messages are in English; code comments are in Russian. Russian strings quoted below are shown as they appear in the Russian UI.
 
@@ -11,13 +11,15 @@ The UI is in English, or in Russian when Windows is in Russian (see "Localizatio
 | `src/Mixer.Audio` | Audio engine and WASAPI interop, no WPF: source and output nodes, wires, buses (per-output instances and mix plans), resamplers, PI controller, ramps, limiter, processing chain (gate, EQ, compressor), peak meters; low-latency streams (`IAudioClient3`) with automatic fallback; process loopback, `IAudioPolicyConfig`, audio sessions with their volume, meter and new-session notifications, probe stream, device change notifications (`IMMNotificationClient`) |
 | `src/Mixer.Core` | Graph model and `graph.json` (scenes, hotkeys, cable links), the cable pairing table and cable checks, the setup assistant's layout builder, the Modular rack layout, device lookup by ID, name and default role, the feedback rule, paths through buses, building the engine snapshot; process snapshot, Take over with the `boundApps` journal, sink validation, watchdog, the `MixerHost` control layer with hot-plug and sleep handling; a WPF-free editor: history, edits (including grouping into a bus), wire validation, layout, store with backups, chain presets, application catalog; file log |
 | `src/Mixer.App` | UI (WPF, CommunityToolkit.Mvvm): graph canvas, cards, wires, palette, settings, processing side panel with the EQ curve, setup assistant, scenes, global hotkeys and push-to-talk, tray icon, autostart, themes (Graphite, Daylight, Modular with its rack view). Builds `Mixer.exe` |
-| `src/Mixer.PluginHost` | C++ process hosting one VST3 plug-in (VST stage 0: the audio channel only). Built by `tools/build-pluginhost.ps1`, not by `dotnet build` |
-| `tools/Mixer.PluginBench` | VST stage 0: the mixer side of the audio channel and a benchmark of the exchange with the host |
+| `src/Mixer.Plugins` | VST3 plug-ins, the mixer side: starting and supervising `Mixer.PluginHost.exe` (`PluginHost`: Job Object, control pipe, ping), the audio channel (`AudioLink`), the state format, the embedded host and its extraction (`HostBinary`), third-party licenses. No WPF, no audio engine |
+| `src/Mixer.PluginHost` | C++ process hosting one VST3 plug-in: audio channel, control pipe, editor window, even blocks, built-in test plug-ins. Built by `tools/build-pluginhost.ps1`, not by `dotnet build`; embedded into `Mixer.Plugins` when built. See its [README](../src/Mixer.PluginHost/README.md) |
+| `licenses` | Texts of third-party licenses shown in Settings → «О программе» |
+| `tools/Mixer.PluginBench` | VST stages 0 and 1: a benchmark of the exchange with the host and a manual check of the editor window |
 | `tools/Mixer.Run` | Console host for stages 1–2: runs a JSON graph through `MixerHost` with statistics, lists applications, checks a sink, measures loop latency (also with low latency) |
 | `tests/Mixer.Tests` | xUnit tests without a sound card, including UI view models (on their own STA thread, without a window) |
 | `tools/publish.ps1`, `tools/make-icon.ps1` | Release build of a single `Mixer.exe` and the program icon (stage 5) |
 
-Build: `dotnet build Mixer.sln -c Release`; tests: `dotnet test tests/Mixer.Tests -c Release`; release: `powershell -NoProfile -ExecutionPolicy Bypass -File tools\publish.ps1` (see "Stage 5").
+Build: `powershell -NoProfile -ExecutionPolicy Bypass -File tools\build-pluginhost.ps1` (C++, once and after host changes; without it the solution still builds, but without the plug-in host), then `dotnet build Mixer.sln -c Release`; tests: `dotnet test tests/Mixer.Tests -c Release`; release: `powershell -NoProfile -ExecutionPolicy Bypass -File tools\publish.ps1` (see "Stage 5").
 
 ## Stage 1: audio engine
 
@@ -691,6 +693,53 @@ The gate is passed: over one hour with AGain, exchange p99 was 28.9 µs at 480 f
 
 - Done: the host with AGain, the benchmark, a one-hour run at 480 and 128 frames, a 5-minute run without a plug-in, the stall check, and the CI build.
 - Next (stage 1): the control pipe, the editor window, even blocks, embedding the host into `Mixer.exe`, and the MIT license text for the SDK in the licenses folder and the About window.
+
+## VST stage 1: the host
+
+Stage 1 of `Микшер для Windows поддержка VST.md` is the plug-in host itself: loading modules and bundles, bus negotiation, the audio channel, every message of the control pipe, the editor window with DPI and an owner, even blocks, the Job Object, the CI build. Slots in the engine (stage 3), the scanner (stage 2) and the UI (stage 4) come later. Nothing in the mixer starts a host yet, except the `--check-plugin-host` switch.
+
+### How it works
+
+- **`Mixer.PluginHost.exe`** (C++) loads the plug-in only when the `load` message arrives. Its main thread owns the controller and the editor and handles control messages. Messages are posted to it through a hidden window, so `ping` is answered even inside a plug-in's modal loop; other messages that arrive during a call into the plug-in wait until it returns. The audio thread can be suspended for reconfiguration; while suspended it answers each block with a "bypassed" flag. Parameter changes go to the processor through a lock-free queue and reach it with the next block (or with a 0-sample `process` before `getState`). Changes the processor makes itself go back to the controller. Protocol, threads, the window and the built-in plug-ins are described in the host's [README](../src/Mixer.PluginHost/README.md).
+- **`Mixer.Plugins`** (C#): `PluginHost.Start` creates the section, events and pipe (current user only), starts the host with `CREATE_NO_WINDOW` in a kill-on-close Job Object, reads its stderr into the log, and pings it every second. `LoadAsync`, `GetStateAsync`, `SetStateAsync`, `SetRateAsync`, `SetEvenBlocksAsync` and `GetParamsAsync` are requests matched by `req`. `SetParam`, `OpenEditor` (with `AllowSetForegroundWindow` for the host) and `CloseEditor` are one-way. Events: `ParamChanged`, `ParamsChanged`, `LayoutChanged`, `Dirty`, `EditorOpened`, `EditorClosed`, `EditorFailed`, `Terminated`. `HostExit` says why the host ended: `Quit`, `Crashed` (with the host's `crashed: exception … at module+offset` line), `Hung` (no answer for 3 s with no request pending; the process is killed) or `Killed`. After `ready`, 8 silent blocks with a 1 s deadline warm the plug-in up. `AudioLink.Process` is the stage 0 transport plus the `Bypassed` outcome.
+- **Embedding.** `Mixer.Plugins.csproj` embeds `src/Mixer.PluginHost/build/bin/Mixer.PluginHost.exe` if it exists. `HostBinary.Locate` takes `MIXER_PLUGINHOST` if it is set. Otherwise it extracts the exe (through a temporary file) and the licenses to `%LocalAppData%\Mixer\bin\<version>-<sha8>\` and deletes the other version folders it can delete. `Mixer.exe --check-plugin-host` extracts the host, starts it with the built-in gain, runs one block and exits with 0 or 1.
+- **Build and release.** CI builds the host (with AGain) before the solution, in the same job, and runs the tests with `MIXER_REQUIRE_PLUGINHOST=1`. `tools/publish.ps1` builds the host (unless `-SkipHostBuild`) and signs it with the same certificate before it is embedded. It then publishes, and after the window check runs `--check-plugin-host` on the published exe.
+- **Licenses.** `licenses/` holds the MIT texts of the VST 3 SDK and JSON for Modern C++. Settings ends with «О программе»: the version, a line saying that VST3 plug-ins run through the VST 3 SDK and that VST is Steinberg's trademark (no logo), and the three licenses (with Oswald's OFL), which expand on click. `--open settings:about` opens Settings scrolled down to it.
+
+### Deviations from the specification
+
+1. **More messages than in the table.** Requests carry `req`, and the answers have their own types: `failed`, `error`, `rateSet`, `stateSet`. Added: `setState` (slot presets need it at runtime), `getParams` / `params` (`restartComponent` with new values or titles), `setEvenBlocks`, `editorOpened` / `editorClosed` / `editorFailed` (the window's position and size for the slot), `quit`, and `debug` for built-in plug-ins only.
+2. **`ping` goes one way.** The mixer pings and the host's main thread answers. The host learns that the mixer is gone from the closed pipe and the parent's handle; if its main thread is stuck, it terminates itself 5 s later. While a request is pending, the 3-second hang rule waits, because the request has its own timeout (load 30 s, others 10 s): a plug-in may load for a long time without pumping messages.
+3. **The built-in test plug-ins live in the shipped host**, behind `load { builtin }`, not in a separate test build. That leaves one exe to build, embed and test. Only the mixer can reach them, through its own pipe.
+4. **Parameters are flushed before `getState`** with a 0-sample `process`. Without it, an edit made while no audio flows never reaches the processor's state; AGain showed this.
+5. **`setState` at runtime suspends the audio thread**, so the plug-in never sees a state swap in the middle of `process`. Those blocks go dry.
+6. **`kReloadComponent` is handled like `kIoChanged`** (deactivate, renegotiate buses, activate) rather than by recreating the component with its state.
+7. **The version folder is `<version>-<sha8>`**, not `<version>`: a host rebuilt under the same version must not reuse a stale copy.
+8. **«О программе» is a section of Settings.** The mixer has no separate About window.
+9. **`dirty` is throttled** to one message per 250 ms. Values the processor changes by itself reach the mixer at most every 33 ms, and never for read-only parameters (meters).
+10. **The host ends a crash itself.** An unhandled exception filter writes one line to stderr and exits with code 5. Windows Error Reporting dialogs are switched off, so a crashed host disappears at once instead of waiting on a dialog.
+11. **Protocol version 2** adds `doneFlags` to the header.
+12. **Restart after a crash and the "three crashes in 5 minutes" rule are not here.** `PluginHost` reports what happened; the slot (stage 3) decides.
+13. **A third component in the host**: JSON for Modern C++ (MIT), for the message bodies.
+
+### Tests
+
+`PluginHostTests`, `PluginHostTimingTests` and `AboutTests` (20 tests). They start real host processes and need the C++ build; without it they pass empty, unless `MIXER_REQUIRE_PLUGINHOST=1`.
+
+- The built-in gain loads with its parameters, processes bit-exact, takes `setParam` with an echo and its text, and bypasses through its `kIsBypass` parameter. A mono plug-in gets (L+R)/2 in both channels.
+- State round-trips byte for byte through a new host, and `setState` at runtime changes the output. Garbage is refused and the host stays up.
+- The latency plug-in reports 512, delays an impulse by exactly 512, and changes to 256 through `restartComponent`. Even blocks with block sizes 100, 333, 7, 480, 1000, 1, 256, 255, 257 delay the signal by exactly 256 frames, bit for bit, and can be switched off at runtime. `setRate` keeps parameters.
+- An edit "in the plug-in window" reaches the processor and raises `dirty`. NaN passes through unchanged (catching it is the slot's job). Load failures are reported and the host stays up.
+- A crash in the audio thread ends the host with `Crashed`, exit code 5 and `0xC0000005`. Quit exits with 0, and a closed pipe makes the host exit on its own. A 20 ms plug-in with a 4 ms deadline is missed, then busy, and the late answer is dropped. A frozen main thread is `Hung` within 1–3 s (with a 1 s threshold), while an idle host is not.
+- The state format, the embedded host's extraction (version folder, licenses, old folders removed, no rewrite on the second call), the license texts and «О программе».
+- With AGain from the SDK: loading by path and by class GUID, parameters (Gain, VuPPM read-only, Bypass), unity gain bit-exact, state round trip through a new host.
+
+Manual: the editor window and the exchange benchmark (`Mixer.PluginBench`, see its [README](../tools/Mixer.PluginBench/README.md#stage-1-checks-12-november-2026)), and `Mixer.exe --check-plugin-host` on a published single-file exe.
+
+### Status as of 12 November 2026
+
+- Done: the host with every message, the window, even blocks and test plug-ins; `Mixer.Plugins`; embedding and extraction; CI and `publish.ps1`; licenses and «О программе». 354 tests pass (2 manual sweeps skipped), and the solution builds without warnings. The published single-file `Mixer.exe` (72.6 MB) extracts the host and runs a block.
+- **Not checked**: the editor at more than 100% scaling and when moved between monitors (this machine has one monitor at 100%), a resizable plug-in, plug-ins with license windows, real third-party plug-ins (stage 5), antivirus reactions to the extracted host, a signed release, and the CI run itself.
 
 ## Localization
 
