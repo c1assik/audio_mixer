@@ -304,7 +304,8 @@ public class UiModelTests
 
             var outs = new PaletteViewModel(vm, PaletteMode.Outputs, null, Task.FromResult(catalog));
             Assert.Equal("ВЫХОДЫ", outs.Rows[0].Header);
-            Assert.All(outs.Rows.Skip(1), r => Assert.Equal(NodeKind.DeviceOutput, r.Template!.Kind));
+            Assert.All(outs.Rows.Skip(1).Where(r => !r.IsHeader), r => Assert.Equal(NodeKind.DeviceOutput, r.Template!.Kind));
+            Assert.Equal("ВИРТУАЛЬНЫЕ КАБЕЛИ", outs.Rows.Last(r => r.IsHeader).Header); // v2.1: кабели — после выходов
             vm.Dispose();
         });
     }

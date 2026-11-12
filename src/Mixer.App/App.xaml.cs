@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Windows;
+using System.Windows.Interop;
 using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -30,6 +31,12 @@ public sealed record AppOptions
     public string? LogDir { get; init; }
     /// <summary>Язык интерфейса: en, ru; без параметра — из настроек (settings.json), а там по умолчанию — по языку Windows.</summary>
     public string? Language { get; init; }
+    /// <summary>Запуск свёрнутым в трей (автозапуск): окно не показывается, схема звучит.</summary>
+    public bool Minimized { get; init; }
+    /// <summary>Тема на этот запуск (graphite, daylight, modular) вместо выбранной в настройках.</summary>
+    public string? Theme { get; init; }
+    /// <summary>Трей и горячие клавиши и в режиме --no-audio (проверка без звука).</summary>
+    public bool Tray { get; init; }
 
     public static AppOptions Parse(string[] args)
     {
@@ -41,6 +48,9 @@ public sealed record AppOptions
             {
                 "--graph" => o with { GraphPath = Next() },
                 "--no-audio" => o with { NoAudio = true },
+                "--minimized" => o with { Minimized = true },
+                "--tray" => o with { Tray = true },
+                "--theme" => o with { Theme = Next() },
                 "--snapshot" => o with { Snapshot = Next() },
                 "--open" => o with { Open = Next() },
                 "--log-dir" => o with { LogDir = Next() },
@@ -102,17 +112,28 @@ public partial class App : Application
         // один экземпляр за раз: два микшера дрались бы за устройства и за журнал привязок
         if (!opt.NoAudio)
         {
-            _mutex = new Mutex(true, @"Local\Mixer.SingleInstance", out bool first);
+            var mutex = new Mutex(true, @"Local\Mixer.SingleInstance", out bool first);
             if (!first)
             {
-                _log.Write("app", "second instance: brought the first window to the front, exiting");
-                WindowsLook.ActivateOther();
+                // мьютекс держит первый экземпляр: освобождать его при выходе нельзя (ApplicationException)
+                mutex.Dispose();
+                _log.Write("app", "second instance: showed the first window, exiting");
+                // окно первого экземпляра может быть спрятано в трей: попросить его показаться
+                if (EventWaitHandle.TryOpenExisting(ShowEventName, out var show))
+                    using (show)
+                        show.Set();
+                else WindowsLook.ActivateOther();
                 Shutdown();
                 return;
             }
+            _mutex = mutex;
+            WatchShowRequests();
         }
 
-        WindowsLook.ApplyAccent(Resources);
+        // тема — до создания окна: XAML берёт ресурсы один раз (StaticResource)
+        Theme = ThemeManager.Apply(this, opt.Theme ?? prefs.Theme);
+        if (Theme == ThemeManager.Graphite) WindowsLook.ApplyAccent(Resources);
+        WireGeometry.Patch = Theme == ThemeManager.Modular; // патч-кабели вместо кривых Безье
         DispatcherUnhandledException += OnUnhandled;
 
         if (prefsError is not null) _log.Write("app", $"settings not read ({prefsError}), using defaults");
@@ -140,19 +161,200 @@ public partial class App : Application
         if (upgraded) _vm.OfferGrouping();
         var window = new MainWindow { DataContext = _vm };
         MainWindow = window;
-        window.Show();
+        window.Closing += OnWindowClosing;
+        // трей и глобальные клавиши — только у настоящего микшера (--no-audio идёт рядом с ним и не должен отнимать клавиши)
+        if (!opt.NoAudio || opt.Tray) StartBackground(prefs);
+        if (opt.Minimized && _tray is not null)
+        {
+            _log.Write("app", "started minimized to the tray");
+            MeterClock.Stop(); // окна нет — индикаторы рисовать некому
+        }
+        else window.Show();
 
         switch (opt.Open)
         {
             case "palette-sources": _vm.OpenPalette(PaletteMode.Sources, null); break;
             case "palette-outputs": _vm.OpenPalette(PaletteMode.Outputs, null); break;
             case "settings": _vm.OpenSettingsCommand.Execute(null); break;
+            case "setup": _vm.OpenSetup(); break;
+            // «setup:2» — помощник сразу на шаге 2
+            case { } s when s.StartsWith("setup:", StringComparison.Ordinal) && int.TryParse(s[6..], out int step):
+                _vm.OpenSetup();
+                _vm.Setup!.Step = Math.Clamp(step, 1, ViewModels.SetupViewModel.Steps);
+                break;
+            // первый запуск с пустой схемой — помощник (кроме снимков и разовых --open)
+            case null when opt.Snapshot is null && !upgraded:
+                _vm.OfferSetup();
+                break;
             // «fx:n3» — боковая панель обработки узла n3, «fx:n3:comp» — сразу у компрессора
             case { } s when s.StartsWith("fx:", StringComparison.Ordinal) && _vm.FindNode(s[3..].Split(':')[0]) is { } node:
                 _vm.OpenProcessing(node, s[3..].Split(':').ElementAtOrDefault(1));
                 break;
         }
         if (opt.Snapshot is { } png) ScheduleSnapshot(window, png);
+    }
+
+    // ── фон: трей, горячие клавиши, уведомления ──
+
+    private const string ShowEventName = @"Local\Mixer.ShowWindow";
+    private TrayIcon? _tray;
+    private TrayToast? _toast;
+    private HotkeyService? _hotkeys;
+    private DispatcherTimer? _trayTimer;
+    private (TrayState, string)? _trayShown;
+    private bool _exiting;
+
+    /// <summary>Тема этого запуска (graphite, daylight, modular).</summary>
+    public static string Theme { get; private set; } = ThemeManager.Graphite;
+
+    /// <summary>Второй экземпляр просит показать окно (оно может быть спрятано в трей).</summary>
+    private void WatchShowRequests()
+    {
+        var ev = new EventWaitHandle(false, EventResetMode.AutoReset, ShowEventName);
+        var t = new Thread(() =>
+        {
+            while (ev.WaitOne()) Dispatcher.BeginInvoke(ShowWindow);
+        }) { IsBackground = true, Name = "Mixer show requests" };
+        t.Start();
+    }
+
+    private void StartBackground(Preferences prefs)
+    {
+        var vm = _vm!;
+        try
+        {
+            _hotkeys = new HotkeyService(vm);
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            _log?.Write("hotkeys", "unavailable: " + ex.Message);
+        }
+        _toast = new TrayToast();
+        vm.HotkeyFired += text =>
+        {
+            if (vm.Preferences?.HotkeyToasts != false) _toast.Show(text);
+        };
+
+        // Значок — только если он действительно показан: без него крестик закрывает окно, а не прячет программу
+        // в никуда (_tray остаётся null, и OnWindowClosing ничего не отменяет).
+        var tray = new TrayIcon();
+        string? trayError = null;
+        try
+        {
+            if (!tray.Show(TrayState.Normal, Strings.App_Title)) trayError = "refused by Windows";
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            trayError = $"{ex.GetType().Name}: {ex.Message}";
+        }
+        if (trayError is not null)
+        {
+            _log?.Write("app", "tray icon unavailable (" + trayError + "): the close button exits");
+            tray.Dispose();
+            return;
+        }
+        _tray = tray;
+        _log?.Write("app", "tray icon shown");
+        _tray.Click += ShowWindow;
+        _tray.RightClick += ShowTrayMenu;
+        vm.MicStateChanged += UpdateTray;
+        // проблемы (узел в ошибке) видны только опросом
+        _trayTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _trayTimer.Tick += (_, _) => UpdateTray();
+        _trayTimer.Start();
+        UpdateTray();
+        vm.DeviceAvailabilityChanged += (name, lost) =>
+        {
+            if (vm.Preferences?.DeviceNotifications == false || MainWindow is { IsVisible: true, WindowState: not WindowState.Minimized }) return;
+            _tray?.Balloon(Fmt.F(lost ? Strings.Tray_DeviceLostFormat : Strings.Tray_DeviceBackFormat, name), lost ? Strings.Tray_DeviceLostText : "", warning: lost);
+        };
+    }
+
+    /// <summary>Значок трея: главный микрофон включён или выключен, узел в ошибке; подсказка словами.</summary>
+    private void UpdateTray()
+    {
+        if (_tray is null || _vm is null) return;
+        int problems = _vm.Nodes.Count(n => n.Look == NodeLook.Error);
+        bool? muted = _vm.MainMicMuted;
+        var state = problems > 0 ? TrayState.Problem : muted switch { true => TrayState.MicOff, false => TrayState.MicOn, _ => TrayState.Normal };
+        string what = muted switch { true => Strings.Tray_MicOff, false => Strings.Tray_MicOn, _ => Strings.Tray_NoMic };
+        string tip = Fmt.F(Strings.Tray_TipFormat, problems > 0 ? Fmt.F(Strings.Tray_ProblemsFormat, what, problems) : what);
+        if (_trayShown == (state, tip)) return;
+        _trayShown = (state, tip);
+        _tray.Show(state, tip);
+    }
+
+    /// <summary>Меню трея: сцены, mute главного микрофона, «Открыть», «Выход».</summary>
+    private void ShowTrayMenu(Point screen)
+    {
+        if (_vm is not { } vm) return;
+        var menu = new System.Windows.Controls.ContextMenu();
+        if (vm.SceneList.Count > 0)
+        {
+            menu.Items.Add(new System.Windows.Controls.MenuItem { Header = Strings.Tray_Scenes, IsEnabled = false });
+            foreach (var s in vm.SceneList)
+            {
+                string id = s.Id;
+                var mi = new System.Windows.Controls.MenuItem { Header = s.Name, IsCheckable = true, IsChecked = vm.Graph.ActiveScene == id, InputGestureText = s.Hotkey ?? "" };
+                mi.Click += (_, _) => vm.ApplyScene(id);
+                menu.Items.Add(mi);
+            }
+            menu.Items.Add(new System.Windows.Controls.Separator());
+        }
+        if (vm.MainMic is { } mic)
+        {
+            var mute = new System.Windows.Controls.MenuItem { Header = Strings.Tray_MuteMic, IsCheckable = true, IsChecked = mic.Muted, ToolTip = mic.Name };
+            mute.Click += (_, _) => vm.ToggleMainMic();
+            menu.Items.Add(mute);
+            menu.Items.Add(new System.Windows.Controls.Separator());
+        }
+        var open = new System.Windows.Controls.MenuItem { Header = Strings.Tray_Open, FontWeight = FontWeights.SemiBold };
+        open.Click += (_, _) => ShowWindow();
+        menu.Items.Add(open);
+        var exit = new System.Windows.Controls.MenuItem { Header = Strings.Tray_Exit };
+        exit.Click += (_, _) => ExitApp();
+        menu.Items.Add(exit);
+
+        // точка курсора — в пикселях экрана; меню ставится в единицах WPF
+        var dpi = VisualTreeHelper.GetDpi(MainWindow ?? new Window());
+        menu.Placement = System.Windows.Controls.Primitives.PlacementMode.AbsolutePoint;
+        menu.HorizontalOffset = screen.X / dpi.DpiScaleX;
+        menu.VerticalOffset = screen.Y / dpi.DpiScaleY;
+        // без переднего плана меню не закрывается щелчком мимо
+        menu.Opened += (_, _) =>
+        {
+            if (PresentationSource.FromVisual(menu) is HwndSource src) TrayIcon.SetForegroundWindow(src.Handle);
+        };
+        menu.IsOpen = true;
+    }
+
+    private void ShowWindow()
+    {
+        if (MainWindow is not { } w || _exiting) return;
+        if (!w.IsVisible) w.Show();
+        if (w.WindowState == WindowState.Minimized) w.WindowState = WindowState.Normal;
+        w.Activate();
+    }
+
+    /// <summary>Крестик окна: в трей (по настройке), при первом таком закрытии — подсказка, где искать программу.</summary>
+    private void OnWindowClosing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        if (_exiting || _tray is null || _vm?.Preferences is not { CloseToTray: true } p) return;
+        e.Cancel = true;
+        MainWindow?.Hide();
+        if (!p.TrayHintShown)
+        {
+            _tray.Balloon(Strings.Tray_HintTitle, Strings.Tray_HintText);
+            p.MarkTrayHintShown();
+        }
+    }
+
+    /// <summary>«Выход» из меню трея: штатный выход со снятием привязок.</summary>
+    private void ExitApp()
+    {
+        _exiting = true;
+        _log?.Write("app", "exit from the tray menu");
+        Shutdown();
     }
 
     /// <summary>Язык до создания окон и потоков: потоки хоста и движка берут культуру по умолчанию.</summary>
@@ -181,6 +383,7 @@ public partial class App : Application
             var enc = new PngBitmapEncoder();
             enc.Frames.Add(BitmapFrame.Create(bmp));
             using (var fs = File.Create(png)) enc.Save(fs);
+            if (Current is App app) app._exiting = true; // снимок закрывает программу, а не прячет её в трей
             window.Close();
         };
         t.Start();
@@ -199,20 +402,25 @@ public partial class App : Application
     {
         _log?.Write("app", "restart requested");
         _restart = true;
+        _exiting = true;
         Shutdown();
     }
 
-    /// <summary>Параметры для нового экземпляра: без --lang (язык теперь из настроек) и без разовых --open, --snapshot.</summary>
+    /// <summary>
+    /// Параметры для нового экземпляра: без --lang и --theme (язык и тема теперь из настроек), без разовых --open,
+    /// --snapshot и без --minimized (после перезапуска окно должно быть видно).
+    /// </summary>
     public static List<string> RestartArgs(IReadOnlyList<string> args)
     {
         var list = new List<string>();
         for (int i = 0; i < args.Count; i++)
         {
-            if (args[i] is "--lang" or "--open" or "--snapshot")
+            if (args[i] is "--lang" or "--open" or "--snapshot" or "--theme")
             {
                 i++;
                 continue;
             }
+            if (args[i] == "--minimized") continue;
             list.Add(args[i]);
         }
         return list;
@@ -220,6 +428,10 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _trayTimer?.Stop();
+        _hotkeys?.Dispose();
+        _toast?.Close();
+        _tray?.Dispose();
         _vm?.Dispose();
         _store?.Flush();
         // сначала тишина, потом снятие привязок у живых приложений (MixerHost.Dispose)

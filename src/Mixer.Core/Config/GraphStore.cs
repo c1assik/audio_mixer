@@ -22,6 +22,7 @@ public sealed class GraphStore : IDisposable
     private GraphConfig _ui;
     private List<string> _journal;
     private List<string> _volumeJournal;
+    private List<string> _micJournal;
     private bool _dirty;
     private bool _disposed;
 
@@ -38,6 +39,7 @@ public sealed class GraphStore : IDisposable
         _ui = loaded;
         _journal = loaded.BoundApps.ToList();
         _volumeJournal = loaded.VolumeApps.ToList();
+        _micJournal = loaded.MicApps.ToList();
         _timer = new Timer(_ => Flush(), null, Timeout.Infinite, Timeout.Infinite);
     }
 
@@ -109,7 +111,18 @@ public sealed class GraphStore : IDisposable
         {
             // без копии граф всё равно читается; запись v2 поверх v1 остаётся читаемой для v2
         }
-        return g with { Version = GraphConfig.CurrentVersion };
+        return LinkCables(g) with { Version = GraphConfig.CurrentVersion };
+    }
+
+    /// <summary>
+    /// Перенос с v1: узлы CABLE Input / Output связываются в кабели по таблице сопоставления. Роль — по тому, как кабель
+    /// использовался: микшер писал в Input — «виртуальный микрофон», читал Output — «виртуальный вход».
+    /// </summary>
+    public static GraphConfig LinkCables(GraphConfig g, Cables.CableTable? table = null)
+    {
+        table ??= Cables.CableTable.Default;
+        if (!g.Nodes.Any(n => n.Cable is null && table.Detect(n) is not null)) return g;
+        return g with { Nodes = g.Nodes.Select(n => n.Cable is null && table.Detect(n) is { } link ? n with { Cable = link } : n).ToList() };
     }
 
     /// <summary>Файл прочитан, но испорчен. Ошибка доступа — не порча: такой файл нельзя подменять копией.</summary>
@@ -148,16 +161,17 @@ public sealed class GraphStore : IDisposable
     {
         lock (_gate)
         {
-            var before = (_journal, _volumeJournal);
+            var before = (_journal, _volumeJournal, _micJournal);
             _journal = hostGraph.BoundApps.ToList();
             _volumeJournal = hostGraph.VolumeApps.ToList();
+            _micJournal = hostGraph.MicApps.ToList();
             try
             {
                 Write();
             }
             catch
             {
-                (_journal, _volumeJournal) = before; // хост не примет журнал — и на диске его быть не должно
+                (_journal, _volumeJournal, _micJournal) = before; // хост не примет журнал — и на диске его быть не должно
                 throw;
             }
         }
@@ -187,7 +201,7 @@ public sealed class GraphStore : IDisposable
         string? backup = null;
         if (File.Exists(Path) && (_lastBackup is not { } last || now - last >= BackupInterval || now < last))
             backup = $"{Path}{BackupMarker}{now:yyyyMMdd-HHmmss}";
-        GraphSerializer.Save(Path, _ui with { BoundApps = _journal, VolumeApps = _volumeJournal }, backup);
+        GraphSerializer.Save(Path, _ui with { BoundApps = _journal, VolumeApps = _volumeJournal, MicApps = _micJournal }, backup);
         _dirty = false;
         if (backup is not null)
         {

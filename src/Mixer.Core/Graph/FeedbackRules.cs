@@ -18,9 +18,14 @@ public static class FeedbackRules
         return endpointName[(open + 1)..close].Trim();
     }
 
-    /// <summary>Виртуальный кабель VB-Audio (VB-Cable, Cable A/B, Hi-Fi Cable). Voicemeeter сюда не входит.</summary>
+    /// <summary>
+    /// Виртуальный кабель: устройство из таблицы сопоставления (VB-Cable, Cable A–D, Hi-Fi Cable, Virtual Audio Cable)
+    /// или любой драйвер VB-Audio со словом Cable. Voicemeeter сюда не входит.
+    /// </summary>
     public static bool IsVirtualCable(string endpointName)
     {
+        if (Cables.CableTable.Default.Match(endpointName, EDataFlow.Render) is not null
+            || Cables.CableTable.Default.Match(endpointName, EDataFlow.Capture) is not null) return true;
         string? driver = DriverName(endpointName);
         return driver is not null
                && driver.StartsWith("VB-Audio", StringComparison.OrdinalIgnoreCase)
@@ -34,6 +39,13 @@ public static class FeedbackRules
     public static IEnumerable<EndpointInfo> PairedCableInputs(EndpointInfo capture, IEnumerable<EndpointInfo> devices)
     {
         if (capture.Flow != EDataFlow.Capture || !IsVirtualCable(capture.Name)) yield break;
+        // по таблице: у Virtual Audio Cable все линии на одном драйвере, но «Line 1» слышит только свою «Line 1»
+        if (Cables.CableTable.Default.PairIdOf(capture.Name, EDataFlow.Capture) is { } pairId)
+        {
+            foreach (var d in devices)
+                if (d.Flow == EDataFlow.Render && Cables.CableTable.Default.PairIdOf(d.Name, EDataFlow.Render) == pairId) yield return d;
+            yield break;
+        }
         string driver = DriverName(capture.Name)!;
         foreach (var d in devices)
         {
@@ -48,10 +60,13 @@ public static class FeedbackRules
     /// открыт, второй отвечает «занято» (эксклюзивный режим), а поток приложения, перенесённый в него, обрывается
     /// (AUDCLNT_E_NOT_INITIALIZED).
     /// </summary>
-    public static bool SameCable(EndpointInfo a, EndpointInfo b) =>
-        a.Flow == EDataFlow.Render && b.Flow == EDataFlow.Render
-        && !string.Equals(a.Id, b.Id, StringComparison.OrdinalIgnoreCase)
-        && IsVirtualCable(a.Name) && string.Equals(DriverName(a.Name), DriverName(b.Name), StringComparison.OrdinalIgnoreCase);
+    public static bool SameCable(EndpointInfo a, EndpointInfo b)
+    {
+        if (a.Flow != EDataFlow.Render || b.Flow != EDataFlow.Render || string.Equals(a.Id, b.Id, StringComparison.OrdinalIgnoreCase)) return false;
+        if (Cables.CableTable.Default.PairIdOf(a.Name, EDataFlow.Render) is { } pa)
+            return Cables.CableTable.Default.PairIdOf(b.Name, EDataFlow.Render) == pa;
+        return IsVirtualCable(a.Name) && string.Equals(DriverName(a.Name), DriverName(b.Name), StringComparison.OrdinalIgnoreCase);
+    }
 
     /// <summary>ID эндпоинтов воспроизведения, из которых источник берёт звук.</summary>
     public static HashSet<string> SourceTaps(NodeConfig source, EndpointInfo? resolved, IReadOnlyList<EndpointInfo> devices)
@@ -65,6 +80,13 @@ public static class FeedbackRules
                 break;
             case NodeKind.DeviceInput when resolved is not null:
                 foreach (var d in PairedCableInputs(resolved, devices)) taps.Add(d.Id);
+                // кабель, связанный вручную: второй конец записан в узле
+                if (source.Cable is { PartnerId: { Length: > 0 } partner })
+                {
+                    var p = devices.FirstOrDefault(d => d.Flow == EDataFlow.Render && string.Equals(d.Id, partner, StringComparison.OrdinalIgnoreCase))
+                            ?? devices.FirstOrDefault(d => d.Flow == EDataFlow.Render && d.Name == source.Cable.PartnerName);
+                    if (p is not null) taps.Add(p.Id);
+                }
                 break;
             // «Весь звук системы» исключает микшер по PID, «Приложение» захватывает процесс, а не устройство:
             // через устройство петли нет.

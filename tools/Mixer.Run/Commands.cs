@@ -355,6 +355,13 @@ public sealed class StatusMonitor(MixerHost host)
         }
         if (st.VolumeApps.Count > 0)
             Console.WriteLine($"  журнал громкостей: {string.Join(", ", st.VolumeApps)}");
+        foreach (var (exe, b) in st.MicBindings)
+            Console.WriteLine($"  🎙 {exe,-24} микрофон: {(b.State == Mixer.Core.Apps.BindingState.Bound ? "назначен" : MixerHost.Describe(b))}");
+        if (st.MicApps.Count > 0)
+            Console.WriteLine($"  журнал микрофонов: {string.Join(", ", st.MicApps)}");
+        foreach (var (id, warnings) in st.CableWarnings)
+            foreach (string w in warnings)
+                Console.WriteLine($"  ⚠ {Name(id),-24} {w}");
         foreach (var (id, plan) in st.Build?.SystemPlans ?? new Dictionary<string, SystemPlan>())
             if (plan.Skipped.Count > 0)
                 Console.WriteLine($"  ⊘ {Name(id),-24} пропущено: {string.Join(", ", plan.Skipped.Select(s => s.Reason == SkipReason.ContainsExcluded ? $"{s.Exe} ({s.Reason}: {s.Because})" : $"{s.Exe} ({s.Reason})"))}");

@@ -49,7 +49,13 @@ public sealed partial class NodeViewModel : ObservableObject
     public bool HasDevice => Kind is NodeKind.DeviceInput or NodeKind.Loopback or NodeKind.DeviceOutput;
     /// <summary>У узла есть «Низкая задержка» (вход и выход устройства).</summary>
     public bool SupportsLowLatency => Config.SupportsLowLatency;
-    public bool IsCable => Config.DefaultRole is null && Config.EndpointName is { } n && FeedbackRules.IsVirtualCable(n);
+    public bool IsCable => Cable is not null || Config.DefaultRole is null && Config.EndpointName is { } n && FeedbackRules.IsVirtualCable(n);
+    /// <summary>Связь с виртуальным кабелем: записанная в узле или найденная по таблице сопоставления.</summary>
+    public CableLink? Cable => Mixer.Core.Cables.CableTable.Default.LinkOf(Config);
+    /// <summary>Выход в кабель с ролью «виртуальный микрофон»: его можно назначить микрофоном приложению.</summary>
+    public bool IsVirtualMic => IsOutput && Cable?.Role == CableRole.VirtualMic;
+    /// <summary>Кому назначен кабель микрофоном (micFor).</summary>
+    public IReadOnlyList<string> MicFor => Config.MicFor ?? [];
     /// <summary>Узел «Устройство по умолчанию»: устройство меняется вслед за Windows.</summary>
     public bool FollowsDefault => Config.FollowsDefault;
 
@@ -83,6 +89,11 @@ public sealed partial class NodeViewModel : ObservableObject
     /// <summary>«Весь звук системы»: значок «пропущено: N» (null — пропущенных нет) и список с причинами.</summary>
     [ObservableProperty] private string? _skippedText;
     [ObservableProperty] private string? _skippedTip;
+    /// <summary>Кабель-микрофон: «Микрофон для: OBS Studio» (null — никому не назначен) и состояние назначений.</summary>
+    [ObservableProperty] private string? _micForText;
+    [ObservableProperty] private string? _micForTip;
+    /// <summary>Push-to-talk / push-to-mute: узел сейчас молчит (true) или звучит (false) по клавише; null — клавиши нет.</summary>
+    [ObservableProperty] private bool? _pushMuted;
 
     // ── взаимодействие ──
     [ObservableProperty] private bool _isSelected;
@@ -108,7 +119,8 @@ public sealed partial class NodeViewModel : ObservableObject
     public ChainMeterState ChainMeter { get; } = new();
 
     /// <summary>Подпись под тип узла: шина показывает чипы обработки и «+ FX» так же, как источник.</summary>
-    public bool ShowFx => !HasGate && !HasEq && !HasComp;
+    public bool ShowFx => !HasGate && !HasEq && !HasComp && !HasMicFor;
+    public bool HasMicFor => MicForText is not null;
     public bool HasReduction => ReductionText is not null;
 
     /// <summary>Узлы движка этого узла (у приложения — по захвату на корень). Обновляется опросом, читается в кадре.</summary>
@@ -125,9 +137,9 @@ public sealed partial class NodeViewModel : ObservableObject
 
     public Brush ColorBrush { get; private set; } = Brushes.Gray;
     public Brush TintBrush { get; private set; } = Brushes.Transparent;
-    public Brush FaderBrush => Muted ? Freeze(new SolidColorBrush(Color.FromRgb(0x5F, 0x65, 0x6D))) : IsSource ? ColorBrush : Freeze(new SolidColorBrush(Color.FromRgb(0xC4, 0xC8, 0xCD)));
+    public Brush FaderBrush => Muted ? ThemeColors.Brush("WireOff", Color.FromRgb(0x5F, 0x65, 0x6D)) : IsSource ? ColorBrush : ThemeColors.Brush("WireNeutral", Color.FromRgb(0xC4, 0xC8, 0xCD));
     /// <summary>Цвет провода из узла: у источника — его цвет, у шины — нейтральный.</summary>
-    public Color WireColor => IsSource ? Color : Color.FromRgb(0xC4, 0xC8, 0xCD);
+    public Color WireColor => IsSource ? Color : ThemeColors.Get("WireNeutral", Color.FromRgb(0xC4, 0xC8, 0xCD));
     public Geometry Glyph => (Geometry)Application.Current.Resources[GlyphKey];
     public bool HasAppIcon => AppIcon is not null;
 
@@ -177,6 +189,9 @@ public sealed partial class NodeViewModel : ObservableObject
             HasGate = c.Chain?.Gate.Enabled == true;
             HasEq = c.Chain?.Eq.Enabled == true;
             HasComp = c.Chain?.Comp.Enabled == true;
+            MicForText = c.MicFor is { Count: > 0 } apps && IsOutput
+                ? Fmt.F(Strings.Node_MicForFormat, string.Join(", ", apps.Select(Mixer.Core.Cables.AppNames.Friendly)))
+                : null;
         }
         finally
         {
@@ -188,10 +203,10 @@ public sealed partial class NodeViewModel : ObservableObject
     {
         if (hex is { Length: > 0 })
         {
-            try { return (Color)ColorConverter.ConvertFromString(hex); }
+            try { return ThemeColors.Source((Color)ColorConverter.ConvertFromString(hex)); }
             catch (FormatException) { }
         }
-        return source ? Color.FromRgb(0x4F, 0xA3, 0xFF) : Color.FromRgb(0xC4, 0xC8, 0xCD);
+        return source ? ThemeColors.Get("Source0", Color.FromRgb(0x4F, 0xA3, 0xFF)) : ThemeColors.Get("WireNeutral", Color.FromRgb(0xC4, 0xC8, 0xCD));
     }
 
     private static Brush Freeze(Brush b)
@@ -258,6 +273,11 @@ public sealed partial class NodeViewModel : ObservableObject
     }
 
     partial void OnSkippedTextChanged(string? value) => OnPropertyChanged(nameof(HasSkipped));
+    partial void OnMicForTextChanged(string? value)
+    {
+        OnPropertyChanged(nameof(HasMicFor));
+        OnPropertyChanged(nameof(ShowFx));
+    }
 
     partial void OnLookChanged(NodeLook value) => OnPropertyChanged(nameof(ShowBody));
     partial void OnHasGateChanged(bool value) => OnPropertyChanged(nameof(ShowFx));
@@ -267,6 +287,9 @@ public sealed partial class NodeViewModel : ObservableObject
     partial void OnWarningsChanged(string? value) => OnPropertyChanged(nameof(HasWarnings));
     partial void OnLimiterTextChanged(string? value) => OnPropertyChanged(nameof(HasLimiter));
     partial void OnAppIconChanged(ImageSource? value) => OnPropertyChanged(nameof(HasAppIcon));
+
+    /// <summary>Перетаскивание ручки закончилось: следующая правка — новый шаг истории.</summary>
+    public void EndEdit() => _owner.EndMerge();
 
     [RelayCommand]
     private void ResetGain()

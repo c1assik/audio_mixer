@@ -220,4 +220,28 @@
   <data name="Issue_SinkSameCableFormat" xml:space="preserve">
     <value>«{0}» и заглушка «Забрать себе» «{1}» — два входа одного виртуального кабеля, а открыт может быть только один: пока этот выход играет, перенесённые в заглушку приложения молчат или останавливаются. Выберите другую заглушку или другой выход</value>
   </data>
+  <data name="Cable_RateMismatchFormat" xml:space="preserve">
+    <value>«{0}» работает на {1} кГц, а «{2}» — на {3} кГц. Разная частота на концах кабеля — частая причина треска: выставьте обоим одну частоту в панели «Звук» (Свойства → Дополнительно)</value>
+  </data>
+  <data name="Cable_OthersWriteFormat" xml:space="preserve">
+    <value>{0} тоже играет в «{1}»: кто читает виртуальный микрофон, слышит это вместе с микшером. Переведите приложение на другое устройство</value>
+  </data>
+  <data name="Cable_AppReadsOtherFormat" xml:space="preserve">
+    <value>{0} записывает с «{1}», а не с «{2}»: устройство выбрано внутри приложения. Выберите в {0} микрофон «По умолчанию»</value>
+  </data>
+  <data name="Mic_CableOutputMissing" xml:space="preserve">
+    <value>выход кабеля (устройство записи) не найден</value>
+  </data>
+  <data name="Setup_NodeMic" xml:space="preserve">
+    <value>Микрофон</value>
+  </data>
+  <data name="Setup_NodeSystem" xml:space="preserve">
+    <value>Весь звук системы</value>
+  </data>
+  <data name="Setup_NodeStream" xml:space="preserve">
+    <value>Микрофон стрима</value>
+  </data>
+  <data name="Setup_NodeCall" xml:space="preserve">
+    <value>Микрофон звонка</value>
+  </data>
 </root>

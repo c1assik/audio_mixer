@@ -23,13 +23,13 @@ public sealed class EqCurve : FrameworkElement
     /// <summary>Индекс «полосы» ФВЧ в жестах.</summary>
     private const int HpIndex = -1;
 
-    private static readonly Brush Bg = Freeze(new SolidColorBrush(Color.FromRgb(0x17, 0x19, 0x1C)));
-    private static readonly Pen Grid = FreezePen(new Pen(new SolidColorBrush(Color.FromRgb(0x2C, 0x30, 0x36)), 1));
-    private static readonly Pen Zero = FreezePen(new Pen(new SolidColorBrush(Color.FromRgb(0x3A, 0x3F, 0x46)), 1));
-    private static readonly Brush Accent = Freeze(new SolidColorBrush(Color.FromRgb(0x4F, 0xA3, 0xFF)));
-    private static readonly Brush Faint = Freeze(new SolidColorBrush(Color.FromRgb(0x6B, 0x71, 0x78)));
-    private static readonly Brush Muted = Freeze(new SolidColorBrush(Color.FromRgb(0x9A, 0xA0, 0xA6)));
-    private static readonly Brush PointFill = Freeze(new SolidColorBrush(Color.FromRgb(0x1E, 0x21, 0x25)));
+    private static readonly Brush Bg = ThemeColors.Brush("EqBg", Color.FromRgb(0x17, 0x19, 0x1C));
+    private static readonly Pen Grid = FreezePen(new Pen(ThemeColors.Brush("Line", Color.FromRgb(0x2C, 0x30, 0x36)), 1));
+    private static readonly Pen Zero = FreezePen(new Pen(ThemeColors.Brush("LineStrong", Color.FromRgb(0x3A, 0x3F, 0x46)), 1));
+    private static readonly Brush Accent = ThemeColors.Brush("Accent", Color.FromRgb(0x4F, 0xA3, 0xFF));
+    private static readonly Brush Faint = ThemeColors.Brush("Faint", Color.FromRgb(0x6B, 0x71, 0x78));
+    private static readonly Brush Muted = ThemeColors.Brush("Muted", Color.FromRgb(0x9A, 0xA0, 0xA6));
+    private static readonly Brush PointFill = ThemeColors.Brush("Card", Color.FromRgb(0x1E, 0x21, 0x25));
     private static readonly Typeface Face = new(new FontFamily("Segoe UI Variable Text, Segoe UI"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
     private static readonly Typeface AxisFace = new(new FontFamily("Segoe UI Variable Text, Segoe UI"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
 
@@ -287,9 +287,9 @@ public sealed class ChainBar : FrameworkElement
     public double ThresholdDb { get => (double)GetValue(ThresholdDbProperty); set => SetValue(ThresholdDbProperty, value); }
     public bool IsReduction { get => (bool)GetValue(IsReductionProperty); set => SetValue(IsReductionProperty, value); }
 
-    private static readonly Brush Track = Freeze(new SolidColorBrush(Color.FromRgb(0x26, 0x29, 0x2E)));
-    private static readonly Brush Green = Freeze(new SolidColorBrush(Color.FromRgb(0x3D, 0xCC, 0x91)));
-    private static readonly Brush Yellow = Freeze(new SolidColorBrush(Color.FromRgb(0xFF, 0xC4, 0x4D)));
+    private static readonly Brush Track = ThemeColors.Brush("MeterTrack", Color.FromRgb(0x26, 0x29, 0x2E));
+    private static readonly Brush Green = ThemeColors.Brush("Green", Color.FromRgb(0x3D, 0xCC, 0x91));
+    private static readonly Brush Yellow = ThemeColors.Brush("Yellow", Color.FromRgb(0xFF, 0xC4, 0x4D));
 
     private int _seen = -1;
 

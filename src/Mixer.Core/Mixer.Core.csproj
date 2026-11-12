@@ -11,6 +11,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- таблица сопоставления виртуальных кабелей (Cables/CableTable.cs) -->
+    <EmbeddedResource Include="Cables\cables.json" LogicalName="Mixer.Core.Cables.cables.json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Mixer.Audio\Mixer.Audio.csproj" />
   </ItemGroup>
 

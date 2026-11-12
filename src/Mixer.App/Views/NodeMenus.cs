@@ -68,6 +68,12 @@ public static class NodeMenus
             menu.Items.Add(ExcludeItem(main, n));
             menu.Items.Add(Check(Strings.Node_IncludeOwnNodes, n.IncludeOwnNodes, () => n.IncludeOwnNodes = !n.IncludeOwnNodes, Strings.Node_IncludeOwnNodesTip));
         }
+        if (n.IsVirtualMic) menu.Items.Add(MicItem(main, n));
+        if (n.Kind is NodeKind.DeviceInput or NodeKind.DeviceOutput && !n.FollowsDefault)
+        {
+            if (n.Config.Cable is { PartnerId: not null }) menu.Items.Add(Item(Strings.Node_UnlinkCable, () => main.UnlinkCable(n)));
+            else if (n.Cable is null) menu.Items.Add(LinkCableItem(main, n));
+        }
         if (n.SupportsLowLatency)
         {
             // на входах режим экспериментальный: у части драйверов поток записи с малым периодом сбоит
@@ -75,6 +81,9 @@ public static class NodeMenus
             menu.Items.Add(Check(input ? Strings.Node_LowLatencyInput : Strings.Node_LowLatency, n.LowLatency, () => n.LowLatency = !n.LowLatency,
                 input ? Strings.Node_LowLatencyTip + "\n\n" + Strings.Node_LowLatencyInputNote : Strings.Node_LowLatencyTip));
         }
+        if (n.Kind == NodeKind.DeviceInput)
+            menu.Items.Add(Check(Strings.Node_MainMic, main.Graph.MainMic == n.Id, () => main.SetMainMic(main.Graph.MainMic == n.Id ? null : n.Id), Strings.Node_MainMicTip));
+        menu.Items.Add(HotkeysItem(main, n));
         if (n.HasDevice) menu.Items.Add(DeviceItem(main, n));
         if (n.IsSource) menu.Items.Add(ColorItem(main, n));
         if (n.IsBus) menu.Items.Add(Item(Strings.Bus_Ungroup, () => main.Ungroup(n), tip: Strings.Bus_UngroupTip));
@@ -158,6 +167,102 @@ public static class NodeMenus
         row.Children.Add(new TextBlock { Text = Strings.Node_ExcludeOther, VerticalAlignment = VerticalAlignment.Center });
         row.Children.Add(box);
         item.Items.Add(new MenuItem { Header = row, StaysOpenOnClick = true, ToolTip = Strings.Node_ExcludeOtherTip });
+        return item;
+    }
+
+    /// <summary>
+    /// «Использовать как микрофон в…»: назначенные приложения (галочка, клик снимает), известные приложения для стрима и
+    /// звонков, играющие сейчас и поле для любого exe. Внизу — напоминание выбрать «По умолчанию» внутри приложения.
+    /// </summary>
+    private static MenuItem MicItem(MainViewModel main, NodeViewModel n)
+    {
+        var item = new MenuItem { Header = Strings.Node_UseAsMic, ToolTip = Strings.Node_UseAsMicTip };
+        if (!main.CanAssignMic)
+        {
+            item.Items.Add(new MenuItem { Header = Strings.Node_UseAsMicUnavailable, IsEnabled = false });
+            return item;
+        }
+        var on = n.MicFor.Select(Mixer.Core.Sys.ProcessSnapshot.NormalizeExe).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var candidates = on.Order(StringComparer.Ordinal)
+            .Concat(Mixer.Core.Cables.AppNames.StreamApps.Take(1))
+            .Concat(Mixer.Core.Cables.AppNames.CallApps)
+            .Concat(main.PlayingApps)
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        foreach (string exe in candidates)
+        {
+            string e = exe;
+            bool isOn = on.Contains(e);
+            string name = Mixer.Core.Cables.AppNames.Friendly(e);
+            var mi = new MenuItem { Header = name == e ? e : $"{name} ({e})", IsCheckable = true, IsChecked = isOn };
+            mi.Click += (_, _) => main.SetMicFor(n, e, !isOn);
+            item.Items.Add(mi);
+        }
+        item.Items.Add(new Separator());
+        var box = new TextBox { Width = 150, Margin = new Thickness(6, 0, 0, 0), ToolTip = Strings.Node_UseAsMicOtherTip };
+        box.KeyDown += (_, e) =>
+        {
+            if (e.Key != System.Windows.Input.Key.Enter || string.IsNullOrWhiteSpace(box.Text)) return;
+            main.SetMicFor(n, box.Text, true);
+            e.Handled = true;
+            for (DependencyObject? p = item; p is not null; p = LogicalTreeHelper.GetParent(p))
+                if (p is ContextMenu cm)
+                {
+                    cm.IsOpen = false;
+                    break;
+                }
+        };
+        var row = new StackPanel { Orientation = Orientation.Horizontal };
+        row.Children.Add(new TextBlock { Text = Strings.Node_UseAsMicOther, VerticalAlignment = VerticalAlignment.Center });
+        row.Children.Add(box);
+        item.Items.Add(new MenuItem { Header = row, StaysOpenOnClick = true });
+        item.Items.Add(new MenuItem
+        {
+            Header = new TextBlock { Text = Strings.MicTip_Note, TextWrapping = TextWrapping.Wrap, MaxWidth = 300 },
+            IsEnabled = false,
+        });
+        return item;
+    }
+
+    /// <summary>«Горячие клавиши»: mute, ±1 дБ, push-to-talk, push-to-mute — по полю назначения на каждое действие.</summary>
+    private static MenuItem HotkeysItem(MainViewModel main, NodeViewModel n)
+    {
+        var item = new MenuItem { Header = Strings.Hotkey_Menu, ToolTip = Strings.Hotkey_MenuTip };
+        foreach (var action in new[] { HotkeyAction.Mute, HotkeyAction.VolumeUp, HotkeyAction.VolumeDown, HotkeyAction.PushToTalk, HotkeyAction.PushToMute })
+        {
+            var a = action;
+            var box = new HotkeyBox(main.HotkeyOf(a, n.Id), chord =>
+            {
+                string? error = main.AssignHotkey(a, n, chord);
+                if (error is not null) main.Notify(error, error: true);
+                return error;
+            }, on => main.CapturingHotkey = on) { Margin = new Thickness(8, 0, 0, 0) };
+            var row = new Grid();
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(140) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            row.Children.Add(new TextBlock { Text = MainViewModel.ActionName(a), VerticalAlignment = VerticalAlignment.Center });
+            Grid.SetColumn(box, 1);
+            row.Children.Add(box);
+            item.Items.Add(new MenuItem { Header = row, StaysOpenOnClick = true });
+        }
+        item.Items.Add(new MenuItem
+        {
+            Header = new TextBlock { Text = Strings.Hotkey_PushNote, TextWrapping = TextWrapping.Wrap, MaxWidth = 300 },
+            IsEnabled = false,
+        });
+        return item;
+    }
+
+    /// <summary>«Связать как виртуальный кабель»: устройства другого направления — кандидаты во второй конец.</summary>
+    private static MenuItem LinkCableItem(MainViewModel main, NodeViewModel n)
+    {
+        var item = new MenuItem { Header = Strings.Node_LinkCable, ToolTip = Strings.Node_LinkCableTip };
+        var flow = n.Kind == NodeKind.DeviceInput ? EDataFlow.Render : EDataFlow.Capture;
+        foreach (var d in main.Devices.Where(d => d.Flow == flow && !d.IsVoicemeeter).OrderBy(d => d.Name))
+        {
+            var dev = d;
+            item.Items.Add(Item(d.Name, () => main.LinkCable(n, dev)));
+        }
+        if (item.Items.Count == 0) item.Items.Add(new MenuItem { Header = Strings.Node_NoDevices, IsEnabled = false });
         return item;
     }
 
@@ -254,7 +359,7 @@ public static class NodeMenus
         var row = new WrapPanel { Width = 176 };
         foreach (string hex in MainViewModel.SourceColors)
         {
-            var c = (Color)ColorConverter.ConvertFromString(hex);
+            var c = ThemeColors.Source((Color)ColorConverter.ConvertFromString(hex));
             var swatch = new Button
             {
                 Width = 22,
@@ -280,10 +385,62 @@ public static class NodeMenus
         var t = new ControlTemplate(typeof(Button));
         var e = new FrameworkElementFactory(typeof(Ellipse));
         e.SetValue(Shape.FillProperty, new SolidColorBrush(c));
-        e.SetValue(Shape.StrokeProperty, current ? Brushes.White : new SolidColorBrush(Color.FromArgb(0x40, 0xFF, 0xFF, 0xFF)));
+        e.SetValue(Shape.StrokeProperty, current ? ThemeColors.Brush("Text", Colors.White) : ThemeColors.Brush("LineStrong", Color.FromArgb(0x40, 0xFF, 0xFF, 0xFF)));
         e.SetValue(Shape.StrokeThicknessProperty, current ? 2.0 : 1.0);
         t.VisualTree = e;
         return t;
+    }
+
+    /// <summary>
+    /// Меню сцен в шапке: сцены (клик — применить плавно), у текущей — имя, клавиша и удаление; новая сцена из текущих уровней.
+    /// </summary>
+    public static ContextMenu ForScenes(MainViewModel main)
+    {
+        var menu = new ContextMenu();
+        foreach (var s in main.SceneList)
+        {
+            string id = s.Id;
+            var mi = new MenuItem { Header = s.Name, IsCheckable = true, IsChecked = main.Graph.ActiveScene == id, InputGestureText = s.Hotkey ?? "" };
+            mi.Click += (_, _) => main.ApplyScene(id);
+            menu.Items.Add(mi);
+        }
+        if (main.SceneList.Count == 0) menu.Items.Add(new MenuItem { Header = Strings.Scene_Empty, IsEnabled = false });
+        menu.Items.Add(new Separator());
+        if (main.ActiveScene is { } active)
+        {
+            string id = active.Id;
+            var name = new TextBox { Width = 150, Text = active.Name, Margin = new Thickness(8, 0, 0, 0) };
+            name.KeyDown += (_, e) =>
+            {
+                if (e.Key != System.Windows.Input.Key.Enter) return;
+                main.RenameScene(id, name.Text);
+                menu.IsOpen = false;
+                e.Handled = true;
+            };
+            menu.Items.Add(new MenuItem { Header = Row(Strings.Scene_Rename, name), StaysOpenOnClick = true });
+            var key = new HotkeyBox(active.Hotkey, chord =>
+            {
+                string? error = main.AssignSceneHotkey(id, chord);
+                if (error is not null) main.Notify(error, error: true);
+                return error;
+            }, on => main.CapturingHotkey = on) { Margin = new Thickness(8, 0, 0, 0) };
+            menu.Items.Add(new MenuItem { Header = Row(Strings.Scene_Hotkey, key), StaysOpenOnClick = true });
+            menu.Items.Add(Item(Strings.Scene_Delete, () => main.DeleteScene(id)));
+            menu.Items.Add(new Separator());
+        }
+        menu.Items.Add(Item(Strings.Scene_New, () => main.NewScene()));
+        return menu;
+
+        static Grid Row(string label, FrameworkElement box)
+        {
+            var row = new Grid();
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(70) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            row.Children.Add(new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center });
+            Grid.SetColumn(box, 1);
+            row.Children.Add(box);
+            return row;
+        }
     }
 
     public static ContextMenu ForWire(MainViewModel main, WireViewModel w)

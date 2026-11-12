@@ -16,6 +16,17 @@ What it does:
 - opens devices with **low latency** where the sound card driver allows it;
 - saves your layout automatically and restores it on start, picks up unplugged and reconnected devices, and survives sleep.
 
+## What's new in 2.1
+
+- **Setup assistant**: three questions (your devices, where your sound goes, which apps to keep separate) and Mixer builds a ready layout, virtual cables and all. It opens on first start and from Settings.
+- **Virtual cables** are one thing with a role, not two devices with cryptic names: a *virtual mic* (Mixer plays into the cable, OBS or Discord records from it) or a *virtual input*. **Use as microphone in…** makes the cable the microphone of OBS or Discord for you.
+- **Scenes**: named sets of levels ("Game", "Stream", "Call"), switched smoothly in 150 ms from the header, the tray or a hotkey.
+- **Global hotkeys**, including in a full-screen game: mute, volume ±1 dB, scenes, **push-to-talk** and push-to-mute.
+- **Tray icon** with your microphone's state, **start with Windows** minimized to the tray, notifications when a device disconnects.
+- **Themes**: Graphite (the dark one), **Daylight** for bright rooms and **Modular**, a Eurorack case with knobs and patch cables.
+
+![The Modular theme: modules with LEVEL knobs, LED meters and mute toggles in a rack, patch cables from OUT to IN jacks](docs/images/modular.png)
+
 ## What's new in 2.0
 
 - **Buses**: a middle column between sources and outputs. Select sources and group them in one click; levels stay the same.
@@ -38,9 +49,23 @@ What it does:
 2. Run it. There is nothing to install.
 3. If Windows shows "Windows protected your PC", click **More info → Run anyway**. Windows does this for any program without a digital signature, and asks only once.
 
-Mixer works while its window is open. Close the window and audio through Mixer stops; applications play as usual again. Only one copy runs at a time: starting it again brings the open window to the front.
+On first start the **setup assistant** opens (see below); you can skip it and build the layout by hand.
 
-To start Mixer with Windows, put a shortcut to `Mixer.exe` in the Startup folder: press Win+R, type `shell:startup`, press Enter.
+Mixer keeps working when you close its window: it hides in the tray, by the clock. Click the icon to open it again; **Exit** is in the icon's menu. When Mixer exits, audio through it stops and applications play as usual again. Only one copy runs at a time: starting it again shows the open window.
+
+To start Mixer with Windows, tick **Start with Windows, minimized to the tray** in the assistant or in Settings (⚙). Mixer then starts in the tray, and your layout plays without opening the window.
+
+## Setup assistant
+
+Three steps, then Mixer builds the layout:
+
+1. **Your headphones and microphone.** The Windows defaults are preselected.
+2. **Where should your sound go?** *Just my headphones* (separate volumes for apps), *a stream (OBS)* (your voice and the game go to OBS as one microphone) and/or *a call (Discord, Zoom)* (your processed voice goes to the call). A stream and a call each need a virtual cable; the assistant counts the cables it found, links to [vb-audio.com/Cable](https://vb-audio.com/Cable/) and notices a new one as soon as it is installed.
+3. **Which apps should stay separate?** Each gets its own volume in your headphones and stays off the stream.
+
+![Setup assistant, step 2: just my headphones, a stream (OBS), a call (Discord, Zoom), and the cables found](docs/images/setup.png)
+
+The result is an ordinary layout you can change by hand. The microphone gets the "Voice — clean" processing; OBS (and Discord for a call) get the cable as their microphone. In OBS and Discord, set the microphone to **Default**: a device chosen inside the app overrides what Windows says. Running the assistant again from Settings replaces the layout; Ctrl+Z brings the old one back.
 
 ## Your first layout
 
@@ -78,6 +103,19 @@ Four sources going to two outputs make eight wires. To tidy that up, Ctrl+click 
 
 An output is any playback device: headphones, speakers, CABLE Input.
 
+## Virtual cables
+
+A virtual cable (VB-Cable, Cable A–D, Hi-Fi Cable, Virtual Audio Cable) has two ends: an input that programs play into and an output that programs record from. Mixer pairs the ends by itself and shows a cable as one node with a role, under **Virtual cables** in the + Output and + Source lists:
+
+- **virtual mic** (+ Output): Mixer plays into the cable, and OBS or Discord records from it as a microphone;
+- **virtual input** (+ Source): a program plays into the cable, and Mixer records from it.
+
+The card shows the role and the cable name; the bottom bar lists your cables and who uses them ("Cables: CABLE-A (Stream mic) · CABLE-B free").
+
+**Use as microphone in…** (in the virtual mic's menu) makes the cable's output the recording device of OBS, Discord or any program you name, the same as picking it for that app in the Windows sound settings. The app keeps it after Mixer exits; untick the app or delete the node to undo it. The app must have its microphone set to **Default** inside it. The card warns you when the app still records from another device, when some other program also plays into your virtual mic, and when the two ends of a cable run at different sample rates (a common cause of crackling).
+
+A cable Mixer doesn't know can be linked by hand: node menu → **Link as virtual cable**, and pick the device at its other end.
+
 A **bus** (**+ Bus**, `+ Шина`) sits in the middle column. Several sources (or another bus) go in, and the sum goes on to outputs. It has its own fader, mute, meter and processing. A bus can feed another bus, but no more than two in a row. A bus with no inputs or no outputs is drawn faded: nothing is heard through it. "Ungroup" (`Разгруппировать`) in the bus menu turns it back into direct wires at the same levels.
 
 Every node has a volume from −60 to +12 dB, an **M** button (mute) and a level meter. A source's menu also has **mono** (sum the left and right channels, handy for a microphone that records into one channel) and balance. If an output gets too loud, a limiter gently holds it back, and a badge lights up on the card.
@@ -96,6 +134,8 @@ Every node has a volume from −60 to +12 dB, an **M** button (mute) and a level
 | Mono, balance, colour, another device | node menu: "⋯" or right-click |
 | Group sources into a bus | Ctrl+click two or more sources, then **Group into bus**; or right-click one of them |
 | Processing | click **+ FX** or a Gate · EQ · Comp chip on the card |
+| Scene | the **Scene** button in the header; **Save scene** stores the current levels |
+| Hotkeys | node menu → **Hotkeys**; scene hotkey in the Scene menu |
 | See routes | hover over a node: its wires light up |
 | Undo / redo | Ctrl+Z / Ctrl+Y |
 | Zoom | Ctrl + mouse wheel, Ctrl +/−/0 |
@@ -124,6 +164,36 @@ Good to know:
 - Some applications move to the sink only when they start playback again. The card then asks you to "restart playback" (`перезапустите воспроизведение`).
 - If the sink has fewer channels than your main device (say, 7.1 headphones and a stereo cable), some applications get quieter. Settings warns you about this. Restarting playback in the application helps, or set the cable to 7.1 in its device properties.
 - "All system audio" also hears applications in the sink. If it and such an application go to the same output, that application plays twice; the card warns you.
+
+## Scenes
+
+A scene is a named set of levels: node faders and mutes, wire levels and on/off, and which processing blocks are on. Scenes never add or remove nodes and wires, so switching one can't quietly break your layout; a node or wire that the scene doesn't know is left alone.
+
+- **Scene ▾** in the header: pick a scene to switch to it smoothly, in 150 ms, without clicks. **New scene from current levels** adds one.
+- A dot after the scene's name means you changed levels since. **Save scene** stores them into the scene; **Reset** brings the scene's levels back.
+- The same menu renames the current scene, deletes it and assigns its hotkey. Scenes are also in the tray menu.
+
+## Hotkeys and push-to-talk
+
+Node menu → **Hotkeys**: click a box and press a combination; Backspace clears it. Actions: **mute / unmute**, **volume ±1 dB**, **push-to-talk** (the node is silent until you hold the key) and **push-to-mute** (silent while you hold it). A scene's hotkey is set in the Scene menu.
+
+- Hotkeys work in any program, including a full-screen game.
+- A combination needs Ctrl, Alt, Shift or Win, so it doesn't fire while you type; F1–F24 and the numeric keypad work on their own. Push-to-talk can use any key.
+- If another program already holds a combination, Mixer says so right away. Assigning a combination Mixer already uses moves it to the new action.
+- A short pop-up by the tray confirms each hotkey; turn it off in Settings.
+- Push-to-talk watches the keyboard with a hook. Mixer sets it only while a push-to-talk or push-to-mute key is assigned; some anti-cheat and antivirus programs dislike keyboard hooks.
+
+## Tray and startup
+
+The tray icon shows the **main microphone**: green when it is on, red when it is off, and a yellow sign when a node has an error. Pick the main microphone in Settings or in a microphone's menu. The icon's menu has your scenes, **Mute microphone**, **Open** and **Exit**.
+
+Settings → **Tray and startup**: start with Windows (minimized to the tray), whether the close button hides the window to the tray, hotkey pop-ups, and notifications when a device disconnects or returns while the window is hidden.
+
+## Themes
+
+Settings → **Theme**: **Graphite** (the default dark look), **Daylight** (a light one for bright rooms) and **Modular** (a Eurorack case). A theme changes only the look: your layout, levels and positions stay the same. It applies after a restart; Settings offers **Restart now**.
+
+In **Modular** nodes become modules in rack rows: sources are aluminium, buses black, outputs cream. Turn the big **LEVEL** knob by dragging up or down, with the wheel or the arrow keys; flip **MUTE**; click GATE · EQ · COMP for the same processing panel. Patch a cable from an **OUT** jack to an **IN** jack; pull a plug out of an IN jack to move the cable or drop it to remove it. The small knob above each IN jack is that cable's level. Drag a module to swap it with a neighbour. Hovering a module lights up its cables and fades the others. The rack is laid out from your layout and wraps to the window, so switching back to Graphite shows your canvas as it was.
 
 ## Processing: gate, EQ, compressor
 
@@ -171,7 +241,7 @@ The top bar shows the total latency, CPU load and the number of audio glitches. 
 
 - **Latency is about 40–50 ms** on most sound cards. That is unnoticeable for streaming, calls and listening, but monitoring your own voice through Mixer in real time is uncomfortable: you will hear a slight echo. With low latency on a card that supports small buffers it is lower; VB-Cable always adds its own buffer.
 - Games with anti-cheat and programs running as administrator may refuse to give up their audio or to move to the sink. The card shows an error.
-- No noise suppression, VST, tray icon, scenes or hotkeys yet.
+- No noise suppression, VST, ASIO, MIDI controllers or network audio. Virtual devices still come from third-party cables such as VB-Cable.
 
 ## Where your data lives
 
@@ -180,12 +250,17 @@ The top bar shows the total latency, CPU load and the number of audio glitches. 
 | layout | `%AppData%\Mixer\graph.json` |
 | layout backups (the last 5) | same folder, `graph.json.bak-…` |
 | your 1.0 layout, as it was before the upgrade | same folder, `graph.v1.json` |
-| settings (language, your processing presets) | same folder, `settings.json` |
+| settings (language, theme, tray options, your processing presets) | same folder, `settings.json` |
+| start with Windows | registry, `HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run`, value `Mixer` |
 | log | `%LocalAppData%\Mixer\logs` |
 
 To open a folder, paste the path into the File Explorer address bar. If the layout file gets corrupted, Mixer restores it from the most recent backup and moves the broken file aside as `graph.json.broken-…`.
 
-**To uninstall**, close Mixer and delete `Mixer.exe` and both `Mixer` folders.
+**To uninstall**, turn off **Start with Windows** in Settings, exit Mixer from the tray, and delete `Mixer.exe` and both `Mixer` folders. Apps you gave a cable as their microphone keep it: untick them under **Use as microphone in…** first, or reset their devices in **Settings → System → Sound → Volume mixer**.
+
+## Upgrading from 2.0
+
+Just replace `Mixer.exe`. Nodes on VB-Cable ends become virtual cables by themselves; nothing else changes until you add scenes, hotkeys or a theme.
 
 ## Upgrading from 1.0
 
@@ -198,6 +273,8 @@ If two or more sources go to the same outputs, Mixer offers to group them into a
 - **No sound from an application.** Read what the card says. If you just started the application, give it a second. If the card asks you to restart playback, pause and play again.
 - **An application plays twice.** Turn on Take over for its node and assign a sink in ⚙.
 - **Sound disappeared after Mixer crashed.** Start Mixer again: it moves applications back to their devices. Or fix it by hand in the Windows Volume mixer (see above).
+- **"Nobody hears me" in Discord or OBS with a virtual mic.** Set the microphone inside the app to **Default**. The cable card warns you when the app records from another device.
+- **A hotkey doesn't work.** Another program may have taken it after Mixer started; assign another combination.
 - **Crackling or dropouts.** Check the glitch counter in the top bar and the wire's tooltip. Close programs that take the audio device in exclusive mode. If it started with low latency, turn **Low latency** off on that node.
 - **Something else.** Attach the log from `%LocalAppData%\Mixer\logs` to your question: it records what happened with devices and applications.
 
@@ -215,4 +292,4 @@ The last command builds `dist\Mixer.exe` for release: tests, a single self-conta
 
 GitHub Actions ([.github/workflows/build.yml](.github/workflows/build.yml)) builds and tests every push and pull request and keeps `Mixer.exe` as a build artifact. Pushing a `v*` tag (for example `git tag v1.1.0 && git push origin v1.1.0`) also creates a GitHub Release with the exe and its checksum, versioned from the tag. To sign it, add the repository secrets `SIGN_PFX_BASE64` (the .pfx file in base64) and `SIGN_PFX_PASSWORD`.
 
-The screenshots in `docs/images` are cut from the design mockup (`Windows Mixer — mockup.html`).
+The screenshots in `docs/images` are cut from the design mockup (`Windows Mixer — mockup.html`), except `modular.png` and `setup.png`, which are `Mixer.exe --no-audio --snapshot` shots of version 2.1.

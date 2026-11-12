@@ -17,7 +17,7 @@ namespace Mixer.App.Views;
 /// перетаскивание узла в своей колонке, провод от порта к порту (в обе стороны), перецепка или удаление провода
 /// за конец, пилюля (колесо, клик, двойной клик, протяжка), панорама средней кнопкой или пробелом, Ctrl + колесо — масштаб.
 /// </summary>
-public partial class GraphView : UserControl
+public partial class GraphView : UserControl, ICanvasView
 {
     private enum Mode { None, NodePending, NodeMove, Connect, WirePending, Reroute, Pan, PillPending, PillDrag }
 

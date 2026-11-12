@@ -15,17 +15,39 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        SourceInitialized += (_, _) => WindowsLook.DarkTitleBar(this);
-        // свёрнутое окно не рисует индикаторы: такт останавливается
-        StateChanged += (_, _) =>
+        // тема Modular: вместо холста с карточками — стойка с модулями (те же модели и команды)
+        Canvas = Graph;
+        if (App.Theme == ThemeManager.Modular && Graph.Parent is Grid host)
         {
-            if (WindowState == WindowState.Minimized) MeterClock.Stop();
-            else MeterClock.Start();
+            var rack = new RackView { Focusable = true, FocusVisualStyle = null };
+            Grid.SetRow(rack, Grid.GetRow(Graph));
+            Grid.SetColumn(rack, Grid.GetColumn(Graph));
+            int at = host.Children.IndexOf(Graph);
+            host.Children.Remove(Graph);
+            host.Children.Insert(at, rack);
+            Canvas = rack;
+        }
+        // тёмный заголовок — у тёмных тем; у Daylight обычный светлый
+        SourceInitialized += (_, _) =>
+        {
+            if (TryFindResource("IsDarkTheme") is not false) WindowsLook.DarkTitleBar(this);
         };
+        // свёрнутое или спрятанное в трей окно не рисует индикаторы: такт останавливается
+        StateChanged += (_, _) => UpdateClock();
+        IsVisibleChanged += (_, _) => UpdateClock();
         PreviewKeyDown += OnKeyDown;
         PreviewKeyUp += OnKeyUp;
-        Deactivated += (_, _) => Graph.EndSpacePan();
+        Deactivated += (_, _) => Canvas.EndSpacePan();
     }
+
+    private void UpdateClock()
+    {
+        if (WindowState == WindowState.Minimized || !IsVisible) MeterClock.Stop();
+        else MeterClock.Start();
+    }
+
+    /// <summary>Холст окна: карточки или стойка (тема Modular).</summary>
+    public ICanvasView Canvas { get; }
 
     private MainViewModel? Vm => DataContext as MainViewModel;
 
@@ -41,7 +63,7 @@ public partial class MainWindow : Window
         if (key == Key.Escape)
         {
             if (vm.HasOverlay) vm.CloseOverlay();
-            else if (!Graph.CancelInteraction()) vm.Select(null);
+            else if (!Canvas.CancelInteraction()) vm.Select(null);
             e.Handled = true;
             return;
         }
@@ -74,8 +96,8 @@ public partial class MainWindow : Window
                 break;
             case Key.Space:
                 // пробел + перетаскивание — прокрутка холста; кнопку под фокусом пробел не нажимает
-                if (!e.IsRepeat) Graph.SpaceHeld = true;
-                Graph.Cursor = Cursors.ScrollAll;
+                if (!e.IsRepeat) Canvas.SpaceHeld = true;
+                Canvas.Cursor = Cursors.ScrollAll;
                 break;
             default:
                 return;
@@ -86,8 +108,8 @@ public partial class MainWindow : Window
     private void OnKeyUp(object sender, KeyEventArgs e)
     {
         if (e.Key != Key.Space) return;
-        Graph.EndSpacePan();
-        Graph.Cursor = null;
+        Canvas.EndSpacePan();
+        Canvas.Cursor = null;
         e.Handled = !TypingInTextBox;
     }
 
@@ -95,6 +117,15 @@ public partial class MainWindow : Window
     {
         // клик мимо диалога закрывает его
         if (e.OriginalSource == sender) Vm?.CloseOverlay();
+    }
+
+    private void OnSceneMenu(object sender, RoutedEventArgs e)
+    {
+        if (Vm is null) return;
+        var menu = NodeMenus.ForScenes(Vm);
+        menu.PlacementTarget = SceneButton;
+        menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+        menu.IsOpen = true;
     }
 
     private void OnToastClick(object sender, MouseButtonEventArgs e)

@@ -257,4 +257,31 @@
     <value>“{0}” and the “Take over” sink “{1}” are two inputs of the same virtual cable, and only one of them can be open at a time: while this output plays, apps moved to the sink fall silent or stop. Pick another sink or another output</value>
     <comment>{0} = output node name, {1} = sink device name</comment>
   </data>
+  <data name="Cable_RateMismatchFormat" xml:space="preserve">
+    <value>“{0}” runs at {1} kHz and “{2}” at {3} kHz. Different rates on the two ends of a cable are a common cause of crackling: set both to the same rate in the Sound control panel (Properties → Advanced)</value>
+    <comment>{0}, {2} = device names; {1}, {3} = kHz</comment>
+  </data>
+  <data name="Cable_OthersWriteFormat" xml:space="preserve">
+    <value>{0} also plays into “{1}”: whoever reads the virtual mic hears it together with the mixer. Move that app to another device</value>
+    <comment>{0} = exe list, {1} = cable input name</comment>
+  </data>
+  <data name="Cable_AppReadsOtherFormat" xml:space="preserve">
+    <value>{0} records from “{1}”, not from “{2}”: the device is picked inside the app. In {0}, choose “Default” as the microphone</value>
+    <comment>{0} = app name, {1} = device it records from, {2} = cable output</comment>
+  </data>
+  <data name="Mic_CableOutputMissing" xml:space="preserve">
+    <value>the cable’s output (recording device) isn’t found</value>
+  </data>
+  <data name="Setup_NodeMic" xml:space="preserve">
+    <value>Microphone</value>
+  </data>
+  <data name="Setup_NodeSystem" xml:space="preserve">
+    <value>System audio</value>
+  </data>
+  <data name="Setup_NodeStream" xml:space="preserve">
+    <value>Stream mic</value>
+  </data>
+  <data name="Setup_NodeCall" xml:space="preserve">
+    <value>Call mic</value>
+  </data>
 </root>

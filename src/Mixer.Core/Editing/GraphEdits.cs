@@ -19,12 +19,33 @@ public static class GraphEdits
 
     public static GraphConfig AddNode(GraphConfig g, NodeConfig node) => g with { Nodes = [.. g.Nodes, node] };
 
-    /// <summary>Удалить узел вместе с его проводами.</summary>
+    /// <summary>Удалить узел вместе с его проводами и горячими клавишами.</summary>
     public static GraphConfig RemoveNode(GraphConfig g, string id) => g with
     {
         Nodes = g.Nodes.Where(n => n.Id != id).ToList(),
         Wires = g.Wires.Where(w => w.From != id && w.To != id).ToList(),
+        Hotkeys = g.Hotkeys.Where(h => h.Target != id).ToList(),
+        MainMic = g.MainMic == id ? null : g.MainMic,
     };
+
+    /// <summary>
+    /// Горячая клавиша действия над узлом (keys = null — снять). Одно сочетание — одно действие: такая же клавиша у
+    /// другого действия или у сцены снимается.
+    /// </summary>
+    public static GraphConfig SetHotkey(GraphConfig g, HotkeyAction action, string target, string? keys)
+    {
+        bool Same(string? k) => keys is not null && string.Equals(k, keys, StringComparison.OrdinalIgnoreCase);
+        var list = g.Hotkeys.Where(h => !(h.Action == action && h.Target == target) && !Same(h.Keys)).ToList();
+        if (keys is not null) list.Add(new HotkeyConfig { Action = action, Target = target, Keys = keys });
+        return g with
+        {
+            Hotkeys = list,
+            Scenes = g.Scenes.Select(s => Same(s.Hotkey) ? s with { Hotkey = null } : s).ToList(),
+        };
+    }
+
+    /// <summary>Главный микрофон (значок в трее, mute из меню трея).</summary>
+    public static GraphConfig SetMainMic(GraphConfig g, string? id) => g.MainMic == id ? g : g with { MainMic = id };
 
     /// <summary>Добавить exe в исключения узла «Весь звук системы» или убрать его оттуда (имя нормализуется, дубли не пишутся).</summary>
     public static GraphConfig SetExcluded(GraphConfig g, string id, string exe, bool excluded)
@@ -39,6 +60,38 @@ public static class GraphEdits
             return n with { Exclude = list.Count == 0 ? null : list };
         });
     }
+
+    /// <summary>Назначить выход кабеля микрофоном приложению или снять назначение (micFor; имя нормализуется, дубли не пишутся).</summary>
+    public static GraphConfig SetMicFor(GraphConfig g, string id, string exe, bool on)
+    {
+        if (string.IsNullOrWhiteSpace(exe)) return g;
+        string name = Sys.ProcessSnapshot.NormalizeExe(exe);
+        return UpdateNode(g, id, n =>
+        {
+            var list = (n.MicFor ?? []).Where(e => !Sys.ProcessSnapshot.NormalizeExe(e).Equals(name, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (on) list.Add(name);
+            return n with { MicFor = list.Count == 0 ? null : list };
+        });
+    }
+
+    /// <summary>
+    /// Связать узел устройства с другим концом кабеля, которого нет в таблице сопоставления. Роль — по типу узла: выход
+    /// пишет в кабель (виртуальный микрофон), вход читает из него (виртуальный вход).
+    /// </summary>
+    public static GraphConfig LinkCable(GraphConfig g, string id, Mixer.Audio.Interop.EndpointInfo partner) =>
+        UpdateNode(g, id, n => n.Kind is not (NodeKind.DeviceInput or NodeKind.DeviceOutput) ? n : n with
+        {
+            Cable = new CableLink
+            {
+                PairId = "manual:" + partner.Id.ToLowerInvariant(),
+                Role = n.Kind == NodeKind.DeviceOutput ? CableRole.VirtualMic : CableRole.VirtualInput,
+                PartnerId = partner.Id,
+                PartnerName = partner.Name,
+            },
+        });
+
+    /// <summary>Отвязать кабель, связанный вручную; назначения микрофона снимаются вместе с ним.</summary>
+    public static GraphConfig UnlinkCable(GraphConfig g, string id) => UpdateNode(g, id, n => n with { Cable = null, MicFor = null });
 
     public static GraphConfig UpdateNode(GraphConfig g, string id, Func<NodeConfig, NodeConfig> change)
     {

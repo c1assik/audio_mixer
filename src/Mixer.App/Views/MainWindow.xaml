@@ -20,6 +20,9 @@
         <DataTemplate DataType="{x:Type vm:ProcessingViewModel}">
             <views:ProcessingPanel />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:SetupViewModel}">
+            <views:SetupView />
+        </DataTemplate>
     </Window.Resources>
 
     <Grid Background="{StaticResource Bg}">
@@ -35,7 +38,7 @@
             <Grid>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <Border Width="24" Height="24" CornerRadius="6" Background="{StaticResource Accent}">
-                        <ui:Icon Data="{StaticResource IconLogo}" Foreground="#0E1116" Width="14" Height="14" StrokeThickness="2.5" />
+                        <ui:Icon Data="{StaticResource IconLogo}" Foreground="{StaticResource OnAccent}" Width="14" Height="14" StrokeThickness="2.5" />
                     </Border>
                     <TextBlock Text="{x:Static res:Strings.App_Title}" FontSize="14" FontWeight="SemiBold" Margin="10,0,0,0" VerticalAlignment="Center" />
                     <TextBlock Text="·" Foreground="{StaticResource Muted}" Margin="10,0" VerticalAlignment="Center" />
@@ -51,6 +54,36 @@
                             </Style>
                         </TextBlock.Style>
                     </TextBlock>
+                    <!-- сцена: имя, точка — уровни меняли; меню сцен -->
+                    <Button x:Name="SceneButton" Margin="16,0,0,0" Height="32" Click="OnSceneMenu" Cursor="Hand" ToolTip="{x:Static res:Strings.Scene_MenuTip}"
+                            AutomationProperties.Name="{x:Static res:Strings.Scene_Label}" FocusVisualStyle="{StaticResource FocusRing}">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="Bd" Background="{StaticResource Card}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="8" Padding="10,0">
+                                    <ContentPresenter VerticalAlignment="Center" />
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Bd" Property="Background" Value="{StaticResource Raised2}" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{x:Static res:Strings.Scene_Label}" Foreground="{StaticResource Muted}" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding SceneName, TargetNullValue={x:Static res:Strings.Scene_None}}" FontWeight="SemiBold" Foreground="{StaticResource Text}"
+                                       Margin="6,0,0,0" VerticalAlignment="Center" MaxWidth="160" TextTrimming="CharacterEllipsis" />
+                            <Ellipse Width="6" Height="6" Fill="{StaticResource Yellow}" Margin="6,0,0,0" VerticalAlignment="Center" ToolTip="{x:Static res:Strings.Scene_DirtyTip}"
+                                     Visibility="{Binding SceneDirty, Converter={StaticResource Vis}}" />
+                            <ui:Icon Data="{StaticResource IconDown}" Foreground="{StaticResource Muted}" Width="14" Height="14" Margin="6,0,0,0" />
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource LinkButton}" Content="{x:Static res:Strings.Scene_Save}" Command="{Binding SaveSceneCommand}" Margin="14,0,0,0"
+                            VerticalAlignment="Center" ToolTip="{x:Static res:Strings.Scene_SaveTip}" />
+                    <Button Style="{StaticResource LinkButton}" Content="{x:Static res:Strings.Scene_Reset}" Command="{Binding ResetSceneCommand}" Margin="12,0,0,0"
+                            VerticalAlignment="Center" ToolTip="{x:Static res:Strings.Scene_ResetTip}" Visibility="{Binding SceneDirty, Converter={StaticResource Vis}}" />
+                    <TextBlock Text="{Binding SceneKeys}" Foreground="{StaticResource Muted}" FontSize="12" Margin="14,0,0,0" VerticalAlignment="Center"
+                               MaxWidth="320" TextTrimming="CharacterEllipsis" ui:TrimTip.IsEnabled="True" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <Border Style="{StaticResource StatusPill}" Margin="0,0,8,0" ToolTip="{Binding LatencyTip}">
@@ -132,7 +165,7 @@
                             ToolTip="{x:Static res:Strings.Cmd_GroupIntoBusTip}" ToolTipService.ShowOnDisabled="True" Margin="0,0,12,0" />
                 </StackPanel>
                 <TextBlock Grid.Column="1" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                           Text="{x:Static res:Strings.Toolbar_Hint}" ui:TrimTip.IsEnabled="True" />
+                           Text="{Binding ToolbarHint}" ui:TrimTip.IsEnabled="True" />
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="12,0,0,0">
                     <Button Style="{StaticResource IconButton}" Width="28" Height="28" Background="{StaticResource Card}" Command="{Binding ZoomOutCommand}" ToolTip="{x:Static res:Strings.Cmd_ZoomOutTip}"
                             AutomationProperties.Name="{x:Static res:Strings.Cmd_ZoomOut}">
@@ -206,7 +239,7 @@
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding ToastIsError}" Value="True">
                                 <Setter Property="Background" Value="{StaticResource RedDeep}" />
-                                <Setter Property="BorderBrush" Value="#5C2B2E" />
+                                <Setter Property="BorderBrush" Value="{StaticResource RedBorder}" />
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>
@@ -230,6 +263,7 @@
         <Grid Grid.RowSpan="4" Background="{StaticResource Scrim}" Visibility="{Binding HasOverlay, Converter={StaticResource Vis}}" MouseLeftButtonDown="OnScrimClick">
             <ContentControl Content="{Binding Palette}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24" Focusable="False" />
             <ContentControl Content="{Binding Settings}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24" Focusable="False" />
+            <ContentControl Content="{Binding Setup}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24" Focusable="False" />
         </Grid>
     </Grid>
 </Window>

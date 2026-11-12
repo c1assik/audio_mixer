@@ -231,4 +231,28 @@ public static class CoreStrings
 
     /// <summary>“{0}” and the “Take over” sink “{1}” are two inputs of the same virtual cable, and only one of them can be open at a time: while this output plays, apps moved to the sink fall silent or stop. Pick another sink or another output</summary>
     public static string Issue_SinkSameCableFormat => Get("Issue_SinkSameCableFormat");
+
+    /// <summary>“{0}” runs at {1} kHz and “{2}” at {3} kHz. Different rates on the two ends of a cable are a common cause of crackling: set both to the same rate in the Sound control panel (Properties → Advanced)</summary>
+    public static string Cable_RateMismatchFormat => Get("Cable_RateMismatchFormat");
+
+    /// <summary>{0} also plays into “{1}”: whoever reads the virtual mic hears it together with the mixer. Move that app to another device</summary>
+    public static string Cable_OthersWriteFormat => Get("Cable_OthersWriteFormat");
+
+    /// <summary>{0} records from “{1}”, not from “{2}”: the device is picked inside the app. In {0}, choose “Default” as the microphone</summary>
+    public static string Cable_AppReadsOtherFormat => Get("Cable_AppReadsOtherFormat");
+
+    /// <summary>the cable’s output (recording device) isn’t found</summary>
+    public static string Mic_CableOutputMissing => Get("Mic_CableOutputMissing");
+
+    /// <summary>Microphone</summary>
+    public static string Setup_NodeMic => Get("Setup_NodeMic");
+
+    /// <summary>System audio</summary>
+    public static string Setup_NodeSystem => Get("Setup_NodeSystem");
+
+    /// <summary>Stream mic</summary>
+    public static string Setup_NodeStream => Get("Setup_NodeStream");
+
+    /// <summary>Call mic</summary>
+    public static string Setup_NodeCall => Get("Setup_NodeCall");
 }
