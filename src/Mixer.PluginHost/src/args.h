@@ -7,11 +7,9 @@
 namespace mixer::host {
 
 struct Args {
-    std::wstring channel;    // префикс имён: <channel>.shm, <channel>.req, <channel>.done
-    uint32_t parentPid = 0;  // хост выходит, когда этот процесс завершился
-    std::string pluginPath;  // UTF-8, путь к .vst3 (бандл или файл)
-    std::string classId;     // GUID класса; пусто — первый аудиоэффект модуля
-    bool builtinCopy = false;  // без плагина: копирует вход в выход (база для замеров)
+    std::wstring channel;    // префикс имён аудиоканала: <channel>.shm, <channel>.req, <channel>.done
+    std::wstring pipe;       // имя канала управления (без \\.\pipe\)
+    uint32_t parentPid = 0;  // хост выходит, когда этот процесс завершился; он же — сервер канала управления
 
     // внедрение сбоев для проверки дедлайна: каждый N-й блок хост спит M мс
     uint32_t stallEvery = 0;
@@ -22,6 +20,7 @@ struct Args {
 std::optional<Args> ParseArgs(int argc, wchar_t** argv, std::string& error);
 
 std::string ToUtf8(const std::wstring& s);
+std::wstring FromUtf8(const std::string& s);
 
 const char* Usage();
 

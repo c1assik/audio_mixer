@@ -1506,4 +1506,17 @@
   <data name="Toolbar_HintModular" xml:space="preserve">
     <value>Тяните кабель из гнезда OUT в гнездо IN. Маленькая ручка над каждым IN — уровень этого кабеля</value>
   </data>
+  <data name="Settings_AboutHeader" xml:space="preserve">
+    <value>О ПРОГРАММЕ</value>
+  </data>
+  <data name="Settings_AboutVersionFormat" xml:space="preserve">
+    <value>Микшер {0}</value>
+    <comment>{0} = version</comment>
+  </data>
+  <data name="Settings_AboutVst" xml:space="preserve">
+    <value>Плагины VST3 работают через VST 3 SDK компании Steinberg Media Technologies GmbH. VST — товарный знак Steinberg Media Technologies GmbH.</value>
+  </data>
+  <data name="Settings_AboutLicenses" xml:space="preserve">
+    <value>Сторонние компоненты и их лицензии:</value>
+  </data>
 </root>

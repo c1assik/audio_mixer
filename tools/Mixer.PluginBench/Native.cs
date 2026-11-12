@@ -2,40 +2,16 @@ using System.Runtime.InteropServices;
 
 namespace Mixer.PluginBench;
 
-/// <summary>Win32, нужный каналу и периодическому потоку. Всё, что зовётся на каждом блоке, — без маршалинга.</summary>
-internal static unsafe partial class Native
+/// <summary>Win32 для периодического потока замера и снимка окна редактора.</summary>
+internal static unsafe class Native
 {
     public const uint INFINITE = 0xFFFFFFFF;
-    public const uint WAIT_OBJECT_0 = 0;
-    public const uint WAIT_TIMEOUT = 0x102;
-
-    public const uint PAGE_READWRITE = 0x04;
-    public const uint FILE_MAP_ALL_ACCESS = 0xF001F;
 
     public const uint CREATE_WAITABLE_TIMER_HIGH_RESOLUTION = 0x2;
     public const uint TIMER_ALL_ACCESS = 0x1F0003;
 
-    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-    public static extern IntPtr CreateFileMappingW(IntPtr hFile, IntPtr attributes, uint protect,
-        uint sizeHigh, uint sizeLow, string name);
-
-    [DllImport("kernel32.dll", SetLastError = true)]
-    public static extern IntPtr MapViewOfFile(IntPtr mapping, uint access, uint offsetHigh, uint offsetLow, nuint bytes);
-
-    [DllImport("kernel32.dll")]
-    public static extern int UnmapViewOfFile(IntPtr view);
-
-    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-    public static extern IntPtr CreateEventW(IntPtr attributes, int manualReset, int initialState, string name);
-
-    [DllImport("kernel32.dll")]
-    public static extern int SetEvent(IntPtr handle);
-
     [DllImport("kernel32.dll")]
     public static extern uint WaitForSingleObject(IntPtr handle, uint milliseconds);
-
-    [DllImport("kernel32.dll")]
-    public static extern uint WaitForMultipleObjects(uint count, IntPtr* handles, int waitAll, uint milliseconds);
 
     [DllImport("kernel32.dll")]
     public static extern int CloseHandle(IntPtr handle);
@@ -60,53 +36,139 @@ internal static unsafe partial class Native
     [DllImport("kernel32.dll")]
     public static extern int GetThreadTimes(IntPtr thread, out long creation, out long exit, out long kernel, out long user);
 
-    // --- Job Object: хосты умирают вместе с бенчмарком ---
-
-    public const int JobObjectExtendedLimitInformation = 9;
-    public const uint JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x2000;
-
-    [StructLayout(LayoutKind.Sequential)]
-    public struct JOBOBJECT_BASIC_LIMIT_INFORMATION
-    {
-        public long PerProcessUserTimeLimit;
-        public long PerJobUserTimeLimit;
-        public uint LimitFlags;
-        public nuint MinimumWorkingSetSize;
-        public nuint MaximumWorkingSetSize;
-        public uint ActiveProcessLimit;
-        public nuint Affinity;
-        public uint PriorityClass;
-        public uint SchedulingClass;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    public struct IO_COUNTERS
-    {
-        public ulong ReadOperationCount, WriteOperationCount, OtherOperationCount;
-        public ulong ReadTransferCount, WriteTransferCount, OtherTransferCount;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    public struct JOBOBJECT_EXTENDED_LIMIT_INFORMATION
-    {
-        public JOBOBJECT_BASIC_LIMIT_INFORMATION BasicLimitInformation;
-        public IO_COUNTERS IoInfo;
-        public nuint ProcessMemoryLimit;
-        public nuint JobMemoryLimit;
-        public nuint PeakProcessMemoryUsed;
-        public nuint PeakJobMemoryUsed;
-    }
-
-    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-    public static extern IntPtr CreateJobObjectW(IntPtr attributes, string? name);
-
-    [DllImport("kernel32.dll", SetLastError = true)]
-    public static extern int SetInformationJobObject(IntPtr job, int infoClass,
-        ref JOBOBJECT_EXTENDED_LIMIT_INFORMATION info, uint length);
-
-    [DllImport("kernel32.dll", SetLastError = true)]
-    public static extern int AssignProcessToJobObject(IntPtr job, IntPtr process);
-
     public static Exception LastError(string what) =>
         new InvalidOperationException($"{what}: Win32 error {Marshal.GetLastWin32Error()}");
+
+    // --- окна: найти окно редактора в процессе хоста и снять его ---
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RECT { public int Left, Top, Right, Bottom; }
+
+    public delegate int EnumWindowsProc(IntPtr hwnd, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    public static extern int EnumWindows(EnumWindowsProc callback, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    public static extern uint GetWindowThreadProcessId(IntPtr hwnd, out int processId);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern int GetClassNameW(IntPtr hwnd, char* name, int max);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern int GetWindowTextW(IntPtr hwnd, char* text, int max);
+
+    [DllImport("user32.dll")]
+    public static extern int IsWindowVisible(IntPtr hwnd);
+
+    [DllImport("user32.dll")]
+    public static extern int GetWindowRect(IntPtr hwnd, out RECT rect);
+
+    [DllImport("user32.dll")]
+    public static extern int GetClientRect(IntPtr hwnd, out RECT rect);
+
+    [DllImport("user32.dll")]
+    public static extern uint GetDpiForWindow(IntPtr hwnd);
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetWindow(IntPtr hwnd, uint cmd);
+    public const uint GW_OWNER = 4;
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetDC(IntPtr hwnd);
+
+    [DllImport("user32.dll")]
+    public static extern int ReleaseDC(IntPtr hwnd, IntPtr hdc);
+
+    [DllImport("user32.dll")]
+    public static extern int PrintWindow(IntPtr hwnd, IntPtr hdc, uint flags);
+    public const uint PW_RENDERFULLCONTENT = 2;
+
+    [DllImport("gdi32.dll")]
+    public static extern IntPtr CreateCompatibleDC(IntPtr hdc);
+
+    [DllImport("gdi32.dll")]
+    public static extern IntPtr CreateCompatibleBitmap(IntPtr hdc, int w, int h);
+
+    [DllImport("gdi32.dll")]
+    public static extern IntPtr SelectObject(IntPtr hdc, IntPtr obj);
+
+    [DllImport("gdi32.dll")]
+    public static extern int DeleteObject(IntPtr obj);
+
+    [DllImport("gdi32.dll")]
+    public static extern int DeleteDC(IntPtr hdc);
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct BITMAPINFOHEADER
+    {
+        public uint biSize;
+        public int biWidth, biHeight;
+        public ushort biPlanes, biBitCount;
+        public uint biCompression, biSizeImage;
+        public int biXPelsPerMeter, biYPelsPerMeter;
+        public uint biClrUsed, biClrImportant;
+    }
+
+    [DllImport("gdi32.dll")]
+    public static extern int GetDIBits(IntPtr hdc, IntPtr bitmap, uint start, uint lines, byte* bits, ref BITMAPINFOHEADER info, uint usage);
+
+    // --- своё окно-владелец для проверки редактора ---
+
+    public delegate IntPtr WndProc(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct WNDCLASSW
+    {
+        public uint style;
+        public IntPtr lpfnWndProc;
+        public int cbClsExtra, cbWndExtra;
+        public IntPtr hInstance, hIcon, hCursor, hbrBackground;
+        public char* lpszMenuName;
+        public char* lpszClassName;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MSG
+    {
+        public IntPtr hwnd;
+        public uint message;
+        public IntPtr wParam, lParam;
+        public uint time;
+        public int x, y;
+    }
+
+    public const uint WS_OVERLAPPEDWINDOW = 0x00CF0000;
+    public const uint WS_VISIBLE = 0x10000000;
+
+    [DllImport("user32.dll")]
+    public static extern ushort RegisterClassW(ref WNDCLASSW wc);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern IntPtr CreateWindowExW(uint exStyle, string cls, string title, uint style, int x, int y, int w, int h,
+        IntPtr parent, IntPtr menu, IntPtr instance, IntPtr param);
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr DefWindowProcW(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    public static extern int GetMessageW(out MSG msg, IntPtr hwnd, uint min, uint max);
+
+    [DllImport("user32.dll")]
+    public static extern int TranslateMessage(ref MSG msg);
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr DispatchMessageW(ref MSG msg);
+
+    [DllImport("user32.dll")]
+    public static extern int ShowWindowAsync(IntPtr hwnd, int cmd);
+
+    [DllImport("user32.dll")]
+    public static extern int PostMessageW(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    public static extern int PostThreadMessageW(uint threadId, uint msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("kernel32.dll")]
+    public static extern uint GetCurrentThreadId();
 }

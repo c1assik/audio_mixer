@@ -1651,4 +1651,17 @@ Virtual cable “{1}”: apps play into {2}, and record from {3}</value>
   <data name="Toolbar_HintModular" xml:space="preserve">
     <value>Patch from an OUT jack to an IN jack. The small knob above each IN is that cable’s level</value>
   </data>
+  <data name="Settings_AboutHeader" xml:space="preserve">
+    <value>ABOUT</value>
+  </data>
+  <data name="Settings_AboutVersionFormat" xml:space="preserve">
+    <value>Mixer {0}</value>
+    <comment>{0} = version</comment>
+  </data>
+  <data name="Settings_AboutVst" xml:space="preserve">
+    <value>VST3 plug-ins are hosted with the VST 3 SDK by Steinberg Media Technologies GmbH. VST is a trademark of Steinberg Media Technologies GmbH.</value>
+  </data>
+  <data name="Settings_AboutLicenses" xml:space="preserve">
+    <value>Third-party components and their licenses:</value>
+  </data>
 </root>

@@ -1,4 +1,4 @@
-// Разметка общей памяти аудиоканала «микшер ↔ хост». Зеркало на C#: tools/Mixer.PluginBench/SharedLayout.cs.
+// Разметка общей памяти аудиоканала «микшер ↔ хост». Зеркало на C#: src/Mixer.Plugins/Host/SharedLayout.cs.
 // Любое изменение — повысить kProtocolVersion и поправить обе стороны.
 //
 // Секция: заголовок 4096 байт, затем вход и выход float32, планарно: in[ch][maxFrames], out[ch][maxFrames].
@@ -6,8 +6,10 @@
 //
 // Шаг блока:
 //   микшер: пишет вход, frames, requestQpc, затем requestSeq (release) → SetEvent(Request)
-//   хост:   просыпается, читает requestSeq (acquire), считает, пишет выход и время, затем doneSeq (release) → SetEvent(Done)
+//   хост:   просыпается, читает requestSeq (acquire), считает, пишет выход, время и doneFlags, затем doneSeq (release)
+//           → SetEvent(Done)
 //   микшер: ждёт doneSeq == requestSeq до дедлайна; иначе блок идёт в обход, поздний ответ узнаётся по номеру.
+//           doneFlags & kDoneBypassed — хост не считал (плагин приостановлен): выход не трогается, блок сухой.
 #pragma once
 
 #include <cstddef>
@@ -16,7 +18,7 @@
 namespace mixer::host {
 
 constexpr uint32_t kMagic = 0x4850584D;  // 'MXPH'
-constexpr uint32_t kProtocolVersion = 1;
+constexpr uint32_t kProtocolVersion = 2;
 constexpr uint32_t kChannels = 2;
 constexpr uint32_t kHeaderBytes = 4096;
 constexpr uint32_t kErrorBytes = 1024;
@@ -32,18 +34,22 @@ enum RequestFlags : uint32_t {
     kFlagStop = 1u << 0,  // выйти из аудиоцикла (вместе с SetEvent(Request))
 };
 
+enum DoneFlags : uint32_t {
+    kDoneBypassed = 1u << 0,  // блок не обработан: плагин приостановлен (смена частоты, задержки, состояния)
+};
+
 struct SharedHeader {
     // --- строка 0: пишет микшер один раз, до запуска хоста ---
     uint32_t magic;
     uint32_t version;
-    uint32_t sampleRate;
+    uint32_t sampleRate;  // начальная; дальше частоту меняет сообщение setRate
     uint32_t maxFrames;
     uint32_t channels;
     uint32_t reserved0[11];
 
-    // --- строка 1: пишет хост один раз, при загрузке ---
+    // --- строка 1: пишет хост при загрузке и при изменениях (latencyChanged, setRate) ---
     alignas(64) int32_t state;  // HostState
-    int32_t latencySamples;
+    int32_t latencySamples;     // вместе с «ровными блоками»
     int32_t pluginInChannels;   // 1 или 2: моно-плагин получает (L+R)/2, выход дублируется
     int32_t pluginOutChannels;
     uint32_t hostPid;
@@ -60,9 +66,10 @@ struct SharedHeader {
     alignas(64) uint64_t doneSeq;
     int64_t wakeQpc;       // хост проснулся по Request
     int64_t doneQpc;       // перед SetEvent(Done)
-    int64_t processTicks;  // длительность IAudioProcessor::process, тики QPC
+    int64_t processTicks;  // длительность обработки блока (process и обвязка), тики QPC
     int32_t processResult; // tresult последнего process
-    uint32_t reserved3[7];
+    uint32_t doneFlags;    // DoneFlags
+    uint32_t reserved3[6];
 
     // --- текст ошибки загрузки, UTF-8 ---
     alignas(64) char error[kErrorBytes];
@@ -73,6 +80,7 @@ static_assert(offsetof(SharedHeader, requestSeq) == 128);
 static_assert(offsetof(SharedHeader, frames) == 144);
 static_assert(offsetof(SharedHeader, doneSeq) == 192);
 static_assert(offsetof(SharedHeader, processResult) == 224);
+static_assert(offsetof(SharedHeader, doneFlags) == 228);
 static_assert(offsetof(SharedHeader, error) == 256);
 static_assert(sizeof(SharedHeader) <= kHeaderBytes);
 

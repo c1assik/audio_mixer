@@ -38,6 +38,15 @@ public sealed partial class SettingsViewModel : ObservableObject
         Load(owner.ListDevicesAsync());
     }
 
+    /// <summary>Открыть прокрученными до «О программе» (--open settings:about).</summary>
+    public bool StartAtAbout { get; set; }
+
+    /// <summary>«О программе»: версия.</summary>
+    public string VersionText => string.Format(Strings.Settings_AboutVersionFormat, AboutInfo.Version);
+
+    /// <summary>«О программе»: лицензии сторонних компонентов.</summary>
+    public IReadOnlyList<LicenseRow> Licenses => AboutInfo.Licenses;
+
     /// <summary>Выбор темы; null — без файла настроек.</summary>
     public ThemeSettings? Theme { get; }
 

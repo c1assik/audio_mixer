@@ -19,6 +19,8 @@
   <ItemGroup>
     <!-- шрифт панелей темы Modular (SIL OFL, лицензия — Fonts/Oswald-OFL.txt) -->
     <Resource Include="Fonts\Oswald.ttf" />
+    <!-- текст лицензии — в «О программе» -->
+    <EmbeddedResource Include="Fonts\Oswald-OFL.txt" LogicalName="licenses/Oswald-OFL.txt" />
   </ItemGroup>
 
   <ItemGroup>
@@ -28,6 +30,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Mixer.Audio\Mixer.Audio.csproj" />
     <ProjectReference Include="..\Mixer.Core\Mixer.Core.csproj" />
+    <ProjectReference Include="..\Mixer.Plugins\Mixer.Plugins.csproj" />
   </ItemGroup>
 
 </Project>

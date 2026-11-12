@@ -14,10 +14,19 @@ std::string ToUtf8(const std::wstring& s) {
     return out;
 }
 
+std::wstring FromUtf8(const std::string& s) {
+    if (s.empty()) return {};
+    int n = MultiByteToWideChar(CP_UTF8, 0, s.data(), int(s.size()), nullptr, 0);
+    std::wstring out(size_t(n), L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, s.data(), int(s.size()), out.data(), n);
+    return out;
+}
+
 const char* Usage() {
     return "Mixer.PluginHost " MIXER_PLUGINHOST_VERSION "\n"
-           "usage: Mixer.PluginHost --channel <name> --parent <pid> (--plugin <path.vst3> [--class <guid>] | --builtin copy)\n"
-           "                        [--stall-every <blocks> --stall-ms <ms>]\n";
+           "usage: Mixer.PluginHost --channel <name> --pipe <name> --parent <pid>\n"
+           "                        [--stall-every <blocks> --stall-ms <ms>]\n"
+           "The plug-in is loaded by the 'load' message on the control pipe.\n";
 }
 
 static bool ParseUInt(const wchar_t* s, uint32_t& out) {
@@ -39,15 +48,10 @@ std::optional<Args> ParseArgs(int argc, wchar_t** argv, std::string& error) {
         const wchar_t* v = nullptr;
         if (key == L"--channel" && (v = value())) {
             a.channel = v;
+        } else if (key == L"--pipe" && (v = value())) {
+            a.pipe = v;
         } else if (key == L"--parent" && (v = value())) {
             if (!ParseUInt(v, a.parentPid)) { error = "bad --parent"; return std::nullopt; }
-        } else if (key == L"--plugin" && (v = value())) {
-            a.pluginPath = ToUtf8(v);
-        } else if (key == L"--class" && (v = value())) {
-            a.classId = ToUtf8(v);
-        } else if (key == L"--builtin" && (v = value())) {
-            if (std::wstring(v) != L"copy") { error = "unknown --builtin"; return std::nullopt; }
-            a.builtinCopy = true;
         } else if (key == L"--stall-every" && (v = value())) {
             if (!ParseUInt(v, a.stallEvery)) { error = "bad --stall-every"; return std::nullopt; }
         } else if (key == L"--stall-ms" && (v = value())) {
@@ -58,7 +62,7 @@ std::optional<Args> ParseArgs(int argc, wchar_t** argv, std::string& error) {
         }
     }
     if (a.channel.empty()) { error = "--channel is required"; return std::nullopt; }
-    if (a.pluginPath.empty() == !a.builtinCopy) { error = "exactly one of --plugin or --builtin is required"; return std::nullopt; }
+    if (a.pipe.empty()) { error = "--pipe is required"; return std::nullopt; }
     return a;
 }
 
