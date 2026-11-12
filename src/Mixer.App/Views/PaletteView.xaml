@@ -41,6 +41,18 @@
                             </TextBlock.Style>
                         </TextBlock>
                     </Grid>
+                    <!-- выбор плагина: «проверено 34 из 61», пока идёт скан -->
+                    <TextBlock Text="{Binding ScanText}" Foreground="{StaticResource Muted}" FontSize="12" Margin="2,8,0,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ScanText}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                 </StackPanel>
             </Border>
 

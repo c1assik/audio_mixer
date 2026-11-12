@@ -341,6 +341,14 @@ public sealed partial class MainViewModel
             bool ptt = Graph.Hotkeys.Any(h => h.Target == n.Id && h.Action == HotkeyAction.PushToTalk);
             sub = ptt ? (pm ? Strings.NodeSub_PushToTalkOff : Strings.NodeSub_PushToTalkOn) : Strings.NodeSub_PushToMuteOn;
         }
+        n.PluginFault = st?.Plugins.Any(p => p.NodeId == n.Id && p.State is Mixer.Audio.Dsp.PluginSlotState.Failed or Mixer.Audio.Dsp.PluginSlotState.Missing) == true;
+        // параллельные пути с разной задержкой плагинов: предупреждение у выхода с обоими путями
+        if (n.IsOutput && st is not null)
+            foreach (var m in st.LatencyWarnings.Where(m => m.OutputId == n.Id))
+            {
+                warn = true;
+                warnings.Add(Fmt.F(Strings.Plugin_LatencyWarningFormat, PathText(m.Fast), PathText(m.Slow), Fmt.Millis(m.DifferenceMs)));
+            }
         var lowLatency = c.LowLatencyOn ? n.EngineNodes.FirstOrDefault(e => e.State == NodeState.Running)?.LowLatency : null;
         if (lowLatency is { Status: LowLatencyStatus.FellBack } fb)
         {
@@ -439,6 +447,8 @@ public sealed partial class MainViewModel
             n.AppIcon = AppIcons.ForExe(ProcessSnapshot.NormalizeExe(c.Exe ?? ""));
         }
     }
+
+    private string PathText(IReadOnlyList<string> ids) => string.Join(" → ", ids.Select(id => FindNode(id)?.Name ?? id));
 
     /// <summary>Строка подсказки узла о «Низкой задержке» (null — режим не просили или сказать нечего).</summary>
     public static string? LowLatencyTip(LowLatencyInfo? i) => i?.Status switch
@@ -683,6 +693,7 @@ public sealed partial class MainViewModel
             if ((n.HasGate || n.HasEq || n.HasComp) && n.EngineChains.Length > 0) n.ChainMeter.Push(n.EngineChains, now, dt);
             else n.ChainMeter.Reset();
         }
+        Processing?.Frame(now, dt);
         foreach (var w in Wires)
         {
             var wires = w.EngineWires;

@@ -33,6 +33,7 @@ public static class Scenes
             Gate = n.Chain?.Gate.Enabled,
             Eq = n.Chain?.Eq.Enabled,
             Comp = n.Chain?.Comp.Enabled,
+            Plugins = n.Plugins?.DistinctBy(p => p.Id).ToDictionary(p => p.Id, p => p.Enabled),
         }),
         Wires = g.Wires.Select(w => new SceneWire { From = w.From, To = w.To, GainDb = w.GainDb, Enabled = w.Enabled }).ToList(),
     };
@@ -57,7 +58,10 @@ public static class Scenes
                 Eq = s.Eq is { } eq ? chain.Eq with { Enabled = eq } : chain.Eq,
                 Comp = s.Comp is { } comp ? chain.Comp with { Enabled = comp } : chain.Comp,
             };
-        return n with { GainDb = s.GainDb, Muted = s.Muted, Chain = chain };
+        var plugins = n.Plugins is { } list && s.Plugins is { } on
+            ? list.Select(p => on.TryGetValue(p.Id, out bool e) ? p with { Enabled = e } : p).ToList()
+            : n.Plugins;
+        return n with { GainDb = s.GainDb, Muted = s.Muted, Chain = chain, Plugins = plugins };
     }
 
     /// <summary>Уровни схемы совпадают со сценой (иначе её поправили руками — в шапке точка).</summary>
@@ -69,6 +73,7 @@ public static class Scenes
             if (Math.Abs(n.GainDb - sn.GainDb) > 0.05f || n.Muted != sn.Muted) return false;
             if (n.Chain is { } c && (sn.Gate is { } gt && gt != c.Gate.Enabled || sn.Eq is { } eq && eq != c.Eq.Enabled || sn.Comp is { } cp && cp != c.Comp.Enabled))
                 return false;
+            if (n.Plugins is { } ps && sn.Plugins is { } on && ps.Any(p => on.TryGetValue(p.Id, out bool e) && e != p.Enabled)) return false;
         }
         foreach (var w in g.Wires)
         {

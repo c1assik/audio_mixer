@@ -87,11 +87,23 @@ public static class NodeMenus
         if (n.HasDevice) menu.Items.Add(DeviceItem(main, n));
         if (n.IsSource) menu.Items.Add(ColorItem(main, n));
         if (n.IsBus) menu.Items.Add(Item(Strings.Bus_Ungroup, () => main.Ungroup(n), tip: Strings.Bus_UngroupTip));
+        if (n.IsBus && n.HasPlugins) menu.Items.Add(ClockItem(main, n));
 
         menu.Items.Add(new Separator());
         menu.Items.Add(Item(Strings.Node_ResetGain, () => n.ResetGainCommand.Execute(null)));
         menu.Items.Add(Item(Strings.Node_Delete, () => main.DeleteNode(n), "Del"));
         return menu;
+    }
+
+    /// <summary>«Считать по часам…»: шина с плагинами считается один раз, в потоке этого выхода; остальные получают её через кольцо.</summary>
+    private static MenuItem ClockItem(MainViewModel main, NodeViewModel n)
+    {
+        var item = new MenuItem { Header = Strings.Plugin_ClockMenu, ToolTip = Strings.Plugin_ClockTip };
+        void Set(string? id) => main.Edit(g => GraphEdits.UpdateNode(g, n.Id, c => c with { ClockOutput = id }));
+        item.Items.Add(Check(Strings.Plugin_ClockAuto, n.Config.ClockOutput is null, () => Set(null)));
+        foreach (var o in new GraphPaths(main.Graph).Downstream(n.Id))
+            item.Items.Add(Check(o.Name, n.Config.ClockOutput == o.Id, () => Set(o.Id)));
+        return item;
     }
 
     private static MenuItem Routes(MainViewModel main, NodeViewModel n, bool outgoing)

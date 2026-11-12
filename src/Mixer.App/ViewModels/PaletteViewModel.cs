@@ -7,10 +7,11 @@ using Mixer.Core.Apps;
 using Mixer.Core.Config;
 using Mixer.Core.Graph;
 using Mixer.Core.Sys;
+using Mixer.Plugins.Catalog;
 
 namespace Mixer.App.ViewModels;
 
-public enum PaletteMode { Sources, Outputs }
+public enum PaletteMode { Sources, Outputs, Plugins }
 
 /// <summary>Строка палитры: заголовок раздела или то, что можно добавить.</summary>
 public sealed class PaletteRow
@@ -25,6 +26,10 @@ public sealed class PaletteRow
     /// <summary>Почему нельзя добавить (подсказка у недоступной строки).</summary>
     public string? Reason { get; init; }
     public NodeConfig? Template { get; init; }
+    /// <summary>Выбор плагина: эффект из каталога.</summary>
+    public CatalogEntry? Plugin { get; init; }
+    /// <summary>«Не загрузился»: модуль, который можно просканировать с окном (без таймаута).</summary>
+    public string? Rescan { get; init; }
     /// <summary>Что ещё находит строку поиском: полное имя устройства, exe.</summary>
     public string Keywords { get; init; } = "";
 
@@ -52,9 +57,60 @@ public sealed partial class PaletteViewModel : ObservableObject
         Load(catalog);
     }
 
+    /// <summary>
+    /// Выбор плагина (VST, «Выбор плагина»): каталог из кэша сразу, скан новых и изменившихся модулей — в фоне, найденные
+    /// появляются по мере готовности. Группы: «Недавние», категории плагинов, «Не загрузились» (Enter — скан с окном),
+    /// «Не поддерживается».
+    /// </summary>
+    public PaletteViewModel(MainViewModel owner, PluginTarget target)
+    {
+        _owner = owner;
+        Mode = PaletteMode.Plugins;
+        Target = target;
+        Loading = false;
+        var catalog = owner.Catalog;
+        var ui = System.Windows.Application.Current.Dispatcher;
+        Action<ScanProgress> progress = p => ui.BeginInvoke(() =>
+        {
+            ScanText = p.Checked < p.Total ? Fmt.F(Strings.Plugin_ScanProgressFormat, p.Checked, p.Total) : null;
+            if (p.Module is not null || p.Checked == p.Total) LoadPlugins();
+        });
+        catalog.Progress += progress;
+        LoadPlugins();
+        var folders = owner.PluginFolders.ToList();
+        Scan = Task.Run(async () =>
+        {
+            try { await catalog.RefreshAsync(folders); }
+            catch (Exception ex) when (ex is System.IO.IOException or InvalidOperationException or UnauthorizedAccessException)
+            {
+                _ = ui.BeginInvoke(() => Error = Fmt.F(Strings.Plugin_ScanFailedFormat, ex.Message));
+            }
+            finally
+            {
+                catalog.Progress -= progress;
+            }
+        });
+    }
+
+    /// <summary>Фоновый скан выбора плагина (тесты ждут его).</summary>
+    internal Task Scan { get; } = Task.CompletedTask;
+
     public PaletteMode Mode { get; }
-    public string Title => Mode == PaletteMode.Sources ? Strings.Palette_Title : Strings.Palette_TitleOutput;
-    public string Placeholder => Mode == PaletteMode.Sources ? Strings.Palette_SearchPlaceholder : Strings.Palette_SearchPlaceholderOutput;
+    public PluginTarget? Target { get; }
+    public string Title => Mode switch
+    {
+        PaletteMode.Sources => Strings.Palette_Title,
+        PaletteMode.Outputs => Strings.Palette_TitleOutput,
+        _ => Fmt.F(Strings.Plugin_PickerTitleFormat, Target!.Node.Name),
+    };
+    public string Placeholder => Mode switch
+    {
+        PaletteMode.Sources => Strings.Palette_SearchPlaceholder,
+        PaletteMode.Outputs => Strings.Palette_SearchPlaceholderOutput,
+        _ => Strings.Plugin_SearchPlaceholder,
+    };
+    /// <summary>«Проверено 34 из 61», пока идёт скан.</summary>
+    [ObservableProperty] private string? _scanText;
     public ObservableCollection<PaletteRow> Rows { get; } = new();
 
     [ObservableProperty] private string _query = "";
@@ -289,6 +345,89 @@ public sealed partial class PaletteViewModel : ObservableObject
         return rows;
     }
 
+    internal void LoadPlugins()
+    {
+        var c = _owner.Catalog;
+        var effects = c.Effects;
+        PaletteRow Row(CatalogEntry e) => new()
+        {
+            Title = e.Class.Name,
+            Subtitle = e.Class.Vendor + " · " + (e.Module.Signature switch
+            {
+                { Status: SignatureStatus.Valid, Signer: { } who } => Fmt.F(Strings.Plugin_SignedFormat, who),
+                { Status: SignatureStatus.Invalid } => Strings.Plugin_SignatureInvalid,
+                _ => Strings.Plugin_NotSigned,
+            }),
+            GlyphKey = "IconPlugin",
+            Keywords = e.Class.Vendor + " " + string.Join(" ", e.Class.Categories),
+            Plugin = e,
+        };
+        var rows = new List<PaletteRow>();
+        var recent = (_owner.Preferences?.RecentPlugins ?? []).Select(id => effects.FirstOrDefault(e => e.Class.ClassId.Equals(id, StringComparison.OrdinalIgnoreCase)))
+            .OfType<CatalogEntry>().ToList();
+        if (recent.Count > 0)
+        {
+            rows.Add(new PaletteRow { Header = Strings.Plugin_GroupRecent });
+            rows.AddRange(recent.Select(Row));
+        }
+        foreach (var g in effects.GroupBy(e => e.Class.Categories.FirstOrDefault() ?? Strings.Plugin_GroupOther)
+                     .OrderBy(g => g.Key == Strings.Plugin_GroupOther).ThenBy(g => g.Key, StringComparer.CurrentCultureIgnoreCase))
+        {
+            rows.Add(new PaletteRow { Header = g.Key.ToUpper(System.Globalization.CultureInfo.CurrentCulture) });
+            rows.AddRange(g.Select(Row));
+        }
+        if (c.NotLoaded is { Count: > 0 } failed)
+        {
+            rows.Add(new PaletteRow { Header = Strings.Plugin_GroupNotLoaded });
+            rows.AddRange(failed.Select(m => new PaletteRow
+            {
+                Title = m.FileName,
+                Subtitle = Problem(m.Problem, m.Detail) + " · " + Strings.Plugin_ScanWithWindow,
+                GlyphKey = "IconWarn",
+                Keywords = m.Path,
+                Rescan = m.Path,
+            }));
+        }
+        if (c.NotSupported is { Count: > 0 } bad)
+        {
+            rows.Add(new PaletteRow { Header = Strings.Plugin_GroupNotSupported });
+            rows.AddRange(bad.Select(b => new PaletteRow
+            {
+                Title = b.Name,
+                Subtitle = Problem(b.Problem, b.Detail),
+                GlyphKey = "IconWarn",
+                Keywords = b.Path,
+                Enabled = false,
+                Reason = b.Path,
+            }));
+        }
+        _all = rows;
+        Filter();
+    }
+
+    internal static string Problem(ScanProblem p, string? detail) => p switch
+    {
+        ScanProblem.Timeout => Strings.Plugin_ProblemTimeout,
+        ScanProblem.Crashed => Strings.Plugin_ProblemCrashed,
+        ScanProblem.LoadFailed => Fmt.F(Strings.Plugin_ProblemLoadFailedFormat, detail ?? "?"),
+        ScanProblem.Vst2 => Strings.Plugin_ProblemVst2,
+        ScanProblem.Bits32 => Strings.Plugin_ProblemBits32,
+        ScanProblem.NoX64Binary => Strings.Plugin_ProblemNoX64,
+        ScanProblem.Instrument => Strings.Plugin_ProblemInstrument,
+        _ => Strings.Plugin_ProblemNoEffects,
+    };
+
+    private async Task RescanAsync(string path)
+    {
+        try { await _owner.Catalog.RescanAsync(path, withWindow: true); }
+        catch (Exception ex) when (ex is System.IO.IOException or InvalidOperationException or UnauthorizedAccessException)
+        {
+            Error = Fmt.F(Strings.Plugin_ScanFailedFormat, ex.Message);
+        }
+        ScanText = null;
+        LoadPlugins();
+    }
+
     private void Filter()
     {
         string q = Query.Trim();
@@ -329,7 +468,20 @@ public sealed partial class PaletteViewModel : ObservableObject
     public void Commit(PaletteRow? row = null)
     {
         row ??= SelectedIndex >= 0 && SelectedIndex < Rows.Count ? Rows[SelectedIndex] : null;
-        if (row?.Template is null || !row.Enabled) return;
+        if (row is null || !row.Enabled) return;
+        if (row.Rescan is { } path)
+        {
+            ScanText = Fmt.F(Strings.Plugin_ScanningWithWindowFormat, row.Title);
+            _ = RescanAsync(path);
+            return;
+        }
+        if (row.Plugin is { } plugin && Target is { } target)
+        {
+            _owner.CloseOverlay();
+            _owner.AddPlugin(target, plugin);
+            return;
+        }
+        if (row.Template is null) return;
         _owner.CloseOverlay();
         _owner.AddNode(row.Template, _atY);
     }

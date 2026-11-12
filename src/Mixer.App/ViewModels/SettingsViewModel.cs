@@ -242,4 +242,66 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     [RelayCommand]
     private void Close() => _owner.CloseOverlay();
+
+    // ── плагины: свои папки и полный перескан ──
+
+    public ObservableCollection<string> PluginFolders => _pluginFolders ??= new(_owner.Preferences?.PluginFolders ?? []);
+    private ObservableCollection<string>? _pluginFolders;
+    [ObservableProperty] private string _pluginStatus = "";
+    [ObservableProperty] private bool _scanning;
+
+    [RelayCommand]
+    private void AddPluginFolder()
+    {
+        var dlg = new Microsoft.Win32.OpenFolderDialog { Title = Strings.Settings_PluginFolderPick };
+        if (dlg.ShowDialog() != true || PluginFolders.Contains(dlg.FolderName, StringComparer.OrdinalIgnoreCase)) return;
+        PluginFolders.Add(dlg.FolderName);
+        SavePluginFolders();
+    }
+
+    [RelayCommand]
+    private void RemovePluginFolder(string folder)
+    {
+        PluginFolders.Remove(folder);
+        SavePluginFolders();
+    }
+
+    private void SavePluginFolders()
+    {
+        try
+        {
+            _owner.Preferences?.SetPluginFolders(PluginFolders);
+        }
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
+        {
+            PluginStatus = Fmt.F(Strings.Fx_PresetSaveFailedFormat, ex.Message);
+        }
+    }
+
+    /// <summary>Полный перескан: все модули заново, без кэша; потом слоты «плагин не найден» пробуют снова.</summary>
+    [RelayCommand]
+    private async Task RescanPlugins()
+    {
+        if (Scanning) return;
+        Scanning = true;
+        var catalog = _owner.Catalog;
+        var ui = System.Windows.Application.Current.Dispatcher;
+        Action<Mixer.Plugins.Catalog.ScanProgress> progress = p => ui.BeginInvoke(() => PluginStatus = Fmt.F(Strings.Plugin_ScanProgressFormat, p.Checked, p.Total));
+        catalog.Progress += progress;
+        try
+        {
+            await Task.Run(() => catalog.RefreshAsync(_owner.PluginFolders.ToList(), full: true));
+            PluginStatus = Fmt.F(Strings.Settings_PluginScanDoneFormat, catalog.Effects.Count, catalog.NotLoaded.Count);
+            _owner.Host?.Plugins.RetryMissing();
+        }
+        catch (Exception ex) when (ex is System.IO.IOException or InvalidOperationException or UnauthorizedAccessException)
+        {
+            PluginStatus = Fmt.F(Strings.Plugin_ScanFailedFormat, ex.Message);
+        }
+        finally
+        {
+            catalog.Progress -= progress;
+            Scanning = false;
+        }
+    }
 }

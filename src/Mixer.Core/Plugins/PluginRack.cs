@@ -92,7 +92,7 @@ public sealed class PluginRack : IDisposable
         _log = log;
     }
 
-    /// <summary>Состояние слота забрано у плагина (после правок): этап «Интерфейс» пишет его в файл.</summary>
+    /// <summary>Состояние слота забрано у плагина и записано в его файл (<see cref="PluginConfig.State"/>).</summary>
     public event Action<string, string, byte[]>? StateSaved;
 
     private double Now => _clock.Elapsed.TotalSeconds;
@@ -174,9 +174,11 @@ public sealed class PluginRack : IDisposable
                     continue;
                 }
                 if (r is not null) StopHost(r);
+                // тот же плагин с другими настройками (ровные блоки, путь): правки, ещё не записанные в файл, не теряются
+                byte[]? keep = r is not null && r.Config.ClassId == p.ClassId && r.Config.Format == p.Format ? r.State : null;
                 r = new Runner(node, p, new PluginSlot(p.Id, _opt.MaxFrames) { Post = p.Group == PluginGroup.Post })
                 {
-                    State = ReadStateFile(p),
+                    State = keep ?? ReadStateFile(p),
                 };
                 _runners[(node, p.Id)] = r;
                 if (limited) Fail(r, PluginFault.Limit, null);
@@ -282,10 +284,13 @@ public sealed class PluginRack : IDisposable
         return path is null ? null : PluginLoad.Vst3(path, p.ClassId);
     }
 
+    /// <summary>Полный путь файла состояния слота; null — у слота его нет.</summary>
+    public string? StateFile(PluginConfig p) =>
+        string.IsNullOrEmpty(p.State) ? null : Path.GetFullPath(Path.IsPathRooted(p.State) || _opt.StateFolder is null ? p.State : Path.Combine(_opt.StateFolder, p.State));
+
     private byte[]? ReadStateFile(PluginConfig p)
     {
-        if (string.IsNullOrEmpty(p.State)) return null;
-        string path = Path.IsPathRooted(p.State) || _opt.StateFolder is null ? p.State : Path.Combine(_opt.StateFolder, p.State);
+        if (StateFile(p) is not { } path) return null;
         try
         {
             return File.Exists(path) ? File.ReadAllBytes(path) : null;
@@ -445,21 +450,23 @@ public sealed class PluginRack : IDisposable
         }
     }
 
-    private async Task SaveStateAsync(Runner r, PluginHost host, int gen)
+    private async Task<byte[]?> SaveStateAsync(Runner r, PluginHost host, int gen)
     {
         try
         {
             byte[] blob = await host.GetStateAsync().ConfigureAwait(false);
             lock (_gate)
             {
-                if (r.Generation != gen) return;
+                if (r.Generation != gen) return null;
                 r.State = blob;
             }
-            StateSaved?.Invoke(r.NodeId, r.Config.Id, blob);
+            Store(r, blob);
+            return blob;
         }
-        catch (Exception e) when (e is PluginHostException or TimeoutException or IOException)
+        catch (Exception e) when (e is PluginHostException or TimeoutException or IOException or OperationCanceledException)
         {
             Log(r, $"getState failed: {e.Message}");
+            return null;
         }
         finally
         {
@@ -467,9 +474,91 @@ public sealed class PluginRack : IDisposable
         }
     }
 
+    /// <summary>Записать состояние в файл слота (атомарно, как graph.json) и сообщить о нём.</summary>
+    private void Store(Runner r, byte[] blob)
+    {
+        if (StateFile(r.Config) is { } path)
+        {
+            try
+            {
+                WriteAtomic(path, blob);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                Log(r, $"state not written to {path}: {e.Message}");
+            }
+        }
+        StateSaved?.Invoke(r.NodeId, r.Config.Id, blob);
+    }
+
+    public static void WriteAtomic(string path, byte[] data)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        string tmp = path + ".tmp";
+        using (var fs = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.None))
+        {
+            fs.Write(data);
+            fs.Flush(flushToDisk: true);
+        }
+        File.Move(tmp, path, overwrite: true);
+    }
+
+    /// <summary>
+    /// Забрать состояние у плагина сейчас (закрыли окно редактора, пресет, выход) и записать его. null — хоста нет
+    /// или он не ответил: тогда последнее известное состояние.
+    /// </summary>
+    public async Task<byte[]?> SaveStateNowAsync(string nodeId, string slotId)
+    {
+        Runner? r;
+        PluginHost? host;
+        int gen;
+        lock (_gate)
+        {
+            if (!_runners.TryGetValue((nodeId, slotId), out r)) return null;
+            host = r.Slot.IsAttached ? r.Host : null;
+            gen = r.Generation;
+            if (host is null) return r.State;
+            r.DirtyAt = null;
+        }
+        return await SaveStateAsync(r, host, gen).ConfigureAwait(false) ?? StateOf(nodeId, slotId);
+    }
+
+    /// <summary>Загрузить в плагин состояние (пресет слота) и записать его в файл слота.</summary>
+    public async Task<bool> SetStateAsync(string nodeId, string slotId, byte[] blob)
+    {
+        Runner? r;
+        PluginHost? host;
+        lock (_gate)
+        {
+            if (!_runners.TryGetValue((nodeId, slotId), out r)) return false;
+            host = r.Slot.IsAttached ? r.Host : null;
+        }
+        if (host is not null)
+        {
+            try
+            {
+                await host.SetStateAsync(blob).ConfigureAwait(false);
+            }
+            catch (Exception e) when (e is PluginHostException or TimeoutException or IOException or OperationCanceledException)
+            {
+                Log(r, $"setState failed: {e.Message}");
+                return false;
+            }
+        }
+        lock (_gate) r.State = blob; // без хоста — загрузится с ним при старте
+        Store(r, blob);
+        return true;
+    }
+
     /// <summary>Остановить все хосты (выход из микшера). Job Object добьёт те, что не успели.</summary>
     public void Dispose()
     {
+        // при выходе: состояние каждого работающего плагина в его файл (не все плагины сообщают dirty)
+        Task<byte[]?>[] saves;
+        lock (_gate) saves = _disposed ? [] : _runners.Values.Where(r => r.Host is not null && r.Slot.IsAttached)
+            .Select(r => SaveStateNowAsync(r.NodeId, r.Config.Id)).ToArray();
+        try { Task.WaitAll(saves, TimeSpan.FromSeconds(3)); }
+        catch (AggregateException e) { _log?.Invoke("Plug-in states on exit: " + e.InnerException?.Message); }
         Task[] pending;
         lock (_gate)
         {

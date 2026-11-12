@@ -163,7 +163,11 @@ public partial class App : Application
         };
         if (!opt.NoAudio)
         {
-            _host = new MixerHost(graph, _store.SaveJournal);
+            _host = new MixerHost(graph, _store.SaveJournal, options: new MixerHostOptions
+            {
+                // файлы состояния плагинов — рядом с graph.json, в plugins                Plugins = new Mixer.Core.Plugins.PluginRackOptions { StateFolder = Path.GetDirectoryName(Path.GetFullPath(path)) },
+                PluginFolders = () => prefs.PluginFolders,
+            });
             _host.Log += m => _log?.Write("host", m);
             _host.Start(); // управляющий поток сам применит граф; окно не ждёт устройств
         }

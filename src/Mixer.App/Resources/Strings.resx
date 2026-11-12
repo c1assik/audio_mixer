@@ -1664,4 +1664,213 @@ Virtual cable “{1}”: apps play into {2}, and record from {3}</value>
   <data name="Settings_AboutLicenses" xml:space="preserve">
     <value>Third-party components and their licenses:</value>
   </data>
+  <data name="Plugin_PreTitle" xml:space="preserve">
+    <value>Plug-ins before</value>
+  </data>
+  <data name="Plugin_PreTip" xml:space="preserve">
+    <value>Before the gate, EQ and compressor: noise removal works best here, so the gate and compressor get a clean signal.</value>
+  </data>
+  <data name="Plugin_PostTitle" xml:space="preserve">
+    <value>Plug-ins after</value>
+  </data>
+  <data name="Plugin_PostTip" xml:space="preserve">
+    <value>After the compressor: reverb and other effects on the cleaned-up signal.</value>
+  </data>
+  <data name="Plugin_Add" xml:space="preserve">
+    <value>+ Plug-in</value>
+  </data>
+  <data name="Plugin_Open" xml:space="preserve">
+    <value>Open</value>
+  </data>
+  <data name="Plugin_OpenTip" xml:space="preserve">
+    <value>The plug-in's window, or its parameters if it has no window</value>
+  </data>
+  <data name="Plugin_DragTip" xml:space="preserve">
+    <value>Drag to change the order or move to the other group</value>
+  </data>
+  <data name="Plugin_MeterTip" xml:space="preserve">
+    <value>Level at the output of this plug-in</value>
+  </data>
+  <data name="Plugin_LatencyTip" xml:space="preserve">
+    <value>The plug-in's own latency: it adds to the total latency of this path</value>
+  </data>
+  <data name="Plugin_LoadTip" xml:space="preserve">
+    <value>Share of the audio period the plug-in takes, over 2 s</value>
+  </data>
+  <data name="Plugin_Restart" xml:space="preserve">
+    <value>Restart</value>
+  </data>
+  <data name="Plugin_Replace" xml:space="preserve">
+    <value>Replace…</value>
+  </data>
+  <data name="Plugin_MoveToPost" xml:space="preserve">
+    <value>Move to “Plug-ins after”</value>
+  </data>
+  <data name="Plugin_MoveToPre" xml:space="preserve">
+    <value>Move to “Plug-ins before”</value>
+  </data>
+  <data name="Plugin_SavePreset" xml:space="preserve">
+    <value>Save preset</value>
+  </data>
+  <data name="Plugin_LoadPreset" xml:space="preserve">
+    <value>Load preset</value>
+  </data>
+  <data name="Plugin_EvenBlocks" xml:space="preserve">
+    <value>Even blocks</value>
+  </data>
+  <data name="Plugin_EvenBlocksTip" xml:space="preserve">
+    <value>For plug-ins that crackle on blocks of varying size: the stream is cut into blocks of 256 frames at the cost of the same latency.</value>
+  </data>
+  <data name="Plugin_Remove" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="Plugin_NoRoom" xml:space="preserve">
+    <value>No room: up to 2 plug-ins per group and 16 per graph.</value>
+  </data>
+  <data name="Plugin_NotRunning" xml:space="preserve">
+    <value>The plug-in is not running.</value>
+  </data>
+  <data name="Plugin_PresetLoadFailedFormat" xml:space="preserve">
+    <value>Preset not loaded: {0}</value>
+  </data>
+  <data name="Plugin_StateLoading" xml:space="preserve">
+    <value>loading…</value>
+  </data>
+  <data name="Plugin_StateMissing" xml:space="preserve">
+    <value>plug-in not found, audio goes through without it</value>
+  </data>
+  <data name="Plugin_FaultCrashed" xml:space="preserve">
+    <value>the plug-in crashed, audio goes through without it; restarting. Edits from the last seconds may be lost.</value>
+  </data>
+  <data name="Plugin_FaultCrashedRepeatedly" xml:space="preserve">
+    <value>the plug-in crashed three times in 5 minutes, audio goes through without it</value>
+  </data>
+  <data name="Plugin_FaultTooSlow" xml:space="preserve">
+    <value>can't keep up, switched off</value>
+  </data>
+  <data name="Plugin_FaultBadOutput" xml:space="preserve">
+    <value>the plug-in produced invalid audio (NaN), switched off</value>
+  </data>
+  <data name="Plugin_FaultLimit" xml:space="preserve">
+    <value>not loaded: up to 2 plug-ins per group and 16 per graph</value>
+  </data>
+  <data name="Plugin_FaultLoadFailedFormat" xml:space="preserve">
+    <value>did not load: {0}</value>
+  </data>
+  <data name="Plugin_Loud" xml:space="preserve">
+    <value>too loud (above +12 dBFS), limited at the output of the slot</value>
+  </data>
+  <data name="Plugin_EditorTitleFormat" xml:space="preserve">
+    <value>{0} — {1}</value>
+  </data>
+  <data name="Plugin_EditorFailedFormat" xml:space="preserve">
+    <value>The plug-in's window did not open: {0}</value>
+  </data>
+  <data name="Plugin_ParamsFailedFormat" xml:space="preserve">
+    <value>Parameters not read: {0}</value>
+  </data>
+  <data name="Plugin_LatencyWarningFormat" xml:space="preserve">
+    <value>The same source comes here two ways with different plug-in latency ({2} apart), so it sounds hollow:
+{0}
+{1}</value>
+  </data>
+  <data name="Plugin_ChipTip" xml:space="preserve">
+    <value>Plug-ins switched on; the dot means one of them has failed</value>
+  </data>
+  <data name="Plugin_PickerTitleFormat" xml:space="preserve">
+    <value>Plug-in for “{0}”</value>
+  </data>
+  <data name="Plugin_SearchPlaceholder" xml:space="preserve">
+    <value>Search by name or vendor</value>
+  </data>
+  <data name="Plugin_ScanProgressFormat" xml:space="preserve">
+    <value>checked {0} of {1}</value>
+  </data>
+  <data name="Plugin_ScanFailedFormat" xml:space="preserve">
+    <value>Plug-in scan failed: {0}</value>
+  </data>
+  <data name="Plugin_ScanningWithWindowFormat" xml:space="preserve">
+    <value>Scanning {0} with its window…</value>
+  </data>
+  <data name="Plugin_SignedFormat" xml:space="preserve">
+    <value>signed: {0}</value>
+  </data>
+  <data name="Plugin_SignatureInvalid" xml:space="preserve">
+    <value>signature invalid</value>
+  </data>
+  <data name="Plugin_NotSigned" xml:space="preserve">
+    <value>not signed</value>
+  </data>
+  <data name="Plugin_GroupRecent" xml:space="preserve">
+    <value>RECENT</value>
+  </data>
+  <data name="Plugin_GroupOther" xml:space="preserve">
+    <value>OTHER</value>
+  </data>
+  <data name="Plugin_GroupNotLoaded" xml:space="preserve">
+    <value>DID NOT LOAD</value>
+  </data>
+  <data name="Plugin_GroupNotSupported" xml:space="preserve">
+    <value>NOT SUPPORTED</value>
+  </data>
+  <data name="Plugin_ScanWithWindow" xml:space="preserve">
+    <value>Enter: scan with window</value>
+  </data>
+  <data name="Plugin_ProblemTimeout" xml:space="preserve">
+    <value>no answer in 10 s</value>
+  </data>
+  <data name="Plugin_ProblemCrashed" xml:space="preserve">
+    <value>crashed while loading</value>
+  </data>
+  <data name="Plugin_ProblemLoadFailedFormat" xml:space="preserve">
+    <value>did not load: {0}</value>
+  </data>
+  <data name="Plugin_ProblemVst2" xml:space="preserve">
+    <value>looks like VST2: only VST3 is supported</value>
+  </data>
+  <data name="Plugin_ProblemBits32" xml:space="preserve">
+    <value>32-bit: only 64-bit plug-ins are supported</value>
+  </data>
+  <data name="Plugin_ProblemNoX64" xml:space="preserve">
+    <value>no 64-bit Windows version in the bundle</value>
+  </data>
+  <data name="Plugin_ProblemInstrument" xml:space="preserve">
+    <value>instrument: only effects are supported</value>
+  </data>
+  <data name="Plugin_ProblemNoEffects" xml:space="preserve">
+    <value>no audio effects in the file</value>
+  </data>
+  <data name="Plugin_ClockMenu" xml:space="preserve">
+    <value>Compute on the clock of…</value>
+  </data>
+  <data name="Plugin_ClockTip" xml:space="preserve">
+    <value>A bus with plug-ins is computed once, in the thread of one output; the other outputs get it through a buffer with extra latency.</value>
+  </data>
+  <data name="Plugin_ClockAuto" xml:space="preserve">
+    <value>Automatically</value>
+  </data>
+  <data name="Settings_PluginsHeader" xml:space="preserve">
+    <value>VST3 PLUG-INS</value>
+  </data>
+  <data name="Settings_PluginsText" xml:space="preserve">
+    <value>Plug-ins are looked for in the standard VST3 folders and in the folders below.</value>
+  </data>
+  <data name="Settings_PluginFolderAdd" xml:space="preserve">
+    <value>Add folder…</value>
+  </data>
+  <data name="Settings_PluginFolderRemove" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="Settings_PluginFolderPick" xml:space="preserve">
+    <value>Folder with VST3 plug-ins</value>
+  </data>
+  <data name="Settings_PluginRescan" xml:space="preserve">
+    <value>Rescan all</value>
+  </data>
+  <data name="Settings_PluginRescanTip" xml:space="preserve">
+    <value>Check every plug-in again, without the cache</value>
+  </data>
+  <data name="Settings_PluginScanDoneFormat" xml:space="preserve">
+    <value>Effects found: {0}, did not load: {1}.</value>
+  </data>
 </root>
