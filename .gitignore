@@ -5,3 +5,4 @@ probe-out/
 .vs/
 TestResults/
 dist/
+src/Mixer.PluginHost/build/
