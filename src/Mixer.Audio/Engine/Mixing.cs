@@ -5,15 +5,20 @@ namespace Mixer.Audio.Engine;
 /// <summary>
 /// Экземпляр шины для одного выхода. Шина своих часов не имеет: её считает поток выхода в своём периоде.
 /// Если шина идёт в два выхода, у каждого выхода свой экземпляр со своим состоянием обработки.
+/// Шина с плагинами «закреплена» (VST, «Закреплённая шина»): экземпляр один, в потоке главного выхода, а другие
+/// выходы получают её звук проводами с кольцом (<see cref="Taps"/>) — плагин со своим окном и состоянием один.
 /// Всё, кроме параметров, трогает только поток выхода.
 /// </summary>
 public sealed class BusInstance
 {
     private readonly float[] _buffer;
+    private readonly double _normalPeriod;
     private volatile float _gainL = 1f, _gainR = 1f;
     private volatile bool _muted;
+    private volatile Wire[] _taps = [];
     private StereoGain _gain;
     private int _rate;
+    private bool _clockOn;
 
     public string BusId { get; }
     /// <summary>Выход, по часам которого считается этот экземпляр.</summary>
@@ -21,11 +26,29 @@ public sealed class BusInstance
     public PeakMeter Peak { get; } = new();
     public ProcessingChain Chain { get; } = new();
 
-    public BusInstance(string busId, string outputId, int maxFrames)
+    /// <summary>Часы закреплённой шины для её отводов: идут по выходу, который её считает.</summary>
+    public SourceClock Clock { get; } = new();
+
+    /// <param name="periodMs">Обычный период выхода (<see cref="EngineOptions.PeriodMs"/>): от него дедлайн плагинов.</param>
+    public BusInstance(string busId, string outputId, int maxFrames, double periodMs = 10)
     {
         BusId = busId;
         OutputId = outputId;
+        _normalPeriod = periodMs / 1000.0;
         _buffer = new float[Math.Max(1, maxFrames) * 2];
+    }
+
+    /// <summary>Провода из этой шины в другие выходы (их кольца читают потоки тех выходов).</summary>
+    public Wire[] Taps => _taps;
+
+    internal void PublishTaps(Wire[] taps) => _taps = taps;
+
+    /// <summary>Поток выхода закончил сессию: отводы узнают, что источник остановился.</summary>
+    internal void StopClock()
+    {
+        if (!_clockOn) return;
+        _clockOn = false;
+        Clock.Stopped();
     }
 
     public void SetGain(float gainDb, float balance, bool muted)
@@ -50,6 +73,7 @@ public sealed class BusInstance
         {
             _rate = rate;
             _gain.Init(rate, _gainL, _gainR, _muted);
+            StopClock();
         }
         var buf = _buffer.AsSpan(0, frames * 2);
         buf.Clear();
@@ -58,10 +82,21 @@ public sealed class BusInstance
             if (wires[i].Render(buf, scratch, frames, rate, nowTicks, periodSeconds)) glitches++;
         var links = step.Links;
         for (int i = 0; i < links.Length; i++) links[i].MixInto(buf, frames, rate);
-        Chain.Process(buf, frames, rate);
+        double period = periodSeconds > 0 ? periodSeconds : _normalPeriod;
+        Chain.Process(buf, frames, rate, PluginSlot.Deadline(nowTicks, period));
         _gain.SetTargets(_gainL, _gainR, _muted);
         _gain.Apply(buf, frames);
         Peak.Update(buf, frames);
+        var taps = _taps;
+        if (taps.Length > 0)
+        {
+            if (!_clockOn)
+            {
+                Clock.Started(rate, periodSeconds);
+                _clockOn = true;
+            }
+            for (int i = 0; i < taps.Length; i++) taps[i].Write(buf, frames, nowTicks);
+        }
         return glitches;
     }
 }
@@ -158,16 +193,26 @@ public sealed class MixPlan
 }
 
 /// <summary>Что считает один выход: его шины по порядку и провода, которые до него доходят.</summary>
-public sealed record OutputRoute(string OutputId, IReadOnlyList<string> Buses, IReadOnlyList<WireSpec> SourceWires, IReadOnlyList<WireSpec> BusWires);
+public sealed record OutputRoute(string OutputId, IReadOnlyList<string> Buses, IReadOnlyList<WireSpec> SourceWires, IReadOnlyList<WireSpec> BusWires)
+{
+    /// <summary>Провода из закреплённых шин, которые считает другой выход: у каждого своё кольцо по часам этого выхода.</summary>
+    public IReadOnlyList<WireSpec> RemoteWires { get; init; } = [];
+}
 
 /// <summary>
-/// Раскладка снимка по выходам (без устройств и потоков). Для каждого выхода — шины, из которых до него есть путь,
-/// в топологическом порядке, провода от источников в эти шины и в сам выход, провода из этих шин.
+/// Раскладка снимка по выходам (без устройств и потоков). Для каждого выхода — шины, которые он считает, в
+/// топологическом порядке, провода от источников в эти шины и в сам выход, провода из этих шин.
+/// Обычную шину считает каждый выход, в который она ведёт. Закреплённую (с плагинами) — только её главный выход
+/// (<see cref="Clocks"/>); другие выходы получают её звук проводами с кольцом (<see cref="OutputRoute.RemoteWires"/>),
+/// и шины выше неё ради неё не считают.
 /// Шины в цикле и всё, что от них зависит, не считаются (сборка графа циклов не пропускает; это защита).
 /// </summary>
 public static class MixPlanner
 {
-    public static IReadOnlyList<OutputRoute> Plan(EngineGraph graph)
+    public static IReadOnlyList<OutputRoute> Plan(EngineGraph graph) => Plan(graph, out _);
+
+    /// <param name="clocks">Закреплённая шина → её главный выход (шины, которые ни в один выход не ведут, не попадают).</param>
+    public static IReadOnlyList<OutputRoute> Plan(EngineGraph graph, out IReadOnlyDictionary<string, string> clocks)
     {
         var sources = graph.Sources.Select(s => s.Id).ToHashSet();
         var buses = graph.Buses.Select(b => b.Id).ToHashSet();
@@ -175,39 +220,38 @@ public static class MixPlanner
         var seen = new HashSet<(string, string)>();
         foreach (var w in graph.Wires)
             if (w.From != w.To && seen.Add((w.From, w.To))) wires.Add(w);
-
-        var into = new Dictionary<string, List<WireSpec>>();
-        foreach (var w in wires)
-        {
-            if (!into.TryGetValue(w.To, out var list)) into[w.To] = list = [];
-            list.Add(w);
-        }
+        clocks = Clocks(graph, buses, wires);
+        var main = clocks;
 
         var result = new List<OutputRoute>();
         foreach (var o in graph.Outputs)
         {
-            // шины, из которых есть путь в выход (обход назад)
-            var reach = new HashSet<string>();
-            var stack = new Stack<string>();
-            stack.Push(o.Id);
-            while (stack.Count > 0)
+            // шины этого выхода: закреплённые за ним и обычные, у которых есть потребитель здесь
+            var needed = main.Where(kv => kv.Value == o.Id).Select(kv => kv.Key).ToHashSet();
+            bool changed = true;
+            while (changed)
             {
-                string n = stack.Pop();
-                foreach (var w in into.GetValueOrDefault(n, []))
-                    if (buses.Contains(w.From) && reach.Add(w.From)) stack.Push(w.From);
+                changed = false;
+                foreach (var w in wires)
+                {
+                    if (!buses.Contains(w.From) || needed.Contains(w.From) || IsPinned(graph, w.From)) continue;
+                    if (w.To != o.Id && !needed.Contains(w.To)) continue;
+                    needed.Add(w.From);
+                    changed = true;
+                }
             }
 
-            // Кан: шина готова, когда посчитаны все шины, идущие в неё
-            var indeg = reach.ToDictionary(b => b, b => into.GetValueOrDefault(b, []).Count(w => reach.Contains(w.From)));
+            // Кан: шина готова, когда посчитаны все шины этого выхода, идущие в неё
+            var indeg = needed.ToDictionary(b => b, b => wires.Count(w => w.To == b && needed.Contains(w.From)));
             var order = new List<string>();
-            var ready = new Queue<string>(graph.Buses.Select(b => b.Id).Where(b => reach.Contains(b) && indeg[b] == 0));
+            var ready = new Queue<string>(graph.Buses.Select(b => b.Id).Where(b => needed.Contains(b) && indeg[b] == 0));
             while (ready.Count > 0)
             {
                 string b = ready.Dequeue();
                 order.Add(b);
                 foreach (var w in wires)
                 {
-                    if (w.From != b || !reach.Contains(w.To)) continue;
+                    if (w.From != b || !needed.Contains(w.To)) continue;
                     if (--indeg[w.To] == 0) ready.Enqueue(w.To);
                 }
             }
@@ -216,8 +260,40 @@ public static class MixPlanner
 
             var srcWires = wires.Where(w => sources.Contains(w.From) && Target(w.To)).ToList();
             var busWires = wires.Where(w => ok.Contains(w.From) && Target(w.To)).ToList();
-            result.Add(new OutputRoute(o.Id, order, srcWires, busWires));
+            var remote = wires.Where(w => main.TryGetValue(w.From, out var m) && m != o.Id && Target(w.To)).ToList();
+            result.Add(new OutputRoute(o.Id, order, srcWires, busWires) { RemoteWires = remote });
         }
         return result;
+    }
+
+    private static bool IsPinned(EngineGraph graph, string busId) => graph.Buses.Any(b => b.Id == busId && b.Pinned);
+
+    /// <summary>
+    /// Главный выход каждой закреплённой шины: выбранный пользователем (<see cref="BusSpec.ClockOutput"/>), если шина
+    /// в него ведёт; иначе выход с «Низкой задержкой» (период короче), иначе первый по порядку.
+    /// </summary>
+    private static Dictionary<string, string> Clocks(EngineGraph graph, HashSet<string> buses, List<WireSpec> wires)
+    {
+        var clocks = new Dictionary<string, string>();
+        var outputs = graph.Outputs.OrderByDescending(o => o.LowLatency).ToList(); // OrderBy устойчив: дальше — порядок графа
+        foreach (var b in graph.Buses.Where(b => b.Pinned))
+        {
+            var reach = new HashSet<string>();
+            var stack = new Stack<string>([b.Id]);
+            var visited = new HashSet<string>([b.Id]);
+            while (stack.Count > 0)
+            {
+                string n = stack.Pop();
+                foreach (var w in wires)
+                {
+                    if (w.From != n) continue;
+                    if (buses.Contains(w.To)) { if (visited.Add(w.To)) stack.Push(w.To); }
+                    else reach.Add(w.To);
+                }
+            }
+            string? main = b.ClockOutput is { } c && reach.Contains(c) ? c : outputs.FirstOrDefault(o => reach.Contains(o.Id))?.Id;
+            if (main is not null) clocks[b.Id] = main;
+        }
+        return clocks;
     }
 }

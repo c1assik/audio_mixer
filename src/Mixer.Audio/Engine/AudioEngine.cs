@@ -14,6 +14,8 @@ public sealed record SourceSpec(string Id, SourceKind Kind, string EndpointId, f
     public ChainSettings? Chain { get; init; }
     /// <summary>«Низкая задержка» (IAudioClient3): только у входа устройства.</summary>
     public bool LowLatency { get; init; }
+    /// <summary>Слоты плагинов цепочки (их создаёт и ведёт управляющий слой).</summary>
+    public IReadOnlyList<PluginSlot> Plugins { get; init; } = [];
 }
 
 /// <summary>Выход в снимке маршрутизации.</summary>
@@ -22,12 +24,18 @@ public sealed record OutputSpec(string Id, string EndpointId, float GainDb = 0, 
     public ChainSettings? Chain { get; init; }
     /// <summary>«Низкая задержка» (IAudioClient3).</summary>
     public bool LowLatency { get; init; }
+    public IReadOnlyList<PluginSlot> Plugins { get; init; } = [];
 }
 
 /// <summary>Шина: своих часов нет, считается в периоде каждого выхода, в который ведёт.</summary>
 public sealed record BusSpec(string Id, float GainDb = 0, bool Muted = false, float Balance = 0)
 {
     public ChainSettings? Chain { get; init; }
+    public IReadOnlyList<PluginSlot> Plugins { get; init; } = [];
+    /// <summary>Главный выход закреплённой шины, выбранный пользователем (null — выбирает движок).</summary>
+    public string? ClockOutput { get; init; }
+    /// <summary>С плагинами шина считается один раз, в потоке главного выхода (<see cref="MixPlanner"/>).</summary>
+    public bool Pinned => Plugins.Count > 0;
 }
 
 /// <summary>Провод в снимке маршрутизации: источник или шина → шина или выход.</summary>
@@ -171,6 +179,7 @@ public sealed class AudioEngine : IDisposable
                 cur.SetGain(s.GainDb, s.Balance, s.Muted);
                 cur.Mono = s.Mono;
                 cur.Chain.Set(s.Chain);
+                cur.Chain.SetPlugins(s.Plugins);
             }
             foreach (var (id, node) in _sources)
                 if (!newSources.ContainsKey(id)) toStop.Add(node);
@@ -193,6 +202,7 @@ public sealed class AudioEngine : IDisposable
                 }
                 cur.SetGain(o.GainDb, 0, o.Muted);
                 cur.Chain.Set(o.Chain);
+                cur.Chain.SetPlugins(o.Plugins);
             }
             foreach (var (id, node) in _outputs)
                 if (!newOutputs.ContainsKey(id)) toStop.Add(node);
@@ -205,21 +215,30 @@ public sealed class AudioEngine : IDisposable
             var newBuses = new Dictionary<(string, string), BusInstance>();
             var newLinks = new Dictionary<(string, string, string), BusLink>();
             var plans = new Dictionary<string, MixPlan>();
-            foreach (var route in MixPlanner.Plan(live))
-            {
-                if (!newOutputs.TryGetValue(route.OutputId, out var dst)) continue;
-                string o = route.OutputId;
-                // выход пересоздан — его шины и провода тоже новые (старые экземпляры знал только старый поток)
-                bool sameOutput = _outputs.GetValueOrDefault(o) == dst;
+            var routes = MixPlanner.Plan(live, out var clocks).Where(r => newOutputs.ContainsKey(r.OutputId)).ToList();
+            // выход пересоздан — его шины и провода тоже новые (старые экземпляры знал только старый поток)
+            bool SameOutput(string o) => _outputs.GetValueOrDefault(o) == newOutputs[o];
 
+            // сначала все экземпляры шин: провод из закреплённой шины берёт экземпляр из маршрута её главного выхода
+            foreach (var route in routes)
+            {
+                string o = route.OutputId;
                 foreach (string id in route.Buses)
                 {
-                    if (!sameOutput || !_buses.TryGetValue((id, o), out var bus)) bus = new BusInstance(id, o, Options.MaxBlockFrames);
+                    if (!SameOutput(o) || !_buses.TryGetValue((id, o), out var bus)) bus = new BusInstance(id, o, Options.MaxBlockFrames, Options.PeriodMs);
                     var spec = busSpecs[id];
                     bus.SetGain(spec.GainDb, spec.Balance, spec.Muted);
                     bus.Chain.Set(spec.Chain);
+                    bus.Chain.SetPlugins(spec.Plugins);
                     newBuses[(id, o)] = bus;
                 }
+            }
+
+            var taps = new Dictionary<BusInstance, List<Wire>>();
+            foreach (var route in routes)
+            {
+                string o = route.OutputId;
+                bool sameOutput = SameOutput(o);
 
                 Wire WireFor(WireSpec w)
                 {
@@ -234,6 +253,22 @@ public sealed class AudioEngine : IDisposable
                     return wire;
                 }
 
+                // провод из закреплённой шины другого выхода: кольцо, пишет поток того выхода
+                Wire RemoteFor(WireSpec w)
+                {
+                    var from = newBuses[(w.From, clocks[w.From])];
+                    var key = (w.From, w.To, o);
+                    Wire? wire = null;
+                    bool same = sameOutput && _wires.TryGetValue(key, out wire) && wire.Clock == from.Clock;
+                    if (!same) wire = new Wire(w.From, w.To, from.Clock, Options, o);
+                    wire!.GainDb = w.GainDb;
+                    wire.Enabled = w.Enabled;
+                    newWires[key] = wire;
+                    if (!taps.TryGetValue(from, out var list)) taps[from] = list = [];
+                    list.Add(wire);
+                    return wire;
+                }
+
                 BusLink LinkFor(WireSpec w)
                 {
                     var key = (w.From, w.To, o);
@@ -245,19 +280,24 @@ public sealed class AudioEngine : IDisposable
                     return link;
                 }
 
+                Wire[] WiresInto(string to) =>
+                    route.SourceWires.Where(w => w.To == to).Select(WireFor)
+                        .Concat(route.RemoteWires.Where(w => w.To == to && newBuses.ContainsKey((w.From, clocks[w.From]))).Select(RemoteFor)).ToArray();
+
                 var steps = route.Buses.Select(id => new MixStep
                 {
                     Bus = newBuses[(id, o)],
-                    Wires = route.SourceWires.Where(w => w.To == id).Select(WireFor).ToArray(),
+                    Wires = WiresInto(id),
                     Links = route.BusWires.Where(w => w.To == id).Select(LinkFor).ToArray(),
                 }).ToArray();
                 plans[o] = new MixPlan
                 {
                     Steps = steps,
-                    Wires = route.SourceWires.Where(w => w.To == o).Select(WireFor).ToArray(),
+                    Wires = WiresInto(o),
                     Links = route.BusWires.Where(w => w.To == o).Select(LinkFor).ToArray(),
                 };
             }
+            foreach (var bus in newBuses.Values) bus.PublishTaps(taps.TryGetValue(bus, out var t) ? [.. t] : []);
 
             // Удаляемые провода сначала гасим фейдом mute (5 мс), чтобы не было щелчка.
             bool faded = false;
@@ -277,7 +317,7 @@ public sealed class AudioEngine : IDisposable
 
             // ── публикация ──
             foreach (var src in newSources.Values)
-                src.PublishWires(newWires.Values.Where(w => newSources[w.FromId] == src).ToArray());
+                src.PublishWires(newWires.Values.Where(w => newSources.GetValueOrDefault(w.FromId) == src).ToArray());
             foreach (var (id, dst) in newOutputs)
                 dst.PublishPlan(plans.GetValueOrDefault(id) ?? MixPlan.Empty);
 

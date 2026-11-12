@@ -58,6 +58,8 @@ public sealed class Wire
     public const double GapSeconds = 0.1;
 
     private readonly SourceClock _clock;
+    /// <summary>Часы писателя: источник или закреплённая шина.</summary>
+    internal SourceClock Clock => _clock;
     private readonly EngineOptions _opt;
     private readonly SpscRing _ring;
 

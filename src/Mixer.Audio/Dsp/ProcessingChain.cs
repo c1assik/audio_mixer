@@ -128,13 +128,44 @@ public sealed class ProcessingChain
 
     public ChainMeters Meters { get; } = new();
 
+    /// <summary>Слоты плагинов: «до» и «после» встроенной обработки, по порядку.</summary>
+    private sealed record Slots(PluginSlot[] Pre, PluginSlot[] Post)
+    {
+        public static readonly Slots None = new([], []);
+        public bool Any => Pre.Length + Post.Length > 0;
+    }
+
+    private volatile Slots _slots = Slots.None;
+
     /// <summary>Управляющий поток: новые настройки (null — без обработки).</summary>
     public void Set(ChainSettings? settings) => _pending = settings;
 
     public ChainSettings? Settings => _pending;
 
-    /// <summary>Аудиопоток: обработать блок interleaved-стерео на месте.</summary>
-    public void Process(Span<float> stereo, int frames, int sampleRate)
+    /// <summary>Управляющий поток: слоты плагинов по порядку (группа — <see cref="PluginSlot.Post"/>).</summary>
+    public void SetPlugins(IReadOnlyList<PluginSlot>? slots) =>
+        _slots = slots is not { Count: > 0 } ? Slots.None : new(slots.Where(s => !s.Post).ToArray(), slots.Where(s => s.Post).ToArray());
+
+    public IReadOnlyList<PluginSlot> Plugins => [.. _slots.Pre, .. _slots.Post];
+
+    /// <summary>Задержка всех плагинов цепочки, кадры.</summary>
+    public int LatencySamples
+    {
+        get
+        {
+            var s = _slots;
+            int sum = 0;
+            foreach (var p in s.Pre) sum += p.LatencySamples;
+            foreach (var p in s.Post) sum += p.LatencySamples;
+            return sum;
+        }
+    }
+
+    /// <summary>
+    /// Аудиопоток: обработать блок interleaved-стерео на месте: плагины «до» → гейт → EQ → компрессор → плагины «после».
+    /// <paramref name="deadlineQpc"/> — дедлайн плагинов (<see cref="PluginSlot.Deadline"/>); 0 — 40% длины блока от сейчас.
+    /// </summary>
+    public void Process(Span<float> stereo, int frames, int sampleRate, long deadlineQpc = 0)
     {
         var p = _pending;
         if (sampleRate != _rate)
@@ -145,20 +176,28 @@ public sealed class ProcessingChain
         {
             Retarget(p, _rampFrames);
         }
-        if (_idle) return;
+        var slots = _slots;
+        if (_idle && !slots.Any) return;
+        if (slots.Any && deadlineQpc == 0)
+            deadlineQpc = PluginSlot.Deadline(System.Diagnostics.Stopwatch.GetTimestamp(), frames / (double)sampleRate);
 
         Meters.In.Update(stereo, frames);
-        Span<float> dry = stackalloc float[Chunk * 2];
-        for (int off = 0; off < frames; off += Chunk)
+        foreach (var s in slots.Pre) s.Process(stereo, frames, sampleRate, deadlineQpc);
+        if (!_idle)
         {
-            int n = Math.Min(Chunk, frames - off);
-            var block = stereo.Slice(off * 2, n * 2);
-            if (_gMix.Cur > 0 || _gMix.Target > 0) RunGate(block, dry, n);
-            if (_eMix.Cur > 0 || _eMix.Target > 0) RunEq(block, dry, n);
-            if (_cMix.Cur > 0 || _cMix.Target > 0) RunComp(block, dry, n);
+            Span<float> dry = stackalloc float[Chunk * 2];
+            for (int off = 0; off < frames; off += Chunk)
+            {
+                int n = Math.Min(Chunk, frames - off);
+                var block = stereo.Slice(off * 2, n * 2);
+                if (_gMix.Cur > 0 || _gMix.Target > 0) RunGate(block, dry, n);
+                if (_eMix.Cur > 0 || _eMix.Target > 0) RunEq(block, dry, n);
+                if (_cMix.Cur > 0 || _cMix.Target > 0) RunComp(block, dry, n);
+            }
+            UpdateIdle();
         }
+        foreach (var s in slots.Post) s.Process(stereo, frames, sampleRate, deadlineQpc);
         Meters.Out.Update(stereo, frames);
-        UpdateIdle();
     }
 
     private void UpdateIdle()

@@ -6,7 +6,9 @@ using Mixer.Core.Apps;
 using Mixer.Core.Cables;
 using Mixer.Core.Config;
 using Mixer.Core.Graph;
+using Mixer.Core.Plugins;
 using Mixer.Core.Sys;
+using Mixer.Plugins.Catalog;
 
 namespace Mixer.Core.Host;
 
@@ -23,6 +25,8 @@ public sealed record MixerHostOptions
     public double ResumeDelaySeconds { get; init; } = 1.0;
     /// <summary>Опрос списка устройств, если Windows не приняла подписку IMMNotificationClient, с.</summary>
     public double DevicePollSeconds { get; init; } = 3.0;
+    /// <summary>Слоты плагинов; Find не задан — каталог из кэша, а пропавший плагин запускает скан стандартных папок.</summary>
+    public PluginRackOptions Plugins { get; init; } = new();
 }
 
 /// <summary>Неизменяемый снимок состояния для интерфейса (читается из любого потока).</summary>
@@ -54,6 +58,10 @@ public sealed record HostStatus
     /// <summary>Назначения кабеля микрофоном (micFor) по exe: Bound — приложению назначен выход кабеля.</summary>
     public IReadOnlyDictionary<string, AppBinding> MicBindings { get; init; } = new Dictionary<string, AppBinding>();
     public IReadOnlyList<string> MicApps { get; init; } = [];
+    /// <summary>Слоты плагинов на последнем такте.</summary>
+    public IReadOnlyList<PluginSlotStatus> Plugins { get; init; } = [];
+    /// <summary>Источник приходит в выход путями с разной задержкой плагинов (больше 2 мс).</summary>
+    public IReadOnlyList<LatencyMismatch> LatencyWarnings { get; init; } = [];
     /// <summary>Предупреждения узлов-кабелей по ID узла (<see cref="CableChecks"/>).</summary>
     public IReadOnlyDictionary<string, IReadOnlyList<string>> CableWarnings { get; init; } = new Dictionary<string, IReadOnlyList<string>>();
 }
@@ -126,6 +134,10 @@ public sealed class MixerHost : IDisposable
 
     public AudioEngine Engine { get; }
     public HostStatus Status => _status;
+    /// <summary>Слоты плагинов схемы.</summary>
+    public PluginRack Plugins { get; }
+    private PluginCatalog? _catalog;
+    private bool _catalogRefreshed;
 
     /// <summary>События для журнала (из управляющего потока).</summary>
     public event Action<string>? Log;
@@ -137,6 +149,12 @@ public sealed class MixerHost : IDisposable
         _save = save;
         _opt = options ?? new MixerHostOptions();
         Engine = new AudioEngine(engineOptions);
+        var po = _opt.Plugins;
+        Plugins = new PluginRack(po with
+        {
+            MaxFrames = Engine.Options.MaxBlockFrames,
+            Find = po.Find ?? FindPlugin,
+        }, m => Emit(m));
         _deviceEvents = new Debounce(_opt.DeviceDebounceSeconds, Math.Max(2.0, _opt.DeviceDebounceSeconds * 4));
         _resume = new Debounce(_opt.ResumeDelaySeconds, _opt.ResumeDelaySeconds * 3);
     }
@@ -371,6 +389,7 @@ public sealed class MixerHost : IDisposable
 
     private void Tick()
     {
+        Plugins.Tick();
         double slept = _sleep.SleptSeconds();
         if (slept > 0 && Now - _lastResume > 5 && !_resume.Pending)
         {
@@ -539,6 +558,7 @@ public sealed class MixerHost : IDisposable
     private void Rebuild(AppSnapshot world, string reason, Func<string, bool>? restart = null, bool reopenSessions = false)
     {
         CheckSink(world);
+        Plugins.Sync(_graph);
         var ctx = new RuntimeContext
         {
             ProcessLoopbackUnavailable = _plError,
@@ -549,6 +569,7 @@ public sealed class MixerHost : IDisposable
             VoicemeeterRunning = SinkValidator.IsVoicemeeterRunning(world.Processes),
             PlanSystem = exes => SystemCapture.Plan(world, exes),
             DirectRoutes = _takeOver is not null,
+            Plugins = Plugins.Slots,
         };
         var build = GraphBuilder.Build(_graph, _devices, _opt.AllowFeedback, ctx);
         if (_takeOver is not null)
@@ -642,6 +663,28 @@ public sealed class MixerHost : IDisposable
             Emit($"{exe}: session volume restored to 100%");
         foreach (var (exe, error) in _direct.Errors) Emit($"{exe}: {error}");
         if (_direct.Any && _meterDue < Now) _meterDue = Now;
+    }
+
+    /// <summary>
+    /// Плагин по GUID класса, когда пути из схемы нет: каталог из кэша. Не нашли — один раз за запуск скан стандартных
+    /// папок в фоне, потом слоты «плагин не найден» пробуют снова (переустановка в другую папку ничего не ломает).
+    /// </summary>
+    private string? FindPlugin(string classId)
+    {
+        _catalog ??= new PluginCatalog(new PluginScanner(_opt.Plugins.HostExe, log: Emit), log: Emit);
+        if (_catalog.Find(classId) is { } e) return e.Module.Path;
+        if (!_catalogRefreshed)
+        {
+            _catalogRefreshed = true;
+            var catalog = _catalog;
+            _ = Task.Run(async () =>
+            {
+                try { await catalog.RefreshAsync(PluginFiles.StandardFolders).ConfigureAwait(false); }
+                catch (Exception ex) when (ex is IOException or InvalidOperationException) { Emit("plug-in scan failed: " + ex.Message); }
+                Post(Plugins.RetryMissing);
+            });
+        }
+        return null;
     }
 
     public string DescribeSource(string engineId)
@@ -894,6 +937,7 @@ public sealed class MixerHost : IDisposable
 
     private void Publish()
     {
+        var slots = Plugins.Status;
         _status = new HostStatus
         {
             Build = _build,
@@ -914,6 +958,8 @@ public sealed class MixerHost : IDisposable
             MicBindings = _mic is null ? new Dictionary<string, AppBinding>() : new Dictionary<string, AppBinding>(_mic.Status, StringComparer.OrdinalIgnoreCase),
             MicApps = _graph.MicApps.ToList(),
             CableWarnings = _cableWarnings,
+            Plugins = slots,
+            LatencyWarnings = slots.Count == 0 ? [] : PluginLatency.Mismatches(_graph, PluginLatency.ByNode(slots)),
         };
     }
 
@@ -998,6 +1044,7 @@ public sealed class MixerHost : IDisposable
                     _power?.Dispose();
                     _notifier?.Dispose();
                     Engine.Dispose();
+                    Plugins.Dispose(); // после движка: аудиопотоки уже не зовут хосты
                     if (_takeOver is not null)
                     {
                         var world = TakeWorld();
@@ -1026,6 +1073,7 @@ public sealed class MixerHost : IDisposable
         {
             _disposed = true;
             Engine.Dispose();
+            Plugins.Dispose();
         }
     }
 }
