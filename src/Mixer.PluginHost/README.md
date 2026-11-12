@@ -2,7 +2,7 @@
 
 The process that hosts one VST3 plug-in for the mixer (see «Микшер для Windows: поддержка VST», sections «Архитектура» and «Протокол обмена с хостом»). C++20, MSVC, CMake, VST3 SDK 3.8 (MIT), JSON for Modern C++ 3.11 (MIT).
 
-**State: VST stage 1.** The audio channel, the control pipe with all messages of the specification, the editor window, even blocks, built-in test plug-ins. The mixer side is [src/Mixer.Plugins](../Mixer.Plugins) (`PluginHost`, `AudioLink`). The exe is embedded in `Mixer.exe` and extracted on first use to `%LocalAppData%\Mixer\bin\<version>-<sha8>\` together with the license texts.
+**State: VST stage 2** (`--scan`). The audio channel, the control pipe with all messages of the specification, the editor window, even blocks, built-in test plug-ins. The mixer side is [src/Mixer.Plugins](../Mixer.Plugins) (`PluginHost`, `AudioLink`). The exe is embedded in `Mixer.exe` and extracted on first use to `%LocalAppData%\Mixer\bin\<version>-<sha8>\` together with the license texts.
 
 ## Build
 
@@ -13,7 +13,7 @@ winget install Microsoft.VisualStudio.2022.BuildTools --override "--quiet --wait
 ./tools/build-pluginhost.ps1            # Release; -Config Debug; -NoAgain to skip the SDK example
 ```
 
-Output: `build/bin/Mixer.PluginHost.exe` (about 0.8 MB) and the SDK example `build/VST3/Release/again.vst3`. CMake downloads the SDK from tag `v3.8.1_build_84` (only `base`, `cmake`, `pluginterfaces`, `public.sdk`, plus `vstgui4` for AGain) and `json.tar.xz` 3.11.3 (checked by SHA-256). To use a local SDK, pass `-DMIXER_VST3_SDK_DIR=<path>`. The CRT is static, so the exe needs no VC++ Redistributable.
+Output: `build/bin/Mixer.PluginHost.exe` (about 0.8 MB), the SDK example `build/VST3/Release/again.vst3` and the scanner's test modules in `build/test-modules/` (`hang.vst3`, `crash.vst3`, `vst2.dll`). CMake downloads the SDK from tag `v3.8.1_build_84` (only `base`, `cmake`, `pluginterfaces`, `public.sdk`, plus `vstgui4` for AGain) and `json.tar.xz` 3.11.3 (checked by SHA-256). To use a local SDK, pass `-DMIXER_VST3_SDK_DIR=<path>`. The CRT is static, so the exe needs no VC++ Redistributable.
 
 Build the host before `dotnet build`: `Mixer.Plugins` embeds `build/bin/Mixer.PluginHost.exe` if it exists, and builds without it otherwise (with a message). `tools/publish.ps1` builds the host itself and refuses to publish without it.
 
@@ -21,6 +21,7 @@ Build the host before `dotnet build`: `Mixer.Plugins` embeds `build/bin/Mixer.Pl
 
 ```
 Mixer.PluginHost --channel <name> --pipe <name> --parent <pid> [--stall-every <blocks> --stall-ms <ms>]
+Mixer.PluginHost --scan <path.vst3>
 ```
 
 | Argument | Meaning |
@@ -29,8 +30,9 @@ Mixer.PluginHost --channel <name> --pipe <name> --parent <pid> [--stall-every <b
 | `--pipe` | control pipe name (`\\.\pipe\<name>`) |
 | `--parent` | the mixer's PID. The host checks that the pipe server is this process and exits when it ends |
 | `--stall-every`, `--stall-ms` | fault injection: every N-th block the host sleeps M ms before `process` |
+| `--scan` | load the module, print its factory's classes as one JSON line to stdout (`{ vendor, classes: [{ cid, category, name, vendor, version, sdkVersion, subCategories }] }` or `{ error }`) and terminate without unloading. Exit code 0, 1 (not loaded) or 5 (crashed) |
 
-The plug-in is loaded by the `load` message, not on the command line. Exit codes: 0 normal exit (quit, pipe closed, parent gone), 2 bad arguments, 3 parent, channel or pipe not found, 5 the plug-in crashed (a line `crashed: exception 0x… at <module>+0x…` goes to stderr first), 6 the pipe closed and the main thread did not finish within 5 s.
+The plug-in is loaded by the `load` message, not on the command line. In a bundle the module is `Contents\x86_64-win\<bundle name>` or, if there is no such file, the only `.vst3` in that folder. Exit codes: 0 normal exit (quit, pipe closed, parent gone), 2 bad arguments, 3 parent, channel or pipe not found, 5 the plug-in crashed (a line `crashed: exception 0x… at <module>+0x…` goes to stderr first), 6 the pipe closed and the main thread did not finish within 5 s.
 
 ## Threads
 

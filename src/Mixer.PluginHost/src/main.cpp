@@ -9,6 +9,7 @@
 
 #include "args.h"
 #include "host.h"
+#include "scan.h"
 #include "public.sdk/source/vst/hosting/hostclasses.h"
 #include "public.sdk/source/vst/hosting/plugprovider.h"
 #include "public.sdk/source/vst/utility/stringconvert.h"
@@ -83,7 +84,9 @@ int wmain(int argc, wchar_t** argv) {
     Steinberg::Vst::PluginContextFactory::instance().setPluginContext(&hostApp);
 
     int code = 0;
-    {
+    if (!args->scan.empty()) {
+        code = Scan(args->scan);
+    } else {
         Host host(*args);
         code = host.Run();
     }

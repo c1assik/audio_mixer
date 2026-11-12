@@ -2,7 +2,9 @@
 
 #include <algorithm>
 #include <cstring>
+#include <filesystem>
 
+#include "args.h"
 #include "pluginterfaces/base/funknownimpl.h"
 #include "pluginterfaces/gui/iplugview.h"
 #include "pluginterfaces/vst/vstspeaker.h"
@@ -45,6 +47,22 @@ private:
     ProcessorEvents& events_;
 };
 
+std::string ResolveModulePath(const std::string& path) {
+    namespace fs = std::filesystem;
+    std::error_code ec;
+    const fs::path bundle(FromUtf8(path));
+    if (!fs::is_directory(bundle, ec)) return path;
+    const fs::path arch = bundle / "Contents" / "x86_64-win";
+    if (fs::exists(arch / bundle.filename(), ec)) return path;
+    fs::path only;
+    for (const auto& e : fs::directory_iterator(arch, ec)) {
+        if (!e.is_regular_file(ec) || e.path().extension() != ".vst3") continue;
+        if (!only.empty()) return path;  // несколько — не угадываем, пусть SDK скажет, чего не нашёл
+        only = e.path();
+    }
+    return only.empty() ? path : ToUtf8(only.wstring());
+}
+
 Vst3Processor::Vst3Processor(ProcessorEvents& events) : events_(events) {}
 
 Vst3Processor::~Vst3Processor() {
@@ -60,7 +78,7 @@ Vst3Processor::~Vst3Processor() {
 
 bool Vst3Processor::Load(const std::string& path, const std::string& classId, std::string& error) {
     std::string moduleError;
-    module_ = VST3::Hosting::Module::create(path, moduleError);
+    module_ = VST3::Hosting::Module::create(ResolveModulePath(path), moduleError);
     if (!module_) {
         error = "cannot load module: " + moduleError;
         return false;

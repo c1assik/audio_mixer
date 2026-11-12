@@ -1,6 +1,6 @@
 # Mixer for Windows: developer notes
 
-The user guide is in the [README](../README.md). The specification and plan (in Russian) is `Микшер для Windows спецификация и план.md` in the repository root; section names from it are quoted below in Russian. Stage 0 (risk check): [tools/Mixer.Probe](../tools/Mixer.Probe/README.md). The v2 specification is `Микшер для Windows v2 спецификация и план.md`; its stage 0 results (captures, new applications, direct route, `IAudioClient3`) are in the same Mixer.Probe README; stages 1 (buses), 2 (processing), 3 (applications), 4 (low latency), 5 (migration and release 2.0), 6 (virtual cables and the setup assistant), 7 (scenes, hotkeys, tray, autostart, themes) and 8 (tests and release 2.1) are described below in «v2 stage 1» … «v2 stage 8». The VST support specification is `Микшер для Windows поддержка VST.md`; its stages 0 (exchange prototype) and 1 (the host) are in «VST stage 0» and «VST stage 1» below.
+The user guide is in the [README](../README.md). The specification and plan (in Russian) is `Микшер для Windows спецификация и план.md` in the repository root; section names from it are quoted below in Russian. Stage 0 (risk check): [tools/Mixer.Probe](../tools/Mixer.Probe/README.md). The v2 specification is `Микшер для Windows v2 спецификация и план.md`; its stage 0 results (captures, new applications, direct route, `IAudioClient3`) are in the same Mixer.Probe README; stages 1 (buses), 2 (processing), 3 (applications), 4 (low latency), 5 (migration and release 2.0), 6 (virtual cables and the setup assistant), 7 (scenes, hotkeys, tray, autostart, themes) and 8 (tests and release 2.1) are described below in «v2 stage 1» … «v2 stage 8». The VST support specification is `Микшер для Windows поддержка VST.md`; its stages 0 (exchange prototype), 1 (the host) and 2 (scanner and catalog) are in «VST stage 0» … «VST stage 2» below.
 
 The UI is in English, or in Russian when Windows is in Russian (see "Localization"). Log messages are in English; code comments are in Russian. Russian strings quoted below are shown as they appear in the Russian UI.
 
@@ -11,10 +11,10 @@ The UI is in English, or in Russian when Windows is in Russian (see "Localizatio
 | `src/Mixer.Audio` | Audio engine and WASAPI interop, no WPF: source and output nodes, wires, buses (per-output instances and mix plans), resamplers, PI controller, ramps, limiter, processing chain (gate, EQ, compressor), peak meters; low-latency streams (`IAudioClient3`) with automatic fallback; process loopback, `IAudioPolicyConfig`, audio sessions with their volume, meter and new-session notifications, probe stream, device change notifications (`IMMNotificationClient`) |
 | `src/Mixer.Core` | Graph model and `graph.json` (scenes, hotkeys, cable links), the cable pairing table and cable checks, the setup assistant's layout builder, the Modular rack layout, device lookup by ID, name and default role, the feedback rule, paths through buses, building the engine snapshot; process snapshot, Take over with the `boundApps` journal, sink validation, watchdog, the `MixerHost` control layer with hot-plug and sleep handling; a WPF-free editor: history, edits (including grouping into a bus), wire validation, layout, store with backups, chain presets, application catalog; file log |
 | `src/Mixer.App` | UI (WPF, CommunityToolkit.Mvvm): graph canvas, cards, wires, palette, settings, processing side panel with the EQ curve, setup assistant, scenes, global hotkeys and push-to-talk, tray icon, autostart, themes (Graphite, Daylight, Modular with its rack view). Builds `Mixer.exe` |
-| `src/Mixer.Plugins` | VST3 plug-ins, the mixer side: starting and supervising `Mixer.PluginHost.exe` (`PluginHost`: Job Object, control pipe, ping), the audio channel (`AudioLink`), the state format, the embedded host and its extraction (`HostBinary`), third-party licenses. No WPF, no audio engine |
+| `src/Mixer.Plugins` | VST3 plug-ins, the mixer side: starting and supervising `Mixer.PluginHost.exe` (`PluginHost`: Job Object, control pipe, ping), the audio channel (`AudioLink`), the state format, the embedded host and its extraction (`HostBinary`), third-party licenses; the scanner and the catalog with its cache (`PluginScanner`, `PluginCatalog`). No WPF, no audio engine |
 | `src/Mixer.PluginHost` | C++ process hosting one VST3 plug-in: audio channel, control pipe, editor window, even blocks, built-in test plug-ins. Built by `tools/build-pluginhost.ps1`, not by `dotnet build`; embedded into `Mixer.Plugins` when built. See its [README](../src/Mixer.PluginHost/README.md) |
 | `licenses` | Texts of third-party licenses shown in Settings → «О программе» |
-| `tools/Mixer.PluginBench` | VST stages 0 and 1: a benchmark of the exchange with the host and a manual check of the editor window |
+| `tools/Mixer.PluginBench` | VST stages 0–2: a benchmark of the exchange with the host, a manual check of the editor window, a scan of the installed plug-ins |
 | `tools/Mixer.Run` | Console host for stages 1–2: runs a JSON graph through `MixerHost` with statistics, lists applications, checks a sink, measures loop latency (also with low latency) |
 | `tests/Mixer.Tests` | xUnit tests without a sound card, including UI view models (on their own STA thread, without a window) |
 | `tools/publish.ps1`, `tools/make-icon.ps1` | Release build of a single `Mixer.exe` and the program icon (stage 5) |
@@ -740,6 +740,36 @@ Manual: the editor window and the exchange benchmark (`Mixer.PluginBench`, see i
 
 - Done: the host with every message, the window, even blocks and test plug-ins; `Mixer.Plugins`; embedding and extraction; CI and `publish.ps1`; licenses and «О программе». 354 tests pass (2 manual sweeps skipped), and the solution builds without warnings. The published single-file `Mixer.exe` (72.6 MB) extracts the host and runs a block.
 - **Not checked**: the editor at more than 100% scaling and when moved between monitors (this machine has one monitor at 100%), a resizable plug-in, plug-ins with license windows, real third-party plug-ins (stage 5), antivirus reactions to the extracted host, a signed release, and the CI run itself.
+
+## VST stage 2: scanner and catalog
+
+Stage 2 of `Микшер для Windows поддержка VST.md`: the `--scan` mode, `moduleinfo.json`, timeouts, the cache, the «не загрузился» and «не поддерживается» lists, the signature check. Nothing in the UI uses the catalog yet (stage 4); `Mixer.PluginBench --scan` prints it.
+
+### How it works
+
+- **Files** (`PluginFiles`): the standard folders are `Common Files\VST3` and `%LOCALAPPDATA%\Programs\Common\VST3`; the caller adds the user's folders. The walk returns `*.vst3` bundles (without entering them), single-file `*.vst3` and `*.dll`, skips folder links and stops 8 levels deep. The module file of a bundle is `Contents\x86_64-win\<bundle name>`, or the only `.vst3` there: Elgato names its DLL `ElgatoEq_v1.3.0.110.vst3` inside `ElgatoEq.vst3`. The host's loader does the same (`ResolveModulePath`), so such plug-ins now load at all; the SDK's loader looks only for the bundle's name.
+- **Without loading** (`PluginFiles.Precheck`, `PEReader`): a bundle with only `x86-win` is 32-bit, one with neither x64 nor x86 (ARM only) has no x64 version; a PE with machine I386 is 32-bit. A `.dll` that exports `VSTPluginMain` or `main` and not `GetPluginFactory` is VST2. Other `.dll` files are not plug-ins and appear nowhere.
+- **Fast path**: a bundle's `Contents\Resources\moduleinfo.json` is read by the mixer itself (comments and trailing commas allowed), without a process. If it can't be parsed, the module is loaded instead.
+- **Slow path**: `Mixer.PluginHost.exe --scan <path>` in its own process in the Job Object: loads the module, prints the factory's classes as one JSON line and terminates without unloading (some plug-ins crash in `ExitDll`). Timeout 10 s, then the process tree is killed: «не ответил за 10 с». A crash ends the process with code 5 and the `crashed: …` line. `ScanAsync(path, withWindow: true)` (`RescanAsync` in the catalog) is «Просканировать с окном»: no timeout, and the scan process may take the foreground.
+- **Catalog** (`PluginCatalog`): effects are classes of category `Audio Module Class` with the `Fx` subcategory; the groups for the picker are the other subcategories (Dynamics, EQ…). «Не загрузились»: crashed, timed out, failed to load. «Не поддерживается»: VST2, 32-bit, no x64 version, a module without audio modules, and instruments (also from modules that have effects). `Find(classId)` finds an effect by its class GUID. `Progress` reports «проверено N из M» after each module.
+- **Cache** `%LocalAppData%\Mixer\plugins.json`: every module with its result, keyed by path, size and modification time of the module file. `RefreshAsync(folders)` drops vanished modules and scans only new and changed ones, one at a time, in the background; `full: true` rescans everything. A broken cache is ignored and rewritten. When to refresh (only if the graph has plug-ins or the picker is open) is the caller's decision, in stages 3–4.
+- **Signature** (`Authenticode`): `WinVerifyTrust` on the module file, without network access or revocation checks; the signer is the certificate's CN. Valid, invalid, or not signed.
+
+### Deviations from the specification
+
+1. **`moduleinfo.json` is read in the mixer**, not in a `--scan` process: no process at all for such bundles.
+2. **Timed-out and crashed modules are cached** like the others, so they are not retried on every start: the user retries with «Просканировать с окном» or a full rescan.
+3. **The host finds a bundle's DLL by its only `.vst3`** when it is not named after the bundle (Elgato).
+
+### Tests
+
+`PluginCatalogTests` (8): `moduleinfo.json` without a process (JSON5, effect, instrument, controller class skipped, vendor from the factory, lookup by GUID); 32-bit, ARM-only and non-plug-in files; the signature of `coreclr.dll` valid (".NET"), invalid after a patch, missing on an empty file; AGain through the factory, and a copy of AGain whose DLL is not named after the bundle scans and loads; the crashing module (`0xC0000005`), the hanging one (timeout) and VST2 without a process; the acceptance scenario: 98 bundles plus a hanging and a crashing module, scanned in the background, then from the cache in under 1 s without a process, then only the changed module is checked and the deleted one disappears; a broken cache. The host build adds three test modules for them in `build/test-modules`: `hang.vst3`, `crash.vst3`, `vst2.dll`.
+
+### Status as of 12 November 2026
+
+- Done: the scan mode, the fast path, the catalog with the cache, the lists, the signature check. 362 tests pass (2 manual sweeps skipped), and the solution builds without warnings.
+- On this machine (`Mixer.PluginBench --scan --full`): 6 effects in 0.31 s — five Elgato bundles through `moduleinfo.json` (signed by Corsair Memory, Inc.) and Basic Noise Gate (single file, unsigned) through the factory; from the cache 0.02 s. Elgato EQ loads and processes in the host.
+- **Not checked**: a plug-in with a license window («Просканировать с окном»), real 32-bit and VST2 plug-ins, catalog-signed files (the signer is then not shown).
 
 ## Localization
 

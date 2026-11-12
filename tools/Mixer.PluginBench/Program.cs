@@ -11,7 +11,7 @@ internal static class Program
 {
     private const string Usage = """
         Mixer.PluginBench — поддержка VST: стоимость обмена с Mixer.PluginHost.exe и память хоста (этап 0),
-        ручная проверка окна редактора (этап 1).
+        ручная проверка окна редактора (этап 1), скан плагинов (этап 2).
 
           Mixer.PluginBench [--plugin <path.vst3> | --builtin] [--frames 480,128] [--minutes 60]
           Mixer.PluginBench --editor [--plugin <path.vst3>] [--png <file.png>] [--close] [--seconds 60]
@@ -33,6 +33,9 @@ internal static class Program
           --png <file>         снять окно в PNG
           --close              закрыть окно самому, не ждать пользователя
           --x --y --w --h      запомненные положение и размер окна (размер — если плагин его меняет)
+
+          --scan [--folder <dir>]... [--full]   этап 2: скан стандартных папок VST3 с кэшем микшера
+                               (%LocalAppData%\Mixer\plugins.json), каталог и списки проблем; --full — без кэша
         """;
 
     private static int Main(string[] argv)
@@ -55,6 +58,8 @@ internal static class Program
             return 2;
         }
 
+        if (o.Scan)
+            return ScanCheck.Run(o.HostExe, o.Folders, o.Full);
         if (o.Editor)
             return EditorCheck.Run(o.HostExe, o.PluginPath!, o.Seconds, o.Png, o.Bounds, o.Close);
 
@@ -323,6 +328,8 @@ internal sealed class Options
     public double Seconds = 60;
     public string? Png;
     public EditorBounds? Bounds;
+    public bool Scan, Full;
+    public List<string> Folders = [];
 
     public static Options Parse(string[] argv)
     {
@@ -350,6 +357,9 @@ internal sealed class Options
                 case "--stall-ms": o.StallMs = (int)Num(); break;
                 case "--out": o.OutPath = Next(); break;
                 case "--editor": o.Editor = true; break;
+                case "--scan": o.Scan = true; break;
+                case "--full": o.Full = true; break;
+                case "--folder": o.Folders.Add(Next()); break;
                 case "--close": o.Close = true; break;
                 case "--seconds": o.Seconds = Num(); break;
                 case "--png": o.Png = Next(); break;
@@ -367,7 +377,7 @@ internal sealed class Options
         string? build = Paths.RepoRoot() is { } root ? Path.Combine(root, "src", "Mixer.PluginHost", "build") : null;
         o.HostExe = host ?? (build != null ? Path.Combine(build, "bin", "Mixer.PluginHost.exe") : "Mixer.PluginHost.exe");
         if (!File.Exists(o.HostExe)) throw new ArgumentException($"нет хоста {o.HostExe}: соберите tools/build-pluginhost.ps1");
-        if (!builtin)
+        if (!builtin && !o.Scan)
         {
             o.PluginPath = plugin ?? (build != null ? Path.Combine(build, "VST3", "Release", "again.vst3") : null);
             if (o.PluginPath == null || !Path.Exists(o.PluginPath)) throw new ArgumentException($"нет плагина {o.PluginPath}");

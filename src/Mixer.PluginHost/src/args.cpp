@@ -52,6 +52,8 @@ std::optional<Args> ParseArgs(int argc, wchar_t** argv, std::string& error) {
             a.pipe = v;
         } else if (key == L"--parent" && (v = value())) {
             if (!ParseUInt(v, a.parentPid)) { error = "bad --parent"; return std::nullopt; }
+        } else if (key == L"--scan" && (v = value())) {
+            a.scan = v;
         } else if (key == L"--stall-every" && (v = value())) {
             if (!ParseUInt(v, a.stallEvery)) { error = "bad --stall-every"; return std::nullopt; }
         } else if (key == L"--stall-ms" && (v = value())) {
@@ -61,6 +63,7 @@ std::optional<Args> ParseArgs(int argc, wchar_t** argv, std::string& error) {
             return std::nullopt;
         }
     }
+    if (!a.scan.empty()) return a;
     if (a.channel.empty()) { error = "--channel is required"; return std::nullopt; }
     if (a.pipe.empty()) { error = "--pipe is required"; return std::nullopt; }
     return a;
