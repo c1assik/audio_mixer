@@ -225,7 +225,14 @@ public sealed class PluginHost : IDisposable
 
         var ready = await RequestAsync(msg, "ready", timeout ?? TimeSpan.FromSeconds(30), ct).ConfigureAwait(false);
         Info = PluginInfo.From(ready);
-        await Task.Run(() => Audio.WarmUp(), ct).ConfigureAwait(false);
+        Task warm;
+        lock (_warmGate)
+        {
+            // Dispose закрывает общую память: прогрев после него читал бы освобождённую секцию (AccessViolation)
+            if (Volatile.Read(ref _disposed) != 0) throw new OperationCanceledException("plug-in host disposed");
+            warm = _warmUp = Task.Run(() => Audio.WarmUp(), ct);
+        }
+        await warm.ConfigureAwait(false);
         return Info;
     }
 
@@ -437,11 +444,19 @@ public sealed class PluginHost : IDisposable
     /// Остановить хост (quit, затем kill) и освободить канал. Аудиопоток к этому моменту не должен звать
     /// <see cref="AudioLink.Process"/>.
     /// </summary>
+    private readonly object _warmGate = new();
+    private Task _warmUp = Task.CompletedTask;
+
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
         try { StopAsync(TimeSpan.FromSeconds(2)).GetAwaiter().GetResult(); }
         catch (Exception e) { Log($"Plug-in host {ProcessId}: stop failed: {e.Message}"); }
+        Task warm;
+        lock (_warmGate) warm = _warmUp;
+        // хост остановлен: блок прогрева не дождётся ответа и закончится за свой дедлайн (1 с)
+        try { warm.Wait(TimeSpan.FromSeconds(3)); }
+        catch (AggregateException) { }
         _heartbeat.Dispose();
         _cts.Cancel();
         _pipe.Dispose();

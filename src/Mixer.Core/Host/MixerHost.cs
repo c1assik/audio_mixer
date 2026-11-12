@@ -27,6 +27,8 @@ public sealed record MixerHostOptions
     public double DevicePollSeconds { get; init; } = 3.0;
     /// <summary>Слоты плагинов; Find не задан — каталог из кэша, а пропавший плагин запускает скан стандартных папок.</summary>
     public PluginRackOptions Plugins { get; init; } = new();
+    /// <summary>Свои папки плагинов из настроек (к стандартным папкам VST3).</summary>
+    public Func<IEnumerable<string>>? PluginFolders { get; init; }
 }
 
 /// <summary>Неизменяемый снимок состояния для интерфейса (читается из любого потока).</summary>
@@ -138,6 +140,13 @@ public sealed class MixerHost : IDisposable
     public PluginRack Plugins { get; }
     private PluginCatalog? _catalog;
     private bool _catalogRefreshed;
+
+    /// <summary>Каталог плагинов (кэш plugins.json); обновляет его выбор плагина или пропавший плагин схемы.</summary>
+    public PluginCatalog Catalog =>
+        LazyInitializer.EnsureInitialized(ref _catalog, () => new PluginCatalog(new PluginScanner(_opt.Plugins.HostExe, log: Emit), log: Emit));
+
+    /// <summary>Где искать плагины: стандартные папки VST3 и свои из настроек.</summary>
+    public IEnumerable<string> PluginFolders => PluginFiles.StandardFolders.Concat(_opt.PluginFolders?.Invoke() ?? []);
 
     /// <summary>События для журнала (из управляющего потока).</summary>
     public event Action<string>? Log;
@@ -671,15 +680,15 @@ public sealed class MixerHost : IDisposable
     /// </summary>
     private string? FindPlugin(string classId)
     {
-        _catalog ??= new PluginCatalog(new PluginScanner(_opt.Plugins.HostExe, log: Emit), log: Emit);
-        if (_catalog.Find(classId) is { } e) return e.Module.Path;
+        var catalog = Catalog;
+        if (catalog.Find(classId) is { } e) return e.Module.Path;
         if (!_catalogRefreshed)
         {
             _catalogRefreshed = true;
-            var catalog = _catalog;
+            var folders = PluginFolders.ToList();
             _ = Task.Run(async () =>
             {
-                try { await catalog.RefreshAsync(PluginFiles.StandardFolders).ConfigureAwait(false); }
+                try { await catalog.RefreshAsync(folders).ConfigureAwait(false); }
                 catch (Exception ex) when (ex is IOException or InvalidOperationException) { Emit("plug-in scan failed: " + ex.Message); }
                 Post(Plugins.RetryMissing);
             });

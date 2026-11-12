@@ -1,6 +1,6 @@
 # Mixer for Windows: developer notes
 
-The user guide is in the [README](../README.md). The specification and plan (in Russian) is `Микшер для Windows спецификация и план.md` in the repository root; section names from it are quoted below in Russian. Stage 0 (risk check): [tools/Mixer.Probe](../tools/Mixer.Probe/README.md). The v2 specification is `Микшер для Windows v2 спецификация и план.md`; its stage 0 results (captures, new applications, direct route, `IAudioClient3`) are in the same Mixer.Probe README; stages 1 (buses), 2 (processing), 3 (applications), 4 (low latency), 5 (migration and release 2.0), 6 (virtual cables and the setup assistant), 7 (scenes, hotkeys, tray, autostart, themes) and 8 (tests and release 2.1) are described below in «v2 stage 1» … «v2 stage 8». The VST support specification is `Микшер для Windows поддержка VST.md`; its stages 0 (exchange prototype), 1 (the host), 2 (scanner and catalog) and 3 (the engine) are in «VST stage 0» … «VST stage 3» below.
+The user guide is in the [README](../README.md). The specification and plan (in Russian) is `Микшер для Windows спецификация и план.md` in the repository root; section names from it are quoted below in Russian. Stage 0 (risk check): [tools/Mixer.Probe](../tools/Mixer.Probe/README.md). The v2 specification is `Микшер для Windows v2 спецификация и план.md`; its stage 0 results (captures, new applications, direct route, `IAudioClient3`) are in the same Mixer.Probe README; stages 1 (buses), 2 (processing), 3 (applications), 4 (low latency), 5 (migration and release 2.0), 6 (virtual cables and the setup assistant), 7 (scenes, hotkeys, tray, autostart, themes) and 8 (tests and release 2.1) are described below in «v2 stage 1» … «v2 stage 8». The VST support specification is `Микшер для Windows поддержка VST.md`; its stages 0 (exchange prototype), 1 (the host), 2 (scanner and catalog), 3 (the engine) and 4 (the UI) are in «VST stage 0» … «VST stage 4» below.
 
 The UI is in English, or in Russian when Windows is in Russian (see "Localization"). Log messages are in English; code comments are in Russian. Russian strings quoted below are shown as they appear in the Russian UI.
 
@@ -563,7 +563,39 @@ The application was a `Mixer.Probe tone` (−70 dBFS, automatic stream routing).
 | Microphone → headphones ≤ 25 ms on a card with small buffers | **not checked**: no such card on the developer machine (stage 4). In the model the wire takes 6 ms at 128 frames instead of 20 ms |
 | A v1 layout sounds the same after migration; `graph.v1.json` is kept | met: `MigrationV2Tests` (a v1 file gives the same engine snapshot: sources, outputs, wires, levels, no processing or buses; the copy is byte-identical and isn't overwritten). The user's own v1 graph was upgraded and played through on 10 November |
 
-### Localization
+### VST stage 4: the UI
+
+Stage 4 of `Микшер для Windows поддержка VST.md`: slots in the processing panel, the plug-in picker, the parameter list, the FX chip, the 4HP module in Modular, EN/RU strings, state files and slot presets.
+
+### How it works
+
+- **Processing panel.** «Плагины до» above the gate and «Плагины после» below the compressor, each with up to two slot rows and «+ Плагин». A row: drag handle, name and vendor, switch, «Открыть», «⋯»; under it the slot's output meter, latency («+10,7 мс») and load («4%»). A failed slot has a red frame, says what happened and offers «Перезапустить» (`PluginRack.Restart`). Dragging a row by its handle reorders it or moves it to the other group (two per group). «⋯»: replace, move to the other group, save preset (the name is typed in the menu), load preset, even blocks, remove. Every change is a graph edit through the history (`PluginEdits`), so Ctrl+Z works.
+- **«Открыть»** opens the plug-in's own window in its host (`OpenEditor` with the main window as owner, title «Плагин — Узел», last position and size). When it closes, the bounds go into the slot (`editor` in `graph.json`) and the state is taken. A plug-in without a window gets its parameter list in the panel instead: title, slider, value text from the plug-in; hidden, read-only and bypass parameters are not shown. One `PluginSlotViewModel` per slot (`MainViewModel.SlotVm`) holds the host subscriptions.
+- **The picker** is the palette in a third mode: search by name and vendor, «Недавние» (last 8, `settings.json`), the plug-ins' categories, «Не загрузились» (Enter scans the module again with its window, no timeout) and «Не поддерживается» with reasons; the subtitle shows the signer. The cache is shown at once; opening the picker refreshes the catalog (standard folders plus the user's) in the background, with «проверено N из M», and new plug-ins appear as they are found. A new slot gets a fresh ID (one whose state file does not exist yet) and the state file `plugins/<node>-<slot>.state`.
+- **Node card**: chip «FX n» (slots switched on) next to Gate · EQ · Comp; a yellow dot when a slot has failed. Outputs show the latency warning for parallel paths (both paths and the difference). **Modular**: each slot is a 4HP module (29 px) docked to the right of its node module, with the name vertical, an LED (on) and EDIT; the rack is wider by that much per slot. A bus with plug-ins has «Считать по часам…» in its menu (automatic or one of the outputs it reaches).
+- **State files** (`PluginRack`): written atomically to `%AppData%\Mixer\plugins\` (next to `graph.json`; `StateFolder`) 2 s after the last `dirty`, when the editor closes, when a preset is saved or loaded, and for every running plug-in on exit (up to 3 s). A slot reloaded for the same plug-in (even blocks, path) keeps its unsaved state. **Slot presets**: `presets\<classId>\<name>.state`; loading one is `setState` on the running plug-in and is written to the slot's file.
+- **Scenes** keep only which slots are on (`scene.nodes.<id>.plugins`), not plug-in state.
+- **Settings → «Плагины VST3»**: the user's folders (added to the standard ones for the picker and for finding missing plug-ins) and «Пересканировать всё» (full rescan, then missing slots retry).
+
+### Deviations from the specification
+
+1. **The picker is the «Добавить источник» palette in a plug-in mode**, not a separate window. «Не поддерживается» is listed there too.
+2. **State files are never deleted**, so undoing a removed slot and restoring a graph backup still find their state; a new slot skips IDs whose file is left over. Backups therefore don't copy the `plugins` folder.
+3. **Moving the editor window is a history step** (merged per window), so Ctrl+Z after closing an editor moves its saved position back.
+4. **A slot preset can be saved only while the plug-in runs** (the state comes from the plug-in); without audio (`--no-audio`) the menu says that the plug-in is not running.
+5. **The wire tooltip to a non-main output of a pinned bus does not show the extra ring latency yet.**
+6. **Fix in `PluginHost`**: disposing a host while it was warming up after `ready` unmapped the shared section under the warm-up thread (`AccessViolationException`, the whole process). `Dispose` now waits for the warm-up, and a warm-up never starts after `Dispose`. Removing a slot while its plug-in loads could have crashed the mixer.
+
+### Tests
+
+`PluginUiTests` (7, serial with the timing tests): slot edits (two per group, move, replace in place, remove, IDs that skip leftover state files); scenes switch slots and keep their state; the rack is 4HP wider per slot with the OUT jack in place; the picker from a catalog of two fake bundles (groups, search, signer), adding a slot (ID, state path, class), the panel rows and the chip, the switch through the history with undo, moving to «после» with the same row model, removing. With the host: the acceptance criterion — the state of an edited plug-in survives a restart (component bit for bit, the controller gets its own); the state is written on exit before `dirty` fired; a preset loads into the running slot and its file; a host disposed during warm-up does not crash (it did before the fix, 3 of 3).
+
+### Status as of 12 November 2026
+
+- Done: everything above. 387 tests pass (2 manual sweeps skipped), three full runs in a row; the solution builds without warnings. Checked by snapshots (`--no-audio`): the panel with slots in Graphite and the 4HP modules in Modular.
+- **Not checked**: plug-in windows from the mixer with real plug-ins (owner, DPI, position memory), dragging slots and the menus by hand, the picker on a real plug-in folder, and the whole UI with audio running. That is the user's check and stage 5.
+
+## Localization
 
 All strings added in v2 are in `Strings.resx` / `Strings.ru.resx` (and `CoreStrings`, `AudioStrings`); `LocalizationTests` check that both languages have the same keys and placeholders. A scan for Cyrillic literals in UI code found only the quotes of the grouping offer, which now come from the resources too («…» in Russian, “…” in English). Snapshots of the offer in both languages were checked with `--no-audio --snapshot`.
 
@@ -791,7 +823,7 @@ Stage 3 of `Микшер для Windows поддержка VST.md`: `PluginSlot`
 3. **The main output defaults to an output with «Низкая задержка»** (then graph order), not the measured period: the period is known only after the device opens, and the plan is built before that.
 4. **A step to dry without wet output is smoothed by a decaying offset**, not a crossfade: there is nothing to crossfade with when the block is late. Coming back from dry is a real 2 ms crossfade.
 5. **NaN and "too slow" stop the host**; only `Restart` brings it back. A crash restart runs on its own 2 s timer, not on the 1 s tick.
-6. **State files are not written yet** (stage 4); restarts use the state kept in memory.
+6. **State files are not written yet** (stage 4); restarts use the state kept in memory. Done in stage 4.
 7. **`Mixer.Audio` references `Mixer.Plugins`**: the slot calls `AudioLink` directly.
 
 ### Tests

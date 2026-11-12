@@ -1527,4 +1527,211 @@ public static class Strings
 
     /// <summary>Third-party components and their licenses:</summary>
     public static string Settings_AboutLicenses => Get("Settings_AboutLicenses");
+
+    /// <summary>Plug-ins before</summary>
+    public static string Plugin_PreTitle => Get("Plugin_PreTitle");
+
+    /// <summary>Before the gate, EQ and compressor: noise removal works best here, so the gate and compressor get a clean signal.</summary>
+    public static string Plugin_PreTip => Get("Plugin_PreTip");
+
+    /// <summary>Plug-ins after</summary>
+    public static string Plugin_PostTitle => Get("Plugin_PostTitle");
+
+    /// <summary>After the compressor: reverb and other effects on the cleaned-up signal.</summary>
+    public static string Plugin_PostTip => Get("Plugin_PostTip");
+
+    /// <summary>+ Plug-in</summary>
+    public static string Plugin_Add => Get("Plugin_Add");
+
+    /// <summary>Open</summary>
+    public static string Plugin_Open => Get("Plugin_Open");
+
+    /// <summary>The plug-in&apos;s window, or its parameters if it has no window</summary>
+    public static string Plugin_OpenTip => Get("Plugin_OpenTip");
+
+    /// <summary>Drag to change the order or move to the other group</summary>
+    public static string Plugin_DragTip => Get("Plugin_DragTip");
+
+    /// <summary>Level at the output of this plug-in</summary>
+    public static string Plugin_MeterTip => Get("Plugin_MeterTip");
+
+    /// <summary>The plug-in&apos;s own latency: it adds to the total latency of this path</summary>
+    public static string Plugin_LatencyTip => Get("Plugin_LatencyTip");
+
+    /// <summary>Share of the audio period the plug-in takes, over 2 s</summary>
+    public static string Plugin_LoadTip => Get("Plugin_LoadTip");
+
+    /// <summary>Restart</summary>
+    public static string Plugin_Restart => Get("Plugin_Restart");
+
+    /// <summary>Replace…</summary>
+    public static string Plugin_Replace => Get("Plugin_Replace");
+
+    /// <summary>Move to “Plug-ins after”</summary>
+    public static string Plugin_MoveToPost => Get("Plugin_MoveToPost");
+
+    /// <summary>Move to “Plug-ins before”</summary>
+    public static string Plugin_MoveToPre => Get("Plugin_MoveToPre");
+
+    /// <summary>Save preset</summary>
+    public static string Plugin_SavePreset => Get("Plugin_SavePreset");
+
+    /// <summary>Load preset</summary>
+    public static string Plugin_LoadPreset => Get("Plugin_LoadPreset");
+
+    /// <summary>Even blocks</summary>
+    public static string Plugin_EvenBlocks => Get("Plugin_EvenBlocks");
+
+    /// <summary>For plug-ins that crackle on blocks of varying size: the stream is cut into blocks of 256 frames at the cost of the same latency.</summary>
+    public static string Plugin_EvenBlocksTip => Get("Plugin_EvenBlocksTip");
+
+    /// <summary>Remove</summary>
+    public static string Plugin_Remove => Get("Plugin_Remove");
+
+    /// <summary>No room: up to 2 plug-ins per group and 16 per graph.</summary>
+    public static string Plugin_NoRoom => Get("Plugin_NoRoom");
+
+    /// <summary>The plug-in is not running.</summary>
+    public static string Plugin_NotRunning => Get("Plugin_NotRunning");
+
+    /// <summary>Preset not loaded: {0}</summary>
+    public static string Plugin_PresetLoadFailedFormat => Get("Plugin_PresetLoadFailedFormat");
+
+    /// <summary>loading…</summary>
+    public static string Plugin_StateLoading => Get("Plugin_StateLoading");
+
+    /// <summary>plug-in not found, audio goes through without it</summary>
+    public static string Plugin_StateMissing => Get("Plugin_StateMissing");
+
+    /// <summary>the plug-in crashed, audio goes through without it; restarting. Edits from the last seconds may be lost.</summary>
+    public static string Plugin_FaultCrashed => Get("Plugin_FaultCrashed");
+
+    /// <summary>the plug-in crashed three times in 5 minutes, audio goes through without it</summary>
+    public static string Plugin_FaultCrashedRepeatedly => Get("Plugin_FaultCrashedRepeatedly");
+
+    /// <summary>can&apos;t keep up, switched off</summary>
+    public static string Plugin_FaultTooSlow => Get("Plugin_FaultTooSlow");
+
+    /// <summary>the plug-in produced invalid audio (NaN), switched off</summary>
+    public static string Plugin_FaultBadOutput => Get("Plugin_FaultBadOutput");
+
+    /// <summary>not loaded: up to 2 plug-ins per group and 16 per graph</summary>
+    public static string Plugin_FaultLimit => Get("Plugin_FaultLimit");
+
+    /// <summary>did not load: {0}</summary>
+    public static string Plugin_FaultLoadFailedFormat => Get("Plugin_FaultLoadFailedFormat");
+
+    /// <summary>too loud (above +12 dBFS), limited at the output of the slot</summary>
+    public static string Plugin_Loud => Get("Plugin_Loud");
+
+    /// <summary>{0} — {1}</summary>
+    public static string Plugin_EditorTitleFormat => Get("Plugin_EditorTitleFormat");
+
+    /// <summary>The plug-in&apos;s window did not open: {0}</summary>
+    public static string Plugin_EditorFailedFormat => Get("Plugin_EditorFailedFormat");
+
+    /// <summary>Parameters not read: {0}</summary>
+    public static string Plugin_ParamsFailedFormat => Get("Plugin_ParamsFailedFormat");
+
+    /// <summary>The same source comes here two ways with different plug-in latency ({2} apart), so it sounds hollow: {0} {1}</summary>
+    public static string Plugin_LatencyWarningFormat => Get("Plugin_LatencyWarningFormat");
+
+    /// <summary>Plug-ins switched on; the dot means one of them has failed</summary>
+    public static string Plugin_ChipTip => Get("Plugin_ChipTip");
+
+    /// <summary>Plug-in for “{0}”</summary>
+    public static string Plugin_PickerTitleFormat => Get("Plugin_PickerTitleFormat");
+
+    /// <summary>Search by name or vendor</summary>
+    public static string Plugin_SearchPlaceholder => Get("Plugin_SearchPlaceholder");
+
+    /// <summary>checked {0} of {1}</summary>
+    public static string Plugin_ScanProgressFormat => Get("Plugin_ScanProgressFormat");
+
+    /// <summary>Plug-in scan failed: {0}</summary>
+    public static string Plugin_ScanFailedFormat => Get("Plugin_ScanFailedFormat");
+
+    /// <summary>Scanning {0} with its window…</summary>
+    public static string Plugin_ScanningWithWindowFormat => Get("Plugin_ScanningWithWindowFormat");
+
+    /// <summary>signed: {0}</summary>
+    public static string Plugin_SignedFormat => Get("Plugin_SignedFormat");
+
+    /// <summary>signature invalid</summary>
+    public static string Plugin_SignatureInvalid => Get("Plugin_SignatureInvalid");
+
+    /// <summary>not signed</summary>
+    public static string Plugin_NotSigned => Get("Plugin_NotSigned");
+
+    /// <summary>RECENT</summary>
+    public static string Plugin_GroupRecent => Get("Plugin_GroupRecent");
+
+    /// <summary>OTHER</summary>
+    public static string Plugin_GroupOther => Get("Plugin_GroupOther");
+
+    /// <summary>DID NOT LOAD</summary>
+    public static string Plugin_GroupNotLoaded => Get("Plugin_GroupNotLoaded");
+
+    /// <summary>NOT SUPPORTED</summary>
+    public static string Plugin_GroupNotSupported => Get("Plugin_GroupNotSupported");
+
+    /// <summary>Enter: scan with window</summary>
+    public static string Plugin_ScanWithWindow => Get("Plugin_ScanWithWindow");
+
+    /// <summary>no answer in 10 s</summary>
+    public static string Plugin_ProblemTimeout => Get("Plugin_ProblemTimeout");
+
+    /// <summary>crashed while loading</summary>
+    public static string Plugin_ProblemCrashed => Get("Plugin_ProblemCrashed");
+
+    /// <summary>did not load: {0}</summary>
+    public static string Plugin_ProblemLoadFailedFormat => Get("Plugin_ProblemLoadFailedFormat");
+
+    /// <summary>looks like VST2: only VST3 is supported</summary>
+    public static string Plugin_ProblemVst2 => Get("Plugin_ProblemVst2");
+
+    /// <summary>32-bit: only 64-bit plug-ins are supported</summary>
+    public static string Plugin_ProblemBits32 => Get("Plugin_ProblemBits32");
+
+    /// <summary>no 64-bit Windows version in the bundle</summary>
+    public static string Plugin_ProblemNoX64 => Get("Plugin_ProblemNoX64");
+
+    /// <summary>instrument: only effects are supported</summary>
+    public static string Plugin_ProblemInstrument => Get("Plugin_ProblemInstrument");
+
+    /// <summary>no audio effects in the file</summary>
+    public static string Plugin_ProblemNoEffects => Get("Plugin_ProblemNoEffects");
+
+    /// <summary>Compute on the clock of…</summary>
+    public static string Plugin_ClockMenu => Get("Plugin_ClockMenu");
+
+    /// <summary>A bus with plug-ins is computed once, in the thread of one output; the other outputs get it through a buffer with extra latency.</summary>
+    public static string Plugin_ClockTip => Get("Plugin_ClockTip");
+
+    /// <summary>Automatically</summary>
+    public static string Plugin_ClockAuto => Get("Plugin_ClockAuto");
+
+    /// <summary>VST3 PLUG-INS</summary>
+    public static string Settings_PluginsHeader => Get("Settings_PluginsHeader");
+
+    /// <summary>Plug-ins are looked for in the standard VST3 folders and in the folders below.</summary>
+    public static string Settings_PluginsText => Get("Settings_PluginsText");
+
+    /// <summary>Add folder…</summary>
+    public static string Settings_PluginFolderAdd => Get("Settings_PluginFolderAdd");
+
+    /// <summary>Remove</summary>
+    public static string Settings_PluginFolderRemove => Get("Settings_PluginFolderRemove");
+
+    /// <summary>Folder with VST3 plug-ins</summary>
+    public static string Settings_PluginFolderPick => Get("Settings_PluginFolderPick");
+
+    /// <summary>Rescan all</summary>
+    public static string Settings_PluginRescan => Get("Settings_PluginRescan");
+
+    /// <summary>Check every plug-in again, without the cache</summary>
+    public static string Settings_PluginRescanTip => Get("Settings_PluginRescanTip");
+
+    /// <summary>Effects found: {0}, did not load: {1}.</summary>
+    public static string Settings_PluginScanDoneFormat => Get("Settings_PluginScanDoneFormat");
 }

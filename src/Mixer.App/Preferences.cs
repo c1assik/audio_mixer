@@ -29,7 +29,9 @@ public sealed class Preferences
         bool? TrayHintShown = null,
         bool? HotkeyToasts = null,
         bool? DeviceNotifications = null,
-        bool? SetupShown = null);
+        bool? SetupShown = null,
+        List<string>? PluginFolders = null,
+        List<string>? RecentPlugins = null);
 
     /// <summary>Свой пресет цепочки обработки.</summary>
     public sealed record StoredPreset(string Name, ChainSettings Chain);
@@ -79,6 +81,19 @@ public sealed class Preferences
 
     /// <summary>Помощник настройки уже предлагался при первом запуске.</summary>
     public bool SetupShown => _data.SetupShown ?? false;
+
+    /// <summary>Свои папки плагинов VST3 (к стандартным).</summary>
+    public IReadOnlyList<string> PluginFolders => _data.PluginFolders ?? [];
+
+    /// <summary>Недавно выбранные плагины (GUID класса), новые первыми.</summary>
+    public IReadOnlyList<string> RecentPlugins => _data.RecentPlugins ?? [];
+
+    public void SetPluginFolders(IEnumerable<string> folders) =>
+        Write(_data with { PluginFolders = folders.Distinct(StringComparer.OrdinalIgnoreCase).ToList() is { Count: > 0 } l ? l : null });
+
+    /// <summary>Запомнить выбор плагина; ошибка записи не мешает (список «Недавние» просто не обновится).</summary>
+    public void MarkPluginUsed(string classId) =>
+        TryWrite(_data with { RecentPlugins = RecentPlugins.Where(x => !x.Equals(classId, StringComparison.OrdinalIgnoreCase)).Prepend(classId).Take(8).ToList() });
 
     public static string PathFor(string graphPath) =>
         System.IO.Path.Combine(System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(graphPath)) ?? ".", "settings.json");

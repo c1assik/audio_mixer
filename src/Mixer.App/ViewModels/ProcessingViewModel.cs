@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Mixer.App.Ui;
 using Mixer.Audio.Dsp;
+using Mixer.Core.Config;
 using Mixer.Core.Editing;
 
 namespace Mixer.App.ViewModels;
@@ -95,10 +96,43 @@ public sealed partial class ProcessingViewModel : ObservableObject
     }
 
     public NodeViewModel Node { get; }
+    internal MainViewModel Owner => _owner;
     public IReadOnlyList<ParamViewModel> GateParams { get; }
     public ParamViewModel HighPass { get; }
     public ObservableCollection<EqBandViewModel> Bands { get; }
     public IReadOnlyList<ParamViewModel> CompParams { get; }
+
+    /// <summary>Слоты «Плагины до» и «Плагины после» по порядку.</summary>
+    public ObservableCollection<PluginSlotViewModel> PreSlots { get; } = new();
+    public ObservableCollection<PluginSlotViewModel> PostSlots { get; } = new();
+    [ObservableProperty] private bool _canAddPre;
+    [ObservableProperty] private bool _canAddPost;
+
+    [RelayCommand]
+    private void AddPlugin(string group) =>
+        _owner.OpenPluginPicker(new PluginTarget(Node, group == "post" ? PluginGroup.Post : PluginGroup.Pre));
+
+    private void LoadSlots()
+    {
+        var all = Node.Config.Plugins ?? [];
+        void Fill(ObservableCollection<PluginSlotViewModel> list, PluginGroup group)
+        {
+            var want = all.Where(p => p.Group == group).Select(p => _owner.SlotVm(Node, p)).ToList();
+            if (want.SequenceEqual(list)) return;
+            list.Clear();
+            foreach (var x in want) list.Add(x);
+        }
+        Fill(PreSlots, PluginGroup.Pre);
+        Fill(PostSlots, PluginGroup.Post);
+        CanAddPre = PluginEdits.HasRoom(_owner.Graph, Node.Config, PluginGroup.Pre);
+        CanAddPost = PluginEdits.HasRoom(_owner.Graph, Node.Config, PluginGroup.Post);
+    }
+
+    internal void Frame(double now, double dt)
+    {
+        foreach (var s in PreSlots) s.Frame(now, dt);
+        foreach (var s in PostSlots) s.Frame(now, dt);
+    }
 
     /// <summary>Цепочка узла сейчас (по умолчанию — всё выключено).</summary>
     public ChainSettings Chain => (Node.Config.Chain ?? new ChainSettings()).Normalized();
@@ -176,6 +210,7 @@ public sealed partial class ProcessingViewModel : ObservableObject
             var k = c.Comp;
             double[] comp = [k.ThresholdDb, k.Ratio, k.AttackMs, k.ReleaseMs, k.KneeDb, k.MakeupDb];
             for (int i = 0; i < comp.Length; i++) CompParams[i].Load(comp[i]);
+            LoadSlots();
             PresetName = Presets.FirstOrDefault(p => p.Chain.Normalized() == c)?.Name
                          ?? (c.IsActive ? Strings.Fx_PresetCustom : Strings.Fx_PresetNone);
         }
@@ -244,5 +279,8 @@ public sealed partial class ProcessingViewModel : ObservableObject
         float inDb = Math.Max(m.In.L, m.In.R), outDb = Math.Max(m.Out.L, m.Out.R);
         InText = Fmt.Level(inDb);
         OutText = Fmt.Level(outDb);
+        var status = _owner.Host?.Status.Plugins;
+        foreach (var s in PreSlots.Concat(PostSlots))
+            s.Poll(status?.FirstOrDefault(x => x.NodeId == Node.Id && x.SlotId == s.Id));
     }
 }

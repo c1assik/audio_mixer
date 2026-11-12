@@ -54,6 +54,11 @@
         </Style>
     </UserControl.Resources>
 
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
     <Border x:Name="Panel" CornerRadius="3" BorderBrush="#40000000" BorderThickness="1" ui:Ui.Role="module">
         <Grid>
             <!-- винты -->
@@ -145,4 +150,58 @@
             </StackPanel>
         </Grid>
     </Border>
+
+        <!-- слоты плагинов: модули 4HP справа, без гнёзд (связь внутри модуля, как нормализованная на железе) -->
+        <ItemsControl Grid.Column="1" ItemsSource="{Binding PluginSlots}" Focusable="False">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Border Width="28" Margin="1,0,0,0" CornerRadius="3" Background="{DynamicResource PanelBlack}" BorderBrush="#40000000" BorderThickness="1"
+                            ToolTip="{Binding Name}" ui:Ui.Role="module">
+                        <Grid>
+                            <Ellipse Width="6" Height="6" Fill="{DynamicResource Screw}" VerticalAlignment="Top" Margin="0,7,0,0" />
+                            <Ellipse Width="6" Height="6" Fill="{DynamicResource Screw}" VerticalAlignment="Bottom" Margin="0,0,0,7" />
+                            <StackPanel Margin="0,26,0,0">
+                                <Ellipse Width="6" Height="6" HorizontalAlignment="Center">
+                                    <Ellipse.Style>
+                                        <Style TargetType="Ellipse">
+                                            <Setter Property="Fill" Value="{DynamicResource LedOff}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Enabled}" Value="True">
+                                                    <Setter Property="Fill" Value="{DynamicResource Accent}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Ellipse.Style>
+                                </Ellipse>
+                                <TextBlock Text="{Binding Name}" FontFamily="{StaticResource PanelFont}" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource PanelInkLight}"
+                                           HorizontalAlignment="Center" Margin="0,10,0,0" Width="240" TextAlignment="Right" TextTrimming="CharacterEllipsis">
+                                    <TextBlock.LayoutTransform>
+                                        <RotateTransform Angle="-90" />
+                                    </TextBlock.LayoutTransform>
+                                </TextBlock>
+                            </StackPanel>
+                            <Button VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,54" Cursor="Hand" FocusVisualStyle="{StaticResource FocusRing}"
+                                    Command="{Binding DataContext.OpenPluginCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding Id}"
+                                    ToolTip="{x:Static res:Strings.Plugin_OpenTip}" AutomationProperties.Name="{Binding Name}">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <StackPanel Background="Transparent">
+                                            <Ellipse Width="14" Height="14" Fill="{DynamicResource KnobBody}" HorizontalAlignment="Center" />
+                                            <TextBlock Text="EDIT" FontFamily="{StaticResource PanelFont}" FontSize="8" FontWeight="Bold" Foreground="{DynamicResource PanelInkLight}"
+                                                       HorizontalAlignment="Center" Margin="0,3,0,0" />
+                                        </StackPanel>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </Grid>
 </UserControl>

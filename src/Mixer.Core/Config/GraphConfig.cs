@@ -153,7 +153,11 @@ public sealed record PluginConfig
     /// <summary>Файл состояния (формат <c>PluginState</c>); относительный путь — от папки graph.json.</summary>
     public string? State { get; init; }
     public bool EvenBlocks { get; init; }
+    /// <summary>Где было окно редактора слота (экранные пиксели); открытые окна при запуске не восстанавливаются.</summary>
+    public PluginEditorBounds? Editor { get; init; }
 }
+
+public sealed record PluginEditorBounds(int X, int Y, int W, int H);
 
 /// <summary>Роль виртуального кабеля.</summary>
 public enum CableRole
@@ -198,6 +202,8 @@ public sealed record SceneNode
     public bool? Gate { get; init; }
     public bool? Eq { get; init; }
     public bool? Comp { get; init; }
+    /// <summary>Включение слотов плагинов по ID слота (состояние плагинов сцена не трогает).</summary>
+    public Dictionary<string, bool>? Plugins { get; init; }
 }
 
 public sealed record SceneWire

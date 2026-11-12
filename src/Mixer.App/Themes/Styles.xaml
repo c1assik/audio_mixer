@@ -23,6 +23,7 @@
     <Geometry x:Key="IconMenu">M5 11a1 1 0 1 1 0 2a1 1 0 1 1 0-2zM12 11a1 1 0 1 1 0 2a1 1 0 1 1 0-2zM19 11a1 1 0 1 1 0 2a1 1 0 1 1 0-2z</Geometry>
     <Geometry x:Key="IconCheck">M5 12l5 5L19 7</Geometry>
     <Geometry x:Key="IconBolt">M13 3L5 14h6l-1 7 8-11h-6z</Geometry>
+    <Geometry x:Key="IconPlugin">M7 3h10v18H7zM12 7v5M10 16h4</Geometry>
     <Geometry x:Key="IconBus">M5 7h14M5 12h14M5 17h14M9 5v4M15 10v4M8 15v4</Geometry>
     <Geometry x:Key="IconDown">M6 9l6 6 6-6</Geometry>
     <Geometry x:Key="IconChevron">M9 6l6 6-6 6</Geometry>

@@ -231,6 +231,15 @@
                                 ToolTip="{x:Static res:Strings.Fx_ChipTip}" Visibility="{Binding HasEq, Converter={StaticResource Vis}}" />
                         <Button Style="{StaticResource ChipButton}" Content="{x:Static res:Strings.Fx_Comp}" Command="{Binding OpenChainCommand}" CommandParameter="comp"
                                 ToolTip="{x:Static res:Strings.Fx_ChipTip}" Visibility="{Binding HasComp, Converter={StaticResource Vis}}" />
+                        <!-- плагины: сколько включено; точка — один из них в сбое -->
+                        <Button Style="{StaticResource ChipButton}" Command="{Binding OpenChainCommand}" CommandParameter="fx"
+                                ToolTip="{x:Static res:Strings.Plugin_ChipTip}" Visibility="{Binding HasPlugins, Converter={StaticResource Vis}}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding FxText}" />
+                                <Ellipse Width="6" Height="6" Fill="{StaticResource Yellow}" Margin="4,0,0,0" VerticalAlignment="Center"
+                                         Visibility="{Binding PluginFault, Converter={StaticResource Vis}}" />
+                            </StackPanel>
+                        </Button>
                         <TextBlock Text="{Binding ReductionText}" Foreground="{StaticResource Yellow}" FontSize="12" Margin="4,0,0,0" VerticalAlignment="Center"
                                    ToolTip="{x:Static res:Strings.Fx_ReductionTip}" Visibility="{Binding HasReduction, Converter={StaticResource Vis}}" />
                         <!-- кабель-микрофон: кому назначен -->

@@ -123,7 +123,7 @@ public partial class RackView : UserControl, ICanvasView
         if (_vm is null) return;
         var g = _vm.Graph;
         double width = Math.Max(600, (Scroller.ViewportWidth > 0 ? Scroller.ViewportWidth : ActualWidth) / Math.Max(0.5, _vm.Zoom) - 8);
-        string key = string.Join(",", RackLayout.Order(g).Select(n => n.Id)) + "|" + string.Join(",", g.Wires.Select(w => w.From + ">" + w.To))
+        string key = string.Join(",", RackLayout.Order(g).Select(n => n.Id + ":" + (n.Plugins?.Count ?? 0))) + "|" + string.Join(",", g.Wires.Select(w => w.From + ">" + w.To))
                      + "|" + Math.Round(width / 20);
         if (!force && key == _layoutKey) return;
         _layoutKey = key;

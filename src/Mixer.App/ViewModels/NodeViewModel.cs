@@ -111,6 +111,11 @@ public sealed partial class NodeViewModel : ObservableObject
     [ObservableProperty] private bool _hasGate;
     [ObservableProperty] private bool _hasEq;
     [ObservableProperty] private bool _hasComp;
+    /// <summary>Сколько слотов плагинов включено: чип «FX 2».</summary>
+    [ObservableProperty] private int _pluginsOn;
+    [ObservableProperty] private bool _hasPlugins;
+    /// <summary>Один из слотов в сбое: оранжевая точка на чипе.</summary>
+    [ObservableProperty] private bool _pluginFault;
     /// <summary>Подавление компрессора сейчас: «−4 дБ» рядом с чипами (null — не жмёт).</summary>
     [ObservableProperty] private string? _reductionText;
 
@@ -119,9 +124,12 @@ public sealed partial class NodeViewModel : ObservableObject
     public ChainMeterState ChainMeter { get; } = new();
 
     /// <summary>Подпись под тип узла: шина показывает чипы обработки и «+ FX» так же, как источник.</summary>
-    public bool ShowFx => !HasGate && !HasEq && !HasComp && !HasMicFor;
+    public bool ShowFx => !HasGate && !HasEq && !HasComp && !HasPlugins && !HasMicFor;
+    public string FxText => "FX " + PluginsOn;
     public bool HasMicFor => MicForText is not null;
     public bool HasReduction => ReductionText is not null;
+    /// <summary>Слоты плагинов по порядку (модули 4HP темы Modular).</summary>
+    public IReadOnlyList<PluginConfig> PluginSlots => Config.Plugins ?? [];
 
     /// <summary>Узлы движка этого узла (у приложения — по захвату на корень). Обновляется опросом, читается в кадре.</summary>
     internal AudioNode[] EngineNodes = [];
@@ -189,6 +197,9 @@ public sealed partial class NodeViewModel : ObservableObject
             HasGate = c.Chain?.Gate.Enabled == true;
             HasEq = c.Chain?.Eq.Enabled == true;
             HasComp = c.Chain?.Comp.Enabled == true;
+            HasPlugins = c.HasPlugins;
+            PluginsOn = c.Plugins?.Count(p => p.Enabled) ?? 0;
+            OnPropertyChanged(nameof(PluginSlots));
             MicForText = c.MicFor is { Count: > 0 } apps && IsOutput
                 ? Fmt.F(Strings.Node_MicForFormat, string.Join(", ", apps.Select(Mixer.Core.Cables.AppNames.Friendly)))
                 : null;
@@ -283,6 +294,8 @@ public sealed partial class NodeViewModel : ObservableObject
     partial void OnHasGateChanged(bool value) => OnPropertyChanged(nameof(ShowFx));
     partial void OnHasEqChanged(bool value) => OnPropertyChanged(nameof(ShowFx));
     partial void OnHasCompChanged(bool value) => OnPropertyChanged(nameof(ShowFx));
+    partial void OnHasPluginsChanged(bool value) => OnPropertyChanged(nameof(ShowFx));
+    partial void OnPluginsOnChanged(int value) => OnPropertyChanged(nameof(FxText));
     partial void OnReductionTextChanged(string? value) => OnPropertyChanged(nameof(HasReduction));
     partial void OnWarningsChanged(string? value) => OnPropertyChanged(nameof(HasWarnings));
     partial void OnLimiterTextChanged(string? value) => OnPropertyChanged(nameof(HasLimiter));
@@ -322,4 +335,8 @@ public sealed partial class NodeViewModel : ObservableObject
     /// <summary>Открыть боковую панель обработки (по чипу или «+ FX»); block — к какому блоку прокрутить.</summary>
     [RelayCommand]
     private void OpenChain(string? block) => _owner.OpenProcessing(this, block);
+
+    /// <summary>EDIT на модуле плагина: окно плагина (у плагина без окна — список параметров в панели).</summary>
+    [RelayCommand]
+    private void OpenPlugin(string slotId) => _owner.OpenPluginEditor(this, slotId);
 }

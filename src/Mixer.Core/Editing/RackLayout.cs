@@ -30,6 +30,8 @@ public static class RackLayout
     /// <summary>Гнёзда — у нижнего края панели.</summary>
     public const double JackFromBottom = 36;
     public const double ModuleGap = 6;
+    /// <summary>Слот плагина — узкий модуль 4HP, пристыкованный справа: стойка шире на столько за слот.</summary>
+    public const double PluginWidth = 29;
     /// <summary>Пустое место в стойке между колонками (источники | шины | выходы).</summary>
     public const double ColumnGap = 34;
     /// <summary>Под рядом — место для провисших кабелей.</summary>
@@ -63,7 +65,8 @@ public static class RackLayout
         {
             var ins = n.HasInPort ? incoming.GetValueOrDefault(n.Id) ?? [] : [];
             int jacks = (n.HasInPort ? ins.Count + 1 : 0) + (n.HasOutPort ? 1 : 0);
-            double w = ModuleWidth + JackPitch * Math.Max(0, jacks - 3); // больше трёх гнёзд — модуль шире
+            double fx = PluginWidth * (n.Plugins?.Count ?? 0);
+            double w = ModuleWidth + JackPitch * Math.Max(0, jacks - 3) + fx; // больше трёх гнёзд — модуль шире
             if (column is not null && column != n.Column) x += ColumnGap;
             if (x + w > width - Left && x > Left)
             {
@@ -82,7 +85,7 @@ public static class RackLayout
                 inputs.Add(new RackJack(n.Id, true, k, jx + JackPitch * inputs.Count, jy));
             }
             RackJack? output = n.HasOutPort
-                ? new RackJack(n.Id, false, 0, n.HasInPort ? jx + JackPitch * inputs.Count : x + w / 2, jy)
+                ? new RackJack(n.Id, false, 0, n.HasInPort ? jx + JackPitch * inputs.Count : x + (w - fx) / 2, jy)
                 : null;
             modules[n.Id] = new RackModule(n.Id, n.Column, x, y, w, ModuleHeight, inputs, output, row);
             x += w + ModuleGap;

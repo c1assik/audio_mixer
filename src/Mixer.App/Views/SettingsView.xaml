@@ -280,6 +280,33 @@
                 </ListBox.ItemTemplate>
             </ListBox>
 
+            <!-- плагины VST3: свои папки к стандартным и полный перескан -->
+            <StackPanel Margin="20,8,20,8">
+                <TextBlock Text="{x:Static res:Strings.Settings_PluginsHeader}" Style="{StaticResource SectionLabel}" />
+                <TextBlock Text="{x:Static res:Strings.Settings_PluginsText}" Foreground="{StaticResource Text2}" TextWrapping="Wrap" Margin="0,6,0,6" />
+                <ItemsControl ItemsSource="{Binding PluginFolders}" Focusable="False">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding}" Foreground="{StaticResource Text}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ui:TrimTip.IsEnabled="True" />
+                                <Button Grid.Column="1" Style="{StaticResource SmallToolButton}" Content="{x:Static res:Strings.Settings_PluginFolderRemove}" Margin="8,0,0,0"
+                                        Command="{Binding DataContext.RemovePluginFolderCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                    <Button Style="{StaticResource SmallToolButton}" Content="{x:Static res:Strings.Settings_PluginFolderAdd}" Command="{Binding AddPluginFolderCommand}" />
+                    <Button Style="{StaticResource SmallToolButton}" Content="{x:Static res:Strings.Settings_PluginRescan}" Command="{Binding RescanPluginsCommand}" Margin="8,0,0,0"
+                            ToolTip="{x:Static res:Strings.Settings_PluginRescanTip}" />
+                </StackPanel>
+                <TextBlock Text="{Binding PluginStatus}" Foreground="{StaticResource Muted}" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap" />
+            </StackPanel>
+
             <!-- о программе: версия и лицензии сторонних компонентов (текст MIT VST 3 SDK обязан быть в программе) -->
             <StackPanel Margin="20,8,20,16">
                 <TextBlock Text="{x:Static res:Strings.Settings_AboutHeader}" Style="{StaticResource SectionLabel}" />

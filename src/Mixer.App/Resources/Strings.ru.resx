@@ -1519,4 +1519,213 @@
   <data name="Settings_AboutLicenses" xml:space="preserve">
     <value>Сторонние компоненты и их лицензии:</value>
   </data>
+  <data name="Plugin_PreTitle" xml:space="preserve">
+    <value>Плагины до</value>
+  </data>
+  <data name="Plugin_PreTip" xml:space="preserve">
+    <value>До гейта, EQ и компрессора: здесь место шумоподавлению, тогда гейт и компрессор получают чистый сигнал.</value>
+  </data>
+  <data name="Plugin_PostTitle" xml:space="preserve">
+    <value>Плагины после</value>
+  </data>
+  <data name="Plugin_PostTip" xml:space="preserve">
+    <value>После компрессора: реверберация и другие эффекты на очищенный сигнал.</value>
+  </data>
+  <data name="Plugin_Add" xml:space="preserve">
+    <value>+ Плагин</value>
+  </data>
+  <data name="Plugin_Open" xml:space="preserve">
+    <value>Открыть</value>
+  </data>
+  <data name="Plugin_OpenTip" xml:space="preserve">
+    <value>Окно плагина или список его параметров, если окна нет</value>
+  </data>
+  <data name="Plugin_DragTip" xml:space="preserve">
+    <value>Перетащите, чтобы сменить порядок или перенести в другую группу</value>
+  </data>
+  <data name="Plugin_MeterTip" xml:space="preserve">
+    <value>Уровень на выходе этого плагина</value>
+  </data>
+  <data name="Plugin_LatencyTip" xml:space="preserve">
+    <value>Собственная задержка плагина: она добавляется к задержке этого пути</value>
+  </data>
+  <data name="Plugin_LoadTip" xml:space="preserve">
+    <value>Доля периода звука, которую занимает плагин, за 2 с</value>
+  </data>
+  <data name="Plugin_Restart" xml:space="preserve">
+    <value>Перезапустить</value>
+  </data>
+  <data name="Plugin_Replace" xml:space="preserve">
+    <value>Заменить…</value>
+  </data>
+  <data name="Plugin_MoveToPost" xml:space="preserve">
+    <value>Перенести в «Плагины после»</value>
+  </data>
+  <data name="Plugin_MoveToPre" xml:space="preserve">
+    <value>Перенести в «Плагины до»</value>
+  </data>
+  <data name="Plugin_SavePreset" xml:space="preserve">
+    <value>Сохранить пресет</value>
+  </data>
+  <data name="Plugin_LoadPreset" xml:space="preserve">
+    <value>Загрузить пресет</value>
+  </data>
+  <data name="Plugin_EvenBlocks" xml:space="preserve">
+    <value>Ровные блоки</value>
+  </data>
+  <data name="Plugin_EvenBlocksTip" xml:space="preserve">
+    <value>Для плагинов, которые трещат на блоках разного размера: поток нарезается по 256 кадров ценой такой же задержки.</value>
+  </data>
+  <data name="Plugin_Remove" xml:space="preserve">
+    <value>Удалить</value>
+  </data>
+  <data name="Plugin_NoRoom" xml:space="preserve">
+    <value>Нет места: не больше 2 плагинов в группе и 16 на схеме.</value>
+  </data>
+  <data name="Plugin_NotRunning" xml:space="preserve">
+    <value>Плагин не запущен.</value>
+  </data>
+  <data name="Plugin_PresetLoadFailedFormat" xml:space="preserve">
+    <value>Пресет не загружен: {0}</value>
+  </data>
+  <data name="Plugin_StateLoading" xml:space="preserve">
+    <value>загружается…</value>
+  </data>
+  <data name="Plugin_StateMissing" xml:space="preserve">
+    <value>плагин не найден, звук идёт без него</value>
+  </data>
+  <data name="Plugin_FaultCrashed" xml:space="preserve">
+    <value>плагин упал, звук идёт без него; перезапуск. Правки последних секунд могли потеряться.</value>
+  </data>
+  <data name="Plugin_FaultCrashedRepeatedly" xml:space="preserve">
+    <value>плагин упал три раза за 5 минут, звук идёт без него</value>
+  </data>
+  <data name="Plugin_FaultTooSlow" xml:space="preserve">
+    <value>не успевает обрабатывать, выключен</value>
+  </data>
+  <data name="Plugin_FaultBadOutput" xml:space="preserve">
+    <value>плагин выдал испорченный звук (NaN), выключен</value>
+  </data>
+  <data name="Plugin_FaultLimit" xml:space="preserve">
+    <value>не загружен: не больше 2 плагинов в группе и 16 на схеме</value>
+  </data>
+  <data name="Plugin_FaultLoadFailedFormat" xml:space="preserve">
+    <value>не загрузился: {0}</value>
+  </data>
+  <data name="Plugin_Loud" xml:space="preserve">
+    <value>слишком громко (выше +12 dBFS), ограничено на выходе слота</value>
+  </data>
+  <data name="Plugin_EditorTitleFormat" xml:space="preserve">
+    <value>{0} — {1}</value>
+  </data>
+  <data name="Plugin_EditorFailedFormat" xml:space="preserve">
+    <value>Окно плагина не открылось: {0}</value>
+  </data>
+  <data name="Plugin_ParamsFailedFormat" xml:space="preserve">
+    <value>Параметры не прочитаны: {0}</value>
+  </data>
+  <data name="Plugin_LatencyWarningFormat" xml:space="preserve">
+    <value>Один источник приходит сюда двумя путями с разной задержкой плагинов (разница {2}), звук звенит:
+{0}
+{1}</value>
+  </data>
+  <data name="Plugin_ChipTip" xml:space="preserve">
+    <value>Включённые плагины; точка — один из них в сбое</value>
+  </data>
+  <data name="Plugin_PickerTitleFormat" xml:space="preserve">
+    <value>Плагин для «{0}»</value>
+  </data>
+  <data name="Plugin_SearchPlaceholder" xml:space="preserve">
+    <value>Поиск по имени и производителю</value>
+  </data>
+  <data name="Plugin_ScanProgressFormat" xml:space="preserve">
+    <value>проверено {0} из {1}</value>
+  </data>
+  <data name="Plugin_ScanFailedFormat" xml:space="preserve">
+    <value>Скан плагинов не удался: {0}</value>
+  </data>
+  <data name="Plugin_ScanningWithWindowFormat" xml:space="preserve">
+    <value>Сканирование {0} с окном…</value>
+  </data>
+  <data name="Plugin_SignedFormat" xml:space="preserve">
+    <value>подпись: {0}</value>
+  </data>
+  <data name="Plugin_SignatureInvalid" xml:space="preserve">
+    <value>подпись недействительна</value>
+  </data>
+  <data name="Plugin_NotSigned" xml:space="preserve">
+    <value>без подписи</value>
+  </data>
+  <data name="Plugin_GroupRecent" xml:space="preserve">
+    <value>НЕДАВНИЕ</value>
+  </data>
+  <data name="Plugin_GroupOther" xml:space="preserve">
+    <value>ДРУГИЕ</value>
+  </data>
+  <data name="Plugin_GroupNotLoaded" xml:space="preserve">
+    <value>НЕ ЗАГРУЗИЛИСЬ</value>
+  </data>
+  <data name="Plugin_GroupNotSupported" xml:space="preserve">
+    <value>НЕ ПОДДЕРЖИВАЕТСЯ</value>
+  </data>
+  <data name="Plugin_ScanWithWindow" xml:space="preserve">
+    <value>Enter — просканировать с окном</value>
+  </data>
+  <data name="Plugin_ProblemTimeout" xml:space="preserve">
+    <value>не ответил за 10 с</value>
+  </data>
+  <data name="Plugin_ProblemCrashed" xml:space="preserve">
+    <value>упал при загрузке</value>
+  </data>
+  <data name="Plugin_ProblemLoadFailedFormat" xml:space="preserve">
+    <value>не загрузился: {0}</value>
+  </data>
+  <data name="Plugin_ProblemVst2" xml:space="preserve">
+    <value>похоже на VST2: поддерживается только VST3</value>
+  </data>
+  <data name="Plugin_ProblemBits32" xml:space="preserve">
+    <value>32-битный: поддерживаются только 64-битные плагины</value>
+  </data>
+  <data name="Plugin_ProblemNoX64" xml:space="preserve">
+    <value>в бандле нет 64-битной версии для Windows</value>
+  </data>
+  <data name="Plugin_ProblemInstrument" xml:space="preserve">
+    <value>инструмент: поддерживаются только эффекты</value>
+  </data>
+  <data name="Plugin_ProblemNoEffects" xml:space="preserve">
+    <value>в файле нет аудиоэффектов</value>
+  </data>
+  <data name="Plugin_ClockMenu" xml:space="preserve">
+    <value>Считать по часам…</value>
+  </data>
+  <data name="Plugin_ClockTip" xml:space="preserve">
+    <value>Шина с плагинами считается один раз, в потоке одного выхода; остальные выходы получают её через буфер с добавочной задержкой.</value>
+  </data>
+  <data name="Plugin_ClockAuto" xml:space="preserve">
+    <value>Автоматически</value>
+  </data>
+  <data name="Settings_PluginsHeader" xml:space="preserve">
+    <value>ПЛАГИНЫ VST3</value>
+  </data>
+  <data name="Settings_PluginsText" xml:space="preserve">
+    <value>Плагины ищутся в стандартных папках VST3 и в папках ниже.</value>
+  </data>
+  <data name="Settings_PluginFolderAdd" xml:space="preserve">
+    <value>Добавить папку…</value>
+  </data>
+  <data name="Settings_PluginFolderRemove" xml:space="preserve">
+    <value>Убрать</value>
+  </data>
+  <data name="Settings_PluginFolderPick" xml:space="preserve">
+    <value>Папка с плагинами VST3</value>
+  </data>
+  <data name="Settings_PluginRescan" xml:space="preserve">
+    <value>Пересканировать всё</value>
+  </data>
+  <data name="Settings_PluginRescanTip" xml:space="preserve">
+    <value>Проверить все плагины заново, без кэша</value>
+  </data>
+  <data name="Settings_PluginScanDoneFormat" xml:space="preserve">
+    <value>Найдено эффектов: {0}, не загрузились: {1}.</value>
+  </data>
 </root>
