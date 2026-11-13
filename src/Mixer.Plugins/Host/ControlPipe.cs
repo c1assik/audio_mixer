@@ -15,8 +15,10 @@ internal sealed class ControlPipe : IDisposable
     public const int MaxMessage = 64 << 20;
 
     private readonly NamedPipeServerStream _pipe;
-    private readonly object _writeLock = new();
-    private volatile bool _disposed;
+    /// <summary>Кадры, пришедшие во время записи: их по порядку допишет та же цепочка (<see cref="WriteChainAsync"/>).</summary>
+    private readonly Queue<byte[]> _queue = new();
+    private bool _writing;
+    private volatile bool _disposed, _broken;
 
     public string Name { get; }
     public bool IsConnected => !_disposed && _pipe.IsConnected;
@@ -29,6 +31,39 @@ internal sealed class ControlPipe : IDisposable
     }
 
     public Task WaitForConnectionAsync(CancellationToken ct) => _pipe.WaitForConnectionAsync(ct);
+
+    /// <summary>
+    /// Пишет кадр, затем очередь, пока она не опустеет. Первая запись начинается синхронно, в потоке Send (без
+    /// перехода в пул), дальше — по завершении предыдущей. Никакой поток её не ждёт.
+    /// </summary>
+    private async Task WriteChainAsync(byte[] frame)
+    {
+        while (true)
+        {
+            try
+            {
+                await _pipe.WriteAsync(frame).ConfigureAwait(false);
+            }
+            catch (Exception e) when (e is IOException or ObjectDisposedException or InvalidOperationException or OperationCanceledException)
+            {
+                _broken = true;
+                lock (_queue)
+                {
+                    _queue.Clear();
+                    _writing = false;
+                }
+                return;
+            }
+            lock (_queue)
+            {
+                if (!_queue.TryDequeue(out frame!))
+                {
+                    _writing = false;
+                    return;
+                }
+            }
+        }
+    }
 
     /// <summary>Читает сообщения, пока канал не закроется. Нечитаемое сообщение закрывает канал.</summary>
     public async Task ReadLoopAsync(Action<JsonObject> onMessage)
@@ -63,42 +98,36 @@ internal sealed class ControlPipe : IDisposable
         return true;
     }
 
-    /// <summary>Столько ждать, пока допишется предыдущее сообщение (хост не читает канал — он завис).</summary>
-    public static readonly TimeSpan WriteWait = TimeSpan.FromSeconds(1);
-
     /// <summary>
-    /// false — канал закрыт или занят: прежняя запись стоит, потому что хост не читает. Ждать её бесконечно нельзя —
-    /// пинг шёл бы из пула каждую секунду и занимал по потоку навсегда, а проверка зависания до хоста не доходила бы.
+    /// Отправить сообщение, не дожидаясь записи; false — канал закрыт. Не ждёт записи: синхронная запись в асинхронный
+    /// канал ждёт завершения на потоке пула, и пинги из пула, вставшие за ней, держали пул голодным, а запись не могла
+    /// завершиться (на CI — зависшие тесты и несработавшие таймеры).
     /// </summary>
     public bool Send(JsonObject msg)
     {
+        if (_disposed || _broken || !_pipe.IsConnected) return false;
         byte[] body = Encoding.UTF8.GetBytes(msg.ToJsonString());
         var frame = new byte[4 + body.Length];
         BinaryPrimitives.WriteUInt32LittleEndian(frame, (uint)body.Length);
         body.CopyTo(frame, 4);
-        if (!Monitor.TryEnter(_writeLock, WriteWait)) return false;
-        try
+        lock (_queue)
         {
-            if (_disposed || !_pipe.IsConnected) return false;
-            _pipe.Write(frame);
-            return true;
+            if (_writing)
+            {
+                _queue.Enqueue(frame);
+                return true;
+            }
+            _writing = true;
         }
-        // OperationCanceled — канал закрыли, пока запись стояла
-        catch (Exception e) when (e is IOException or ObjectDisposedException or InvalidOperationException or OperationCanceledException)
-        {
-            return false;
-        }
-        finally
-        {
-            Monitor.Exit(_writeLock);
-        }
+        _ = WriteChainAsync(frame);
+        return true;
     }
 
     public void Dispose()
     {
-        // без блокировки записи: застрявшая запись держит её, пока канал не закроют
         if (_disposed) return;
         _disposed = true;
-        _pipe.Dispose();
+        _pipe.Dispose(); // застрявшая запись (хост не читает) заканчивается
+
     }
 }
