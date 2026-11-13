@@ -165,6 +165,47 @@ public sealed class PluginUiTests : IDisposable
         await Assert.ThrowsAnyAsync<Exception>(() => load);
     }
 
+    /// <summary>
+    /// Хост не читает канал. Отправка не ждёт записи: раньше синхронная запись ждала завершения на потоке пула, пинги
+    /// из пула вставали за ней, пул голодал, и запись не могла завершиться (на CI — несработавший таймер автосохранения,
+    /// «control pipe is closed», зависший прогон).
+    /// </summary>
+    [Fact]
+    public async Task ControlPipe_SendNeverWaitsForTheHost()
+    {
+        string name = "Mixer.Test." + Guid.NewGuid().ToString("N");
+        var pipe = new ControlPipe(name);
+        var connected = pipe.WaitForConnectionAsync(CancellationToken.None);
+        using var client = new System.IO.Pipes.NamedPipeClientStream(".", name, System.IO.Pipes.PipeDirection.InOut);
+        client.Connect(5000);
+        await connected;
+
+        var sw = Stopwatch.StartNew();
+        Assert.True(pipe.Send(new JsonObject { ["blob"] = new string('x', 4 << 20) })); // больше буфера канала: запись встанет
+        for (int i = 0; i < 100; i++) Assert.True(pipe.Send(new JsonObject { ["type"] = "ping" }));
+        Assert.True(sw.Elapsed.TotalSeconds < 1, $"{sw.Elapsed.TotalSeconds:0.00} s");
+
+        pipe.Dispose(); // как после завершения зависшего хоста: застрявшая запись заканчивается без исключений
+        Assert.False(pipe.Send(new JsonObject { ["type"] = "ping" }));
+
+        // порядок и целостность: что ставили в очередь, приходит кадрами по порядку
+        string name2 = "Mixer.Test." + Guid.NewGuid().ToString("N");
+        using var pipe2 = new ControlPipe(name2);
+        var c2 = pipe2.WaitForConnectionAsync(CancellationToken.None);
+        using var reader = new System.IO.Pipes.NamedPipeClientStream(".", name2, System.IO.Pipes.PipeDirection.InOut);
+        reader.Connect(5000);
+        await c2;
+        for (int i = 0; i < 50; i++) Assert.True(pipe2.Send(new JsonObject { ["n"] = i }));
+        var header = new byte[4];
+        for (int i = 0; i < 50; i++)
+        {
+            await reader.ReadExactlyAsync(header);
+            var body = new byte[BitConverter.ToInt32(header)];
+            await reader.ReadExactlyAsync(body);
+            Assert.Equal(i, (int)JsonNode.Parse(body)!["n"]!);
+        }
+    }
+
     // ── файлы состояния и пресеты (настоящий хост со встроенными плагинами) ──
 
     private static PluginConfig Gain(string state) =>

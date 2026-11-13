@@ -373,7 +373,13 @@ public sealed class PluginRack : IDisposable
         r.Misses.Clear();
         if (!r.Slot.Detach()) _log?.Invoke($"Plug-in slot {r.NodeId}/{r.Config.Id}: audio thread did not release the host");
         _stopping.RemoveAll(t => t.IsCompleted);
-        _stopping.Add(Task.Run(host.Dispose));
+        // StopAsync асинхронно: Dispose ждал бы его синхронно и держал поток пула до 5 с на каждый хост
+        _stopping.Add(Task.Run(async () =>
+        {
+            try { await host.StopAsync().ConfigureAwait(false); }
+            catch (Exception e) when (e is IOException or InvalidOperationException or ObjectDisposedException) { }
+            host.Dispose(); // процесс уже вышел или убит: дальше без ожиданий
+        }));
     }
 
     private void Log(Runner r, string text) => _log?.Invoke($"Plug-in {r.Config.Name} ({r.NodeId}/{r.Config.Id}): {text}");

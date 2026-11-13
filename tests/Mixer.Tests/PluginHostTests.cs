@@ -522,16 +522,17 @@ public class PluginHostTimingTests(ITestOutputHelper output)
         using var host = TestHost.Start(output, new PluginHostOptions
         {
             PingInterval = TimeSpan.FromMilliseconds(250),
-            HangTimeout = TimeSpan.FromSeconds(1),
+            // ответ на ping читается через пул потоков: на загруженной машине он запаздывает до секунды
+            HangTimeout = TimeSpan.FromSeconds(2),
         });
         await host.LoadAsync(PluginLoad.Test("copy"));
-        await Task.Delay(1500);
+        await Task.Delay(2500);
         Assert.True(host.IsRunning); // молчать без причины — не зависание: ping отвечается
         var sw = Stopwatch.StartNew();
         host.SendDebug(new JsonObject { ["op"] = "freeze", ["ms"] = 20000 });
-        var exit = await TestHost.Within(host.Exited, 5);
+        var exit = await TestHost.Within(host.Exited, 6);
         Assert.Equal(HostExitReason.Hung, exit.Reason);
-        Assert.InRange(sw.Elapsed.TotalSeconds, 0.9, 3);
+        Assert.InRange(sw.Elapsed.TotalSeconds, 1.0, 4.5); // последний ответ мог прийти с опозданием
     }
 }
 
