@@ -165,6 +165,33 @@ public sealed class PluginUiTests : IDisposable
         await Assert.ThrowsAnyAsync<Exception>(() => load);
     }
 
+    /// <summary>
+    /// Хост не читает канал: запись встала. Следующие сообщения (пинг из пула раз в секунду) не ждут её вечно — иначе
+    /// каждый тик занимал поток пула навсегда, пул голодал (на CI не срабатывал таймер автосохранения), а проверка
+    /// зависания хоста не выполнялась.
+    /// </summary>
+    [Fact]
+    public async Task ControlPipe_DoesNotPileUpWritesWhenTheHostDoesNotRead()
+    {
+        string name = "Mixer.Test." + Guid.NewGuid().ToString("N");
+        var pipe = new ControlPipe(name);
+        var connected = pipe.WaitForConnectionAsync(CancellationToken.None);
+        using var client = new System.IO.Pipes.NamedPipeClientStream(".", name, System.IO.Pipes.PipeDirection.InOut);
+        client.Connect(5000);
+        await connected;
+
+        var stuck = Task.Run(() => pipe.Send(new JsonObject { ["blob"] = new string('x', 4 << 20) })); // больше буфера канала
+        await Task.Delay(300);
+        Assert.False(stuck.IsCompleted);
+        var sw = Stopwatch.StartNew();
+        Assert.False(pipe.Send(new JsonObject { ["type"] = "ping" }));
+        Assert.InRange(sw.Elapsed.TotalSeconds, 0.5, 3);
+
+        pipe.Dispose(); // как после завершения зависшего хоста: застрявшая запись заканчивается
+        Assert.True(await Task.WhenAny(stuck, Task.Delay(5000)) == stuck);
+        Assert.False(await stuck);
+    }
+
     // ── файлы состояния и пресеты (настоящий хост со встроенными плагинами) ──
 
     private static PluginConfig Gain(string state) =>

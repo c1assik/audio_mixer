@@ -16,7 +16,7 @@ internal sealed class ControlPipe : IDisposable
 
     private readonly NamedPipeServerStream _pipe;
     private readonly object _writeLock = new();
-    private bool _disposed;
+    private volatile bool _disposed;
 
     public string Name { get; }
     public bool IsConnected => !_disposed && _pipe.IsConnected;
@@ -63,35 +63,42 @@ internal sealed class ControlPipe : IDisposable
         return true;
     }
 
-    /// <summary>false — канал закрыт.</summary>
+    /// <summary>Столько ждать, пока допишется предыдущее сообщение (хост не читает канал — он завис).</summary>
+    public static readonly TimeSpan WriteWait = TimeSpan.FromSeconds(1);
+
+    /// <summary>
+    /// false — канал закрыт или занят: прежняя запись стоит, потому что хост не читает. Ждать её бесконечно нельзя —
+    /// пинг шёл бы из пула каждую секунду и занимал по потоку навсегда, а проверка зависания до хоста не доходила бы.
+    /// </summary>
     public bool Send(JsonObject msg)
     {
         byte[] body = Encoding.UTF8.GetBytes(msg.ToJsonString());
         var frame = new byte[4 + body.Length];
         BinaryPrimitives.WriteUInt32LittleEndian(frame, (uint)body.Length);
         body.CopyTo(frame, 4);
-        lock (_writeLock)
+        if (!Monitor.TryEnter(_writeLock, WriteWait)) return false;
+        try
         {
             if (_disposed || !_pipe.IsConnected) return false;
-            try
-            {
-                _pipe.Write(frame);
-                return true;
-            }
-            catch (Exception e) when (e is IOException or ObjectDisposedException or InvalidOperationException)
-            {
-                return false;
-            }
+            _pipe.Write(frame);
+            return true;
+        }
+        // OperationCanceled — канал закрыли, пока запись стояла
+        catch (Exception e) when (e is IOException or ObjectDisposedException or InvalidOperationException or OperationCanceledException)
+        {
+            return false;
+        }
+        finally
+        {
+            Monitor.Exit(_writeLock);
         }
     }
 
     public void Dispose()
     {
-        lock (_writeLock)
-        {
-            if (_disposed) return;
-            _disposed = true;
-        }
+        // без блокировки записи: застрявшая запись держит её, пока канал не закроют
+        if (_disposed) return;
+        _disposed = true;
         _pipe.Dispose();
     }
 }
