@@ -8,6 +8,7 @@ namespace Mixer.Tests;
 /// Сканирование и каталог (VST, этап 2). Тесты без хоста — moduleinfo.json, предпроверки, подпись, кэш; с хостом
 /// (C++-сборка) — скан AGain через процесс, падающий и зависающий модули, папка из 100 модулей.
 /// </summary>
+[Collection(nameof(SerialTiming))] // меряет время скана и кэша: не под нагрузкой параллельных тестов (на CI таймаут 1 с занял 8 с)
 public sealed class PluginCatalogTests : IDisposable
 {
     private readonly string _dir = Path.Combine(Path.GetTempPath(), "mixer-scan-" + Guid.NewGuid().ToString("N")[..8]);
@@ -173,7 +174,9 @@ public sealed class PluginCatalogTests : IDisposable
         var sw = Stopwatch.StartNew();
         var hang = await scanner.ScanAsync(Path.Combine(TestModules, "hang.vst3"));
         Assert.Equal(ScanProblem.Timeout, hang?.Problem);
-        Assert.InRange(sw.Elapsed.TotalSeconds, 0.9, 5);
+        Assert.Equal("1 s", hang?.Detail);
+        // в замер входят запуск процесса и WinVerifyTrust: граница — раньше таймаута по умолчанию, а не точное время
+        Assert.InRange(sw.Elapsed.TotalSeconds, 0.9, PluginScanner.DefaultTimeout.TotalSeconds - 1);
 
         int before = scanner.ProcessCount;
         var vst2 = await scanner.ScanAsync(Path.Combine(TestModules, "vst2.dll"));

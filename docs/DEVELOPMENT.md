@@ -1,6 +1,6 @@
 # Mixer for Windows: developer notes
 
-The user guide is in the [README](../README.md). The specification and plan (in Russian) is `Микшер для Windows спецификация и план.md` in the repository root; section names from it are quoted below in Russian. Stage 0 (risk check): [tools/Mixer.Probe](../tools/Mixer.Probe/README.md). The v2 specification is `Микшер для Windows v2 спецификация и план.md`; its stage 0 results (captures, new applications, direct route, `IAudioClient3`) are in the same Mixer.Probe README; stages 1 (buses), 2 (processing), 3 (applications), 4 (low latency), 5 (migration and release 2.0), 6 (virtual cables and the setup assistant), 7 (scenes, hotkeys, tray, autostart, themes) and 8 (tests and release 2.1) are described below in «v2 stage 1» … «v2 stage 8». The VST support specification is `Микшер для Windows поддержка VST.md`; its stages 0 (exchange prototype), 1 (the host), 2 (scanner and catalog), 3 (the engine) and 4 (the UI) are in «VST stage 0» … «VST stage 4» below.
+The user guide is in the [README](../README.md). The specification and plan (in Russian) is `Микшер для Windows спецификация и план.md` in the repository root; section names from it are quoted below in Russian. Stage 0 (risk check): [tools/Mixer.Probe](../tools/Mixer.Probe/README.md). The v2 specification is `Микшер для Windows v2 спецификация и план.md`; its stage 0 results (captures, new applications, direct route, `IAudioClient3`) are in the same Mixer.Probe README; stages 1 (buses), 2 (processing), 3 (applications), 4 (low latency), 5 (migration and release 2.0), 6 (virtual cables and the setup assistant), 7 (scenes, hotkeys, tray, autostart, themes) and 8 (tests and release 2.1) are described below in «v2 stage 1» … «v2 stage 8». The VST support specification is `Микшер для Windows поддержка VST.md`; its stages 0 (exchange prototype), 1 (the host), 2 (scanner and catalog), 3 (the engine), 4 (the UI) and 5 (compatibility and tests) are in «VST stage 0» … «VST stage 5» below.
 
 The UI is in English, or in Russian when Windows is in Russian (see "Localization"). Log messages are in English; code comments are in Russian. Russian strings quoted below are shown as they appear in the Russian UI.
 
@@ -14,7 +14,7 @@ The UI is in English, or in Russian when Windows is in Russian (see "Localizatio
 | `src/Mixer.Plugins` | VST3 plug-ins, the mixer side: starting and supervising `Mixer.PluginHost.exe` (`PluginHost`: Job Object, control pipe, ping), the audio channel (`AudioLink`), the state format, the embedded host and its extraction (`HostBinary`), third-party licenses; the scanner and the catalog with its cache (`PluginScanner`, `PluginCatalog`). No WPF, no audio engine |
 | `src/Mixer.PluginHost` | C++ process hosting one VST3 plug-in: audio channel, control pipe, editor window, even blocks, built-in test plug-ins. Built by `tools/build-pluginhost.ps1`, not by `dotnet build`; embedded into `Mixer.Plugins` when built. See its [README](../src/Mixer.PluginHost/README.md) |
 | `licenses` | Texts of third-party licenses shown in Settings → «О программе» |
-| `tools/Mixer.PluginBench` | VST stages 0–2: a benchmark of the exchange with the host, a manual check of the editor window, a scan of the installed plug-ins |
+| `tools/Mixer.PluginBench` | VST stages 0–2 and 5: a benchmark of the exchange with the host, a manual check of the editor window, a scan of the installed plug-ins, the compatibility check |
 | `tools/Mixer.Run` | Console host for stages 1–2: runs a JSON graph through `MixerHost` with statistics, lists applications, checks a sink, measures loop latency (also with low latency) |
 | `tests/Mixer.Tests` | xUnit tests without a sound card, including UI view models (on their own STA thread, without a window) |
 | `tools/publish.ps1`, `tools/make-icon.ps1` | Release build of a single `Mixer.exe` and the program icon (stage 5) |
@@ -563,39 +563,6 @@ The application was a `Mixer.Probe tone` (−70 dBFS, automatic stream routing).
 | Microphone → headphones ≤ 25 ms on a card with small buffers | **not checked**: no such card on the developer machine (stage 4). In the model the wire takes 6 ms at 128 frames instead of 20 ms |
 | A v1 layout sounds the same after migration; `graph.v1.json` is kept | met: `MigrationV2Tests` (a v1 file gives the same engine snapshot: sources, outputs, wires, levels, no processing or buses; the copy is byte-identical and isn't overwritten). The user's own v1 graph was upgraded and played through on 10 November |
 
-### VST stage 4: the UI
-
-Stage 4 of `Микшер для Windows поддержка VST.md`: slots in the processing panel, the plug-in picker, the parameter list, the FX chip, the 4HP module in Modular, EN/RU strings, state files and slot presets.
-
-### How it works
-
-- **Processing panel.** «Плагины до» above the gate and «Плагины после» below the compressor, each with up to two slot rows and «+ Плагин». A row: drag handle, name and vendor, switch, «Открыть», «⋯»; under it the slot's output meter, latency («+10,7 мс») and load («4%»). A failed slot has a red frame, says what happened and offers «Перезапустить» (`PluginRack.Restart`). Dragging a row by its handle reorders it or moves it to the other group (two per group). «⋯»: replace, move to the other group, save preset (the name is typed in the menu), load preset, even blocks, remove. Every change is a graph edit through the history (`PluginEdits`), so Ctrl+Z works.
-- **«Открыть»** opens the plug-in's own window in its host (`OpenEditor` with the main window as owner, title «Плагин — Узел», last position and size). When it closes, the bounds go into the slot (`editor` in `graph.json`) and the state is taken. A plug-in without a window gets its parameter list in the panel instead: title, slider, value text from the plug-in; hidden, read-only and bypass parameters are not shown. One `PluginSlotViewModel` per slot (`MainViewModel.SlotVm`) holds the host subscriptions.
-- **The picker** is the palette in a third mode: search by name and vendor, «Недавние» (last 8, `settings.json`), the plug-ins' categories, «Не загрузились» (Enter scans the module again with its window, no timeout) and «Не поддерживается» with reasons; the subtitle shows the signer. The cache is shown at once; opening the picker refreshes the catalog (standard folders plus the user's) in the background, with «проверено N из M», and new plug-ins appear as they are found. A new slot gets a fresh ID (one whose state file does not exist yet) and the state file `plugins/<node>-<slot>.state`.
-- **Node card**: chip «FX n» (slots switched on) next to Gate · EQ · Comp; a yellow dot when a slot has failed. Outputs show the latency warning for parallel paths (both paths and the difference). **Modular**: each slot is a 4HP module (29 px) docked to the right of its node module, with the name vertical, an LED (on) and EDIT; the rack is wider by that much per slot. A bus with plug-ins has «Считать по часам…» in its menu (automatic or one of the outputs it reaches).
-- **State files** (`PluginRack`): written atomically to `%AppData%\Mixer\plugins\` (next to `graph.json`; `StateFolder`) 2 s after the last `dirty`, when the editor closes, when a preset is saved or loaded, and for every running plug-in on exit (up to 3 s). A slot reloaded for the same plug-in (even blocks, path) keeps its unsaved state. **Slot presets**: `presets\<classId>\<name>.state`; loading one is `setState` on the running plug-in and is written to the slot's file.
-- **Scenes** keep only which slots are on (`scene.nodes.<id>.plugins`), not plug-in state.
-- **Settings → «Плагины VST3»**: the user's folders (added to the standard ones for the picker and for finding missing plug-ins) and «Пересканировать всё» (full rescan, then missing slots retry).
-
-### Deviations from the specification
-
-1. **The picker is the «Добавить источник» palette in a plug-in mode**, not a separate window. «Не поддерживается» is listed there too.
-2. **State files are never deleted**, so undoing a removed slot and restoring a graph backup still find their state; a new slot skips IDs whose file is left over. Backups therefore don't copy the `plugins` folder.
-3. **Moving the editor window is a history step** (merged per window), so Ctrl+Z after closing an editor moves its saved position back.
-4. **A slot preset can be saved only while the plug-in runs** (the state comes from the plug-in); without audio (`--no-audio`) the menu says that the plug-in is not running.
-5. **The wire tooltip to a non-main output of a pinned bus does not show the extra ring latency yet.**
-6. **Fix in `PluginHost`**: disposing a host while it was warming up after `ready` unmapped the shared section under the warm-up thread (`AccessViolationException`, the whole process). `Dispose` now waits for the warm-up, and a warm-up never starts after `Dispose`. Removing a slot while its plug-in loads could have crashed the mixer.
-7. **Fix in `ControlPipe`** (found on CI: `Store_saves_after_delay` failed because the store's timer never ran, then `control pipe is closed`). `Send` wrote synchronously to a pipe opened as asynchronous; such a write waits for its completion, which runs on a thread-pool thread. The 1-second pings come from the pool and queued behind the write lock, so under load they took every pool thread while the lock holder waited for a pool thread to complete its write — a dump showed 599 blocked pool threads, and the hang check (after the ping) never ran. `Send` now only queues the frame; one asynchronous writer per pipe sends frames in order, so no thread ever waits on the pipe. A write starts at once in `Send` when the pipe is idle (no hop to the pool); messages sent meanwhile are written after it, in order. Closing the pipe ends a stuck write. `PluginRack` also stops hosts with `await StopAsync()` instead of `Dispose` on a pool thread, which waited up to 5 s per host synchronously. Reproduced with `DOTNET_PROCESSOR_COUNT=2` (a run hung for 10 minutes).
-
-### Tests
-
-`PluginUiTests` (8, serial with the timing tests): slot edits (two per group, move, replace in place, remove, IDs that skip leftover state files); scenes switch slots and keep their state; the rack is 4HP wider per slot with the OUT jack in place; the picker from a catalog of two fake bundles (groups, search, signer), adding a slot (ID, state path, class), the panel rows and the chip, the switch through the history with undo, moving to «после» with the same row model, removing. With the host: the acceptance criterion — the state of an edited plug-in survives a restart (component bit for bit, the controller gets its own); the state is written on exit before `dirty` fired; a preset loads into the running slot and its file; a host disposed during warm-up does not crash (it did before the fix, 3 of 3); sending to a pipe nobody reads never waits, closing it ends the stuck write, and frames arrive in order.
-
-### Status as of 12 November 2026
-
-- Done: everything above. 387 tests pass (2 manual sweeps skipped), three full runs in a row; the solution builds without warnings. Checked by snapshots (`--no-audio`): the panel with slots in Graphite and the 4HP modules in Modular.
-- **Not checked**: plug-in windows from the mixer with real plug-ins (owner, DPI, position memory), dragging slots and the menus by hand, the picker on a real plug-in folder, and the whole UI with audio running. That is the user's check and stage 5.
-
 ## Localization
 
 All strings added in v2 are in `Strings.resx` / `Strings.ru.resx` (and `CoreStrings`, `AudioStrings`); `LocalizationTests` check that both languages have the same keys and placeholders. A scan for Cyrillic literals in UI code found only the quotes of the grouping offer, which now come from the resources too («…» in Russian, “…” in English). Snapshots of the offer in both languages were checked with `--no-audio --snapshot`.
@@ -838,6 +805,133 @@ Stage 3 of `Микшер для Windows поддержка VST.md`: `PluginSlot`
 - **Windows Audio hung during that check** (svchost AppHang at 17:08:41 and 17:11:31, then a restart by the service manager). `IAudioClient.Initialize` on the fifine microphone hung from the start. The cause was the antivirus: it holds microphone access for a new program until the user allows it. It was neither the plug-ins nor the engine. No hosts were left over after the runs.
 - **Manual check by the user, 12 November 2026** (`probe-out/vst3-mic.json` and `vst3-mic-bus.json` through `Mixer.Run run`, microphone access allowed): the microphone through Elgato Noise Removal into the speakers, the bus with Elgato EQ into the speakers and CABLE Input, and a host killed in Task Manager. Everything worked.
 - **Not checked on devices**: the 8-hour run with 6 plug-ins, CPU per plug-in over a long run. Nothing in the UI shows the slots yet.
+
+## VST stage 4: the UI
+
+Stage 4 of `Микшер для Windows поддержка VST.md`: slots in the processing panel, the plug-in picker, the parameter list, the FX chip, the 4HP module in Modular, EN/RU strings, state files and slot presets.
+
+### How it works
+
+- **Processing panel.** «Плагины до» above the gate and «Плагины после» below the compressor, each with up to two slot rows and «+ Плагин». A row: drag handle, name and vendor, switch, «Открыть», «⋯»; under it the slot's output meter, latency («+10,7 мс») and load («4%»). A failed slot has a red frame, says what happened and offers «Перезапустить» (`PluginRack.Restart`). Dragging a row by its handle reorders it or moves it to the other group (two per group). «⋯»: replace, move to the other group, save preset (the name is typed in the menu), load preset, even blocks, remove. Every change is a graph edit through the history (`PluginEdits`), so Ctrl+Z works.
+- **«Открыть»** opens the plug-in's own window in its host (`OpenEditor` with the main window as owner, title «Плагин — Узел», last position and size). When it closes, the bounds go into the slot (`editor` in `graph.json`) and the state is taken. A plug-in without a window gets its parameter list in the panel instead: title, slider, value text from the plug-in; hidden, read-only and bypass parameters are not shown. One `PluginSlotViewModel` per slot (`MainViewModel.SlotVm`) holds the host subscriptions.
+- **The picker** is the palette in a third mode: search by name and vendor, «Недавние» (last 8, `settings.json`), the plug-ins' categories, «Не загрузились» (Enter scans the module again with its window, no timeout) and «Не поддерживается» with reasons; the subtitle shows the signer. The cache is shown at once; opening the picker refreshes the catalog (standard folders plus the user's) in the background, with «проверено N из M», and new plug-ins appear as they are found. A new slot gets a fresh ID (one whose state file does not exist yet) and the state file `plugins/<node>-<slot>.state`.
+- **Node card**: chip «FX n» (slots switched on) next to Gate · EQ · Comp; a yellow dot when a slot has failed. Outputs show the latency warning for parallel paths (both paths and the difference). **Modular**: each slot is a 4HP module (29 px) docked to the right of its node module, with the name vertical, an LED (on) and EDIT; the rack is wider by that much per slot. A bus with plug-ins has «Считать по часам…» in its menu (automatic or one of the outputs it reaches).
+- **State files** (`PluginRack`): written atomically to `%AppData%\Mixer\plugins\` (next to `graph.json`; `StateFolder`) 2 s after the last `dirty`, when the editor closes, when a preset is saved or loaded, and for every running plug-in on exit (up to 3 s). A slot reloaded for the same plug-in (even blocks, path) keeps its unsaved state. **Slot presets**: `presets\<classId>\<name>.state`; loading one is `setState` on the running plug-in and is written to the slot's file.
+- **Scenes** keep only which slots are on (`scene.nodes.<id>.plugins`), not plug-in state.
+- **Settings → «Плагины VST3»**: the user's folders (added to the standard ones for the picker and for finding missing plug-ins) and «Пересканировать всё» (full rescan, then missing slots retry).
+
+### Deviations from the specification
+
+1. **The picker is the «Добавить источник» palette in a plug-in mode**, not a separate window. «Не поддерживается» is listed there too.
+2. **State files are never deleted**, so undoing a removed slot and restoring a graph backup still find their state; a new slot skips IDs whose file is left over. Backups therefore don't copy the `plugins` folder.
+3. **Moving the editor window is a history step** (merged per window), so Ctrl+Z after closing an editor moves its saved position back.
+4. **A slot preset can be saved only while the plug-in runs** (the state comes from the plug-in); without audio (`--no-audio`) the menu says that the plug-in is not running.
+5. **The wire tooltip to a non-main output of a pinned bus does not show the extra ring latency yet.**
+6. **Fix in `PluginHost`**: disposing a host while it was warming up after `ready` unmapped the shared section under the warm-up thread (`AccessViolationException`, the whole process). `Dispose` now waits for the warm-up, and a warm-up never starts after `Dispose`. Removing a slot while its plug-in loads could have crashed the mixer.
+7. **Fix in `ControlPipe`** (found on CI: `Store_saves_after_delay` failed because the store's timer never ran, then `control pipe is closed`). `Send` wrote synchronously to a pipe opened as asynchronous; such a write waits for its completion, which runs on a thread-pool thread. The 1-second pings come from the pool and queued behind the write lock, so under load they took every pool thread while the lock holder waited for a pool thread to complete its write — a dump showed 599 blocked pool threads, and the hang check (after the ping) never ran. `Send` now only queues the frame; one asynchronous writer per pipe sends frames in order, so no thread ever waits on the pipe. A write starts at once in `Send` when the pipe is idle (no hop to the pool); messages sent meanwhile are written after it, in order. Closing the pipe ends a stuck write. `PluginRack` also stops hosts with `await StopAsync()` instead of `Dispose` on a pool thread, which waited up to 5 s per host synchronously. Reproduced with `DOTNET_PROCESSOR_COUNT=2` (a run hung for 10 minutes).
+
+### Tests
+
+`PluginUiTests` (8, serial with the timing tests): slot edits (two per group, move, replace in place, remove, IDs that skip leftover state files); scenes switch slots and keep their state; the rack is 4HP wider per slot with the OUT jack in place; the picker from a catalog of two fake bundles (groups, search, signer), adding a slot (ID, state path, class), the panel rows and the chip, the switch through the history with undo, moving to «после» with the same row model, removing. With the host: the acceptance criterion — the state of an edited plug-in survives a restart (component bit for bit, the controller gets its own); the state is written on exit before `dirty` fired; a preset loads into the running slot and its file; a host disposed during warm-up does not crash (it did before the fix, 3 of 3); sending to a pipe nobody reads never waits, closing it ends the stuck write, and frames arrive in order.
+
+### Status as of 12 November 2026
+
+- Done: everything above. 387 tests pass (2 manual sweeps skipped), three full runs in a row; the solution builds without warnings. Checked by snapshots (`--no-audio`): the panel with slots in Graphite and the 4HP modules in Modular.
+- **Not checked**: plug-in windows from the mixer with real plug-ins (owner, DPI, position memory), dragging slots and the menus by hand, the picker on a real plug-in folder, and the whole UI with audio running. That is the user's check and stage 5.
+
+## VST stage 5: compatibility and tests
+
+Stage 5 of `Микшер для Windows поддержка VST.md`: a list of 20 popular VST3 effects, at least half of them for voice, run through the host, with the results in a compatibility table, plus stress tests and crash tests.
+
+### How it works
+
+- **`Mixer.PluginBench --compat`** runs the check on every effect in the catalog. It goes through the same `PluginHost` and `AudioLink` code as the mixer. Steps: load; 29 s of SAPI speech with noise in 480-frame blocks; the editor window over an owner window while audio runs (owner check, screenshot); one parameter changed, then a new host loaded with the saved state; a rate change 48 → 44.1 → 48 kHz; ragged blocks of 1–1024 frames in a fresh host, compared with the 480-frame output. The tool writes a Markdown table and JSON to `probe-out/`. Details are in its [README](../tools/Mixer.PluginBench/README.md#compatibility-check-stage-5). A plug-in **works** when it meets the specification's criterion: it loads, sounds right in 480-frame blocks, its window works, and the edited parameter survives a restart. Ragged blocks and the rate change are reported but do not decide the result.
+- **Stress and crash tests** (`PluginStressTests`) use the built-in plug-ins of the host, so they need no third-party plug-ins (see "Tests").
+
+### Compatibility, 13 November 2026
+
+Windows 11 25H2, Ryzen 5 5600G. **20 of the 20 plug-ins on the list work** (the criterion is 18). 11 of them are for voice (rows 1–11). The two extra Elgato plug-ins at the end work too. Every plug-in loaded, played, and opened its own window over the owner window: the owner was correct, the window was not blank, and it closed. Every plug-in kept the edited parameter through a host restart. Paid plug-ins ran as trials. "Load" is the time to `ready` and the private memory of the host. "p99" is the 99th percentile of `process` time as a share of the 10 ms period.
+
+| # | Plug-in | Kind | Licence | Load | Latency | p99 | Ragged blocks | 48 → 44.1 → 48 kHz | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | Elgato Noise Removal | voice: denoiser | free | 74 ms, 5 MB | 0 | 2.9% | same level, **different waveform** | ok | output depends on the block size; with even blocks it differs from 480 as well |
+| 2 | Elgato De-Esser | voice: de-esser | free | 75 ms, 7 MB | 0 | 0.0% | bit-exact | ok | |
+| 3 | Basic Noise Gate (Videophile) | voice: gate | free | 36 ms, 4 MB | 0 | 0.3% | bit-exact | ok | single-file `.vst3` |
+| 4 | RNNoise (werman) | voice: denoiser | free, open source | 34 ms, 4 MB | 1440 | 2.0% | bit-exact | ok | ships VST2 `.dll` files next to it, which the catalog lists as «VST2 не поддерживается» |
+| 5 | Bertom Denoiser Classic | voice: denoiser | free | 43 ms, 4 MB | 0 | 0.3% | bit-exact | ok | JUCE: a changed parameter reaches `getState` only after its message-thread timer runs, about 300 ms later |
+| 6 | Graillon 3 (Auburn Sounds) | voice: changer, pitch | free edition | 62 ms, 4 MB | 1074 | 2.2% | same level, different waveform (−4 dB), repeatable | ok | Dplug |
+| 7 | MAutoPitch (MeldaProduction) | voice: autotune | free | 50 ms, 11 MB | 1024 | 1.1% | ok | ok | about 0.1 s after load it reports a latency change with the same latency: one block is dry while the host reconfigures |
+| 8 | TDR Nova | voice: dynamic EQ | free | 109 ms, 18 MB | 184 | 1.2% | bit-exact | ok | |
+| 9 | TDR Kotelnikov | voice/bus: compressor | free | 102 ms, 10 MB | 184 | 4.4% | bit-exact | ok | |
+| 10 | FabFilter Pro-Q 4 | voice: EQ | paid | 75 ms, 11 MB | 0 | 0.0% | bit-exact | ok | |
+| 11 | FabFilter Pro-DS | voice: de-esser | paid | 58 ms, 6 MB | 720 | 0.6% | bit-exact | ok | |
+| 12 | Elgato Compressor | compressor | free | 47 ms, 3 MB | 0 | 0.2% | **−13 dB**; with «ровные блоки» bit-exact | ok | needs «Ровные блоки» on application nodes |
+| 13 | Valhalla Supermassive | reverb | free | 57 ms, 13 MB | 0 | 0.8% | bit-exact | ok | |
+| 14 | LoudMax (Thomas Mundt) | limiter | free | 28 ms, 3 MB | 60 | 0.1% | bit-exact | ok | |
+| 15 | Youlean Loudness Meter 2 | LUFS meter | free | 76 ms, **289 MB** | 0 | 1.1% | bit-exact | ok | its only parameter is the preset selector, and the state bytes differ after a restart: settings made in its window should be checked by hand |
+| 16 | Xfer OTT | multiband compressor | free | 62 ms, 8 MB | 2 | 1.0% | bit-exact | ok | |
+| 17 | Voxengo SPAN | analyzer | free | 38 ms, 20 MB | 0 | 0.0% | bit-exact | ok | rounds a parameter to steps it does not declare (0.25 → 0.2308) |
+| 18 | Surge XT Effects | effects | free, open source | 115 ms, 28 MB | 0 | 0.2% | ok, shifted by up to 31 frames | ok | works in 32-frame blocks inside and reports latency 0. The Surge XT synthesizer is listed as «инструмент» |
+| 19 | CHOWTapeModel (chowdsp) | tape | free, open source | 589 ms, **217 MB** | 39 | 4.0% | bit-exact | ok, ≈ 90 ms suspended | **did not load before the fix** (see below) |
+| 20 | TAL-Chorus-LX | chorus | free | 34 ms, 3 MB | 0 | 0.2% | bit-exact | ok | |
+| — | Elgato EQ | EQ | free | 623 ms, 7 MB | 0 | 0.3% | ≈ (−70 dB) | **crashes** | the slot comes back at the new rate 2 s later |
+| — | Elgato Pip-Boy Voice FX | voice effect | free | 126 ms, 14 MB | 0 | 6.8% | ok | ok | not deterministic: two runs of the same input differ |
+
+Not supported, as expected: `DragonflyEarlyReflections.vst3` is a 32-bit build («32-bit»), the Surge XT synthesizer is an instrument, and RNNoise's `.dll` files are VST2.
+
+What the check found:
+
+1. **Fix: plug-ins that restart right after activation could not load.** CHOWTapeModel calls `restartComponent` from `setActive`. The host reconfigures it and answers the warm-up blocks after `ready` as "suspended". `AudioLink.WarmUp` treated that answer as a failure ("host did not answer a warm-up block"), so the slot showed «не загрузился». The warm-up now waits until the reconfiguration ends, up to 10 s; missed and busy blocks still fail it. The test is `Load_WaitsForAPluginThatRestartsRightAfterActivation`: the built-in `latency` plug-in got a `restartOnLoad` option, and the test fails without the fix.
+2. **Fix (a stage 4 bug, found by the user's manual check): slots read their state from the current folder.** In `App.xaml.cs` the comment and the `Plugins = new PluginRackOptions { StateFolder = … }` assignment ended up on one line, so `StateFolder` was never set. The rack then resolved `plugins/<node>-<slot>.state` against the process's current folder (`bin\Debug\…\plugins`), while the picker looks for a free slot ID next to `graph.json`. It found no file there and gave a new slot `p1` again, and that slot read the state another plug-in had left under `p1`: Graillon 3 was loaded with Supermassive's state and failed with «state not accepted: IComponent::setState failed». The options are now built by `AppOptions.HostOptions`, and `Rack_AndPicker_UseTheSameStateFile_NextToTheGraph` checks that the picker and the rack use the same file next to `graph.json`. State files written before the fix stay in the folder the mixer was started from; the mixer does not move them.
+3. **Elgato EQ crashes on any real rate change** (`0xC0000005` or `0xC0000374` inside its module). Changing 48 → 48 kHz and loading directly at 44.1 or 96 kHz both work. A host that skips renegotiating the buses crashes the same way, so the cause is in the plug-in. In the mixer the slot goes dry and comes back at the node's rate after 2 s; `CrashOnARateChange_ComesBackAtTheNodeRate` covers this. Each rate change counts as a crash, so three changes within 5 minutes put the slot in «Сбой».
+4. **Elgato Compressor is 13 dB quieter on ragged blocks**, which application captures produce. With «Ровные блоки» its output matches the 480-frame output bit for bit. The mixer does not switch that flag on by itself.
+5. **Skipping a reconfiguration when the reported latency is unchanged would be wrong.** MAutoPitch reports a latency change with the same value. Many plug-ins, like the built-in `latency`, return the new latency only after reactivation, so the host has to reconfigure every time. The cost is one dry block, which the slot smooths.
+6. **Four plug-ins give different output with other block sizes**: Noise Removal, Graillon, Surge XT Effects and Pip-Boy. The level stays the same, but whether it sounds right can only be heard. The check writes both outputs to `probe-out/compat/<name>-480.wav` and `-ragged.wav`; nobody has listened to them yet.
+7. **Memory**: most hosts take 3–28 MB private. CHOWTapeModel (217 MB) and Youlean (289 MB) take far more, so 16 heavy plug-ins would need several GB. The ceiling of 16 stays.
+
+The gain at 44.1 kHz is not listed: the rate change comes after the parameter edit, so it compares a different setting.
+
+### Deviations from the specification
+
+1. **The table is here, not in the README**, as the user asked.
+2. **Two plug-ins of the list were replaced.** TAL-Chorus-LX took the place of Waves (Waves needs an account). Elgato Compressor took the place of Dragonfly Room Reverb: only Dragonfly's 32-bit build was installed, and it stays as the 32-bit example.
+3. **The compatibility check is a console tool**, not part of `dotnet test`, because it depends on the plug-ins installed on the machine. The tests use the built-in plug-ins instead.
+4. **Audio runs without pauses**, with a 1 s deadline. Load is taken from the `process` time; the deadline is not checked. Blocks the host answers as suspended are not counted as failures, and after a rate change the check waits until the host is no longer suspended.
+5. **All 16 slots come back 2.2–5 s after a mass kill**, not within 3 s. The 3 s criterion is for one host; 16 hosts starting at once take longer.
+
+### Tests (397 total: 395 pass, 2 manual tuning sweeps skipped)
+
+`PluginStressTests` (5, serial with the timing tests):
+
+- **16 slots** run on 4 nodes under audio, and the 17th slot gets «лимит». In 5 s there were 0–3 misses in about 8,000 blocks (the test allows up to 1%). No host restarted on its own. All 16 hosts were then killed at once: every slot went dry and came back, and no host processes were left after `Dispose`.
+- **Slot churn**: slots are added, removed, moved between groups, switched on and off, and their even blocks toggled every 20–150 ms for 8 s under audio. That is 43–51 edits and 119–142 hosts. Afterwards the last layout loads in full, the audio stays finite, and no host processes are left.
+- **A crashing slot among working ones**: the slot crashes again and again until «Сбой». Its neighbours on the same node and on another node stay running. The slot right after it in the same chain loses one block per crash, because the block's deadline is shared.
+- **A crash during a rate change** (the Elgato EQ case): the slot comes back at the node's rate, whether the host died before, during or after `setRate`.
+- **A module that crashes on load**: three attempts, then «Сбой», and no new hosts.
+
+`PluginHostTests` adds `Load_WaitsForAPluginThatRestartsRightAfterActivation` (fix 1), and `PluginUiTests` adds `Rack_AndPicker_UseTheSameStateFile_NextToTheGraph` (fix 2).
+
+Manual check of the criterion «после аварийного завершения микшера ни одного `Mixer.PluginHost.exe` не остаётся»: `Mixer.PluginBench --builtin --frames 480,128` was force-killed while two hosts ran in its Job Object (the same `PluginHost` code as the mixer). Both hosts were gone within 0.5 s.
+
+### Acceptance criteria
+
+| Criterion | Status |
+| --- | --- |
+| 6 plug-ins on 4 nodes for 8 hours, a pinned bus into two outputs, faults no worse than without plug-ins, ≤ 0.5% CPU per plug-in for the exchange | **not checked**: needs the user's devices. Exchange CPU ≤ 0.05% per plug-in (stage 0) |
+| A host killed in Task Manager: no gap, dry, back in 3 s with its state | met: `Rack_RestartsACrashedHostWithItsLastState` (1.9–3 s, stage 3) and the user's check on 12 November |
+| "Sleeps 50 ms" is switched off within 10 s, the rest plays | met: `Rack_SlowPluginIsSwitchedOff` (stage 3) |
+| Settings made in the plug-in window survive a restart, bit for bit for the test plug-in | met: `State_SurvivesARestart_BitForBit` (stage 4); 20 of 20 real plug-ins keep an edited parameter. In the mixer itself only after fix 2 |
+| A scan of 100 plug-ins with a hanging and a crashing one finishes, the UI responds, the cache run takes < 1 s | met: `PluginCatalogTests` (stage 2) |
+| A pinned bus into two outputs with different clocks: one plug-in process, sound in both | met: the device check on 12 November (stage 3) |
+| 512 samples show «+10,7 мс» at 48 kHz and add to the total; the parallel-path warning appears | met: stage 3 and 4 tests |
+| No `Mixer.PluginHost.exe` left after the mixer crashes | met: the manual check above |
+| At least 18 of the 20 listed plug-ins work | met: 20 of 20 |
+
+### Status as of 13 November 2026
+
+- Done: the compatibility check, the table, the warm-up fix, the state folder fix, the stress and crash tests. 395 tests pass (2 manual sweeps skipped).
+- **Not checked**: the 8-hour run on devices; listening to the `-ragged.wav` files of Noise Removal, Graillon, Surge XT Effects and Pip-Boy; Youlean's settings through a restart by hand; plug-in windows on a monitor above 100% scaling; the plug-ins in the running mixer UI.
+- The first of five runs of the 16-slot test failed: one host ended by itself during the 5 s of audio, with 17 misses, and its log was not kept. It has not happened since. The test now prints the slot's state and fault if it happens again.
 
 ## Localization
 

@@ -222,6 +222,21 @@ public class PluginHostTests(ITestOutputHelper output)
         Assert.True(host.IsRunning);
     }
 
+    /// <summary>
+    /// CHOWTapeModel зовёт restartComponent сразу после активации: прогрев застаёт хост приостановленным. Раньше
+    /// загрузка на этом падала («did not answer a warm-up block»), теперь прогрев ждёт конца перенастройки.
+    /// </summary>
+    [Fact]
+    public async Task Load_WaitsForAPluginThatRestartsRightAfterActivation()
+    {
+        if (!TestHost.Available()) return;
+        using var host = TestHost.Start(output);
+        var info = await host.LoadAsync(PluginLoad.Test("latency", new BuiltinOptions { Latency = 64, RestartOnLoad = true }));
+        Assert.Equal(64, info.LatencySamples);
+        var output_ = RunImpulse(host, 3 * Frames);
+        Assert.Equal(64, Array.IndexOf(output_, 1.0f));
+    }
+
     [Fact]
     public async Task Latency_IsReportedAndRealAndChangesThroughRestartComponent()
     {

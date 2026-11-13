@@ -167,11 +167,17 @@ private:
 // деактивации и активации.
 class LatencyProcessor final : public Processor {
 public:
-    LatencyProcessor(int samples, ProcessorEvents& events) : events_(events), pending_(std::clamp(samples, 0, 8192)) {}
+    LatencyProcessor(int samples, bool restartOnLoad, ProcessorEvents& events)
+        : events_(events), pending_(std::clamp(samples, 0, 8192)), restartOnLoad_(restartOnLoad), slowFirst_(restartOnLoad) {}
 
     std::string Name() const override { return "Latency"; }
     bool Prepare(double, int32_t, std::string&) override {
         latency_ = pending_;
+        // как CHOWTapeModel и MAutoPitch: «задержка изменилась» сразу после активации, с той же задержкой
+        if (restartOnLoad_) {
+            if (prepared_++) Sleep(50);  // перенастройка не мгновенная: прогрев успевает застать хост приостановленным
+            events_.OnRestart(Steinberg::Vst::kLatencyChanged);
+        }
         for (auto& line : lines_) line.assign(size_t(latency_) + 1, 0.0f);
         pos_ = 0;
         return true;
@@ -202,6 +208,10 @@ public:
 
     int32_t Process(float* const* in, float* const* out, int32_t frames, const ParamChange*, int32_t,
                     ParamQueue&) override {
+        if (slowFirst_) {  // прогрев микшера должен застать хост приостановленным
+            slowFirst_ = false;
+            Sleep(20);
+        }
         const size_t n = lines_[0].size();
         for (int32_t i = 0; i < frames; ++i) {
             for (int c = 0; c < 2; ++c) {
@@ -216,6 +226,8 @@ public:
 private:
     ProcessorEvents& events_;
     int pending_;
+    bool restartOnLoad_, slowFirst_;
+    int prepared_ = 0;
     int latency_ = 0;
     std::vector<float> lines_[2];
     size_t pos_ = 0;
@@ -230,7 +242,7 @@ std::unique_ptr<Processor> MakeBuiltin(const std::string& kind, const BuiltinOpt
     if (kind == "sleep") return std::make_unique<SleepProcessor>(o.sleepMs);
     if (kind == "crash") return std::make_unique<CrashProcessor>(o.after);
     if (kind == "nan") return std::make_unique<NanProcessor>(o.after);
-    if (kind == "latency") return std::make_unique<LatencyProcessor>(o.latency, events);
+    if (kind == "latency") return std::make_unique<LatencyProcessor>(o.latency, o.restartOnLoad, events);
     error = "unknown builtin: " + kind;
     return nullptr;
 }

@@ -104,17 +104,24 @@ public sealed unsafe class AudioLink : IDisposable
     /// <summary>
     /// Несколько блоков тишины с секундным дедлайном до начала работы: первый process у плагина часто
     /// медленный (ленивая инициализация, промахи кэша). Слот в это время ещё «загружается».
+    /// Приостановленный хост не провал: плагин сразу после загрузки позвал restartComponent (CHOWTapeModel), хост
+    /// его перенастраивает — ждём, пока закончит, до 10 с.
     /// </summary>
     internal void WarmUp(int blocks = 8)
     {
         int frames = Math.Min(MaxFrames, 480);
         var silence = new float[frames];
         var sink = new float[frames];
-        for (int i = 0; i < blocks; i++)
+        long giveUp = Stopwatch.GetTimestamp() + 10 * Stopwatch.Frequency;
+        for (int done = 0; done < blocks;)
         {
             var outcome = Process(silence, silence, sink, sink, Stopwatch.GetTimestamp() + Stopwatch.Frequency);
-            if (outcome != BlockOutcome.Processed)
+            if (outcome == BlockOutcome.Processed) done++;
+            else if (outcome != BlockOutcome.Bypassed)
                 throw new TimeoutException($"host did not answer a warm-up block within 1 s ({outcome})");
+            else if (Stopwatch.GetTimestamp() > giveUp)
+                throw new TimeoutException("host stayed suspended for 10 s after load");
+            else Thread.Sleep(5);
         }
     }
 

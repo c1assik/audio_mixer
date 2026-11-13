@@ -32,6 +32,8 @@ public sealed record BuiltinOptions
     public int SleepMs { get; init; } = 50;
     public int After { get; init; }
     public int Latency { get; init; } = 512;
+    /// <summary>latency: restartComponent сразу после активации (как CHOWTapeModel), первый process — 20 мс.</summary>
+    public bool RestartOnLoad { get; init; }
 }
 
 /// <summary>Параметр плагина: для списка в панели и для зеркала правок в окне.</summary>

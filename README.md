@@ -12,6 +12,7 @@ What it does:
 - sets the volume of every source, every output and every wire separately, with a level meter on each;
 - groups sources into **buses**: one fader for "game + chat", fewer wires;
 - cleans up your voice with a **gate, equalizer and compressor** on any node, with ready-made presets;
+- runs **VST3 effects** on any node: noise removal, a de-esser or a voice changer on the microphone, reverb on the stream, a limiter on a bus. Each plug-in runs in its own process, so a crashing plug-in doesn't take your stream down;
 - sends an application straight to its output when it needs nothing from the mixer (**direct route**: no added latency or CPU);
 - opens devices with **low latency** where the sound card driver allows it;
 - saves your layout automatically and restores it on start, picks up unplugged and reconnected devices, and survives sleep.
@@ -205,6 +206,24 @@ Every source, bus and output has a chain of three blocks in a fixed order: **gat
 
 Presets: "Voice — clean", "Voice — broadcast", "Music — quieter and smoother". "Save as…" keeps your own. A block that is off costs nothing, and turning knobs never clicks. The "In" and "Out" meters at the bottom compare the level before and after processing.
 
+## VST3 plug-ins
+
+Every source, bus and output can run up to four VST3 effects: two in **Plug-ins before** (`Плагины до`), above the gate, and two in **Plug-ins after** (`Плагины после`), below the compressor. Noise removal goes before, so the gate and compressor get a clean signal; reverb and other effects go after. A layout holds up to 16 plug-ins.
+
+- Open the processing panel (**+ FX** on a card) and click **+ Plug-in** (`+ Плагин`). The picker searches by name and vendor and groups plug-ins by category. The first time, Mixer scans the standard VST3 folders (`C:\Program Files\Common Files\VST3` and `%LocalAppData%\Programs\Common\VST3`) in the background, showing "checked N of M"; later only new and changed files are checked. Add your own folders, or rescan everything, in Settings → **VST3 plug-ins** (`Плагины VST3`).
+- **Open** (`Открыть`) shows the plug-in's own window over Mixer; Mixer remembers its position for each slot. A plug-in without a window gets a list of its parameters in the panel instead.
+- A slot row shows the level at the plug-in's output, its latency ("+12 ms", added to the path's latency in the top bar and on the wire) and its load ("4%" of the audio period). The switch turns the plug-in off; drag the handle to change the order or move it to the other group. The **⋯** menu replaces, moves or removes it, saves and loads presets, and turns on **Even blocks** (`Ровные блоки`).
+- The card shows an **FX n** chip with the number of plug-ins switched on; a dot on it means one of them has failed.
+- Plug-in settings are saved with the layout and come back after a restart. Scenes remember only which plug-ins are on, not their settings.
+
+**When a plug-in fails, the sound keeps going without it.** If a plug-in crashes, the slot passes audio through unchanged and the plug-in restarts 2 s later with its last settings; after three crashes in 5 minutes it waits for **Restart** (`Перезапустить`). A plug-in that can't keep up with the audio, or produces broken audio, is switched off with the reason written in the slot. Sound above +12 dBFS is limited at the slot's output.
+
+A bus with plug-ins that goes to several outputs is computed once, on the clock of one of them; the others get it like a source, with a little extra latency. To choose which output, use the bus menu → **Compute on the clock of…** (`Считать по часам…`).
+
+Supported: 64-bit VST3 effects with mono or stereo audio. Not supported: VST2, 32-bit plug-ins, instruments, sidechain inputs and parameter automation; the picker lists such files under **Not supported** (`Не поддерживается`) with the reason. Plug-ins that crashed or hung while being scanned are under **Did not load** (`Не загрузились`); select one and press Enter to scan it again with its window, for plug-ins that ask for license activation on first start.
+
+**Tested plug-ins.** 20 popular free and paid effects work, among them Elgato Noise Removal and De-Esser, RNNoise, Bertom Denoiser, Graillon 3, MAutoPitch, TDR Nova and Kotelnikov, FabFilter Pro-Q 4 and Pro-DS, Valhalla Supermassive, LoudMax, Youlean Loudness Meter, OTT, SPAN, Surge XT Effects and CHOWTapeModel. Known quirks: **Elgato EQ** crashes when the device's sample rate changes (it comes back by itself 2 s later), and **Elgato Compressor** needs **Even blocks** on Application and All system audio nodes. The full table is in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#compatibility-13-november-2026).
+
 ## Applications: exclusions and direct routes
 
 **All system audio** captures every program except Mixer. To keep a program out of it (say, a messenger out of your stream) without giving it its own node, open the node menu → **Exclude apps** (`Исключить приложения`): tick a program that is playing now, or type any exe name. Programs that have their own node are left out automatically so you don't hear them twice. If you want such a program in both (Discord on its own wire to the stream, and together with everything else in your headphones), turn on **Keep apps that have their own node**.
@@ -241,7 +260,9 @@ The top bar shows the total latency, CPU load and the number of audio glitches. 
 
 - **Latency is about 40–50 ms** on most sound cards. That is unnoticeable for streaming, calls and listening, but monitoring your own voice through Mixer in real time is uncomfortable: you will hear a slight echo. With low latency on a card that supports small buffers it is lower; VB-Cable always adds its own buffer.
 - Games with anti-cheat and programs running as administrator may refuse to give up their audio or to move to the sink. The card shows an error.
-- No noise suppression, VST, ASIO, MIDI controllers or network audio. Virtual devices still come from third-party cables such as VB-Cable.
+- No built-in noise suppression (use a VST3 plug-in), no VST2 or CLAP, ASIO, MIDI controllers or network audio. Virtual devices still come from third-party cables such as VB-Cable.
+- Plug-ins on parallel paths are not delay-compensated: if one source reaches an output two ways with plug-in latencies more than 2 ms apart, it sounds hollow, and the output warns you.
+- Each plug-in takes its own process: usually 5–30 MB, but heavy ones take 200–300 MB.
 
 ## Where your data lives
 
@@ -250,7 +271,11 @@ The top bar shows the total latency, CPU load and the number of audio glitches. 
 | layout | `%AppData%\Mixer\graph.json` |
 | layout backups (the last 5) | same folder, `graph.json.bak-…` |
 | your 1.0 layout, as it was before the upgrade | same folder, `graph.v1.json` |
-| settings (language, theme, tray options, your processing presets) | same folder, `settings.json` |
+| settings (language, theme, tray options, your processing presets, plug-in folders) | same folder, `settings.json` |
+| plug-in settings, one file per slot | same folder, `plugins\<node>-<slot>.state` |
+| plug-in presets | same folder, `presets\<plug-in ID>\<name>.state` |
+| list of scanned plug-ins (safe to delete) | `%LocalAppData%\Mixer\plugins.json` |
+| the plug-in host `Mixer.PluginHost.exe`, unpacked from `Mixer.exe` | `%LocalAppData%\Mixer\bin` |
 | start with Windows | registry, `HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run`, value `Mixer` |
 | log | `%LocalAppData%\Mixer\logs` |
 
@@ -276,19 +301,21 @@ If two or more sources go to the same outputs, Mixer offers to group them into a
 - **"Nobody hears me" in Discord or OBS with a virtual mic.** Set the microphone inside the app to **Default**. The cable card warns you when the app records from another device.
 - **A hotkey doesn't work.** Another program may have taken it after Mixer started; assign another combination.
 - **Crackling or dropouts.** Check the glitch counter in the top bar and the wire's tooltip. Close programs that take the audio device in exclusive mode. If it started with low latency, turn **Low latency** off on that node.
+- **A plug-in did not load or keeps failing.** The reason is written in its slot and in the picker. If it crackles on an application node, turn on **Even blocks** in its **⋯** menu. If an antivirus blocks `Mixer.PluginHost.exe` in `%LocalAppData%\Mixer\bin`, allow it there.
 - **Something else.** Attach the log from `%LocalAppData%\Mixer\logs` to your question: it records what happened with devices and applications.
 
 ## For developers
 
-Architecture, stage history, measurements and tests are in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). The specification and plan (in Russian) is `Микшер для Windows v2 спецификация и план.md`.
+Architecture, stage history, measurements, tests and the plug-in compatibility table are in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). The specifications and plans (in Russian) are `Микшер для Windows v2 спецификация и план.md` and, for plug-ins, `Микшер для Windows поддержка VST.md`.
 
 ```
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\build-pluginhost.ps1
 dotnet build Mixer.sln -c Release
 dotnet test tests/Mixer.Tests -c Release
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\publish.ps1
 ```
 
-The last command builds `dist\Mixer.exe` for release: tests, a single self-contained exe, signing (if you pass a certificate), a launch check and a checksum.
+The first command builds the C++ plug-in host (it needs Visual Studio with C++ and CMake, and fetches the VST 3 SDK); without it Mixer builds and runs, but without plug-ins. The last command builds `dist\Mixer.exe` for release: tests, a single self-contained exe, signing (if you pass a certificate), a launch check and a checksum.
 
 GitHub Actions ([.github/workflows/build.yml](.github/workflows/build.yml)) builds and tests every push and pull request and keeps `Mixer.exe` as a build artifact. Pushing a `v*` tag (for example `git tag v1.1.0 && git push origin v1.1.0`) also creates a GitHub Release with the exe and its checksum, versioned from the tag. To sign it, add the repository secrets `SIGN_PFX_BASE64` (the .pfx file in base64) and `SIGN_PFX_PASSWORD`.
 

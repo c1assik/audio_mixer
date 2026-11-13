@@ -247,7 +247,7 @@ public class PluginEngineTests(ITestOutputHelper output)
         }, s => { try { output.WriteLine(s); } catch (InvalidOperationException) { } });
 
     /// <summary>«Аудиопоток» узла: блоки по 10 мс в слоты узла с дедлайном 40% периода.</summary>
-    private sealed class Pump : IDisposable
+    internal sealed class Pump : IDisposable
     {
         private readonly Thread _thread;
         private volatile bool _stop;
@@ -278,7 +278,7 @@ public class PluginEngineTests(ITestOutputHelper output)
         }
     }
 
-    private static async Task<bool> Until(Func<bool> condition, double seconds, PluginRack? tick = null)
+    internal static async Task<bool> Until(Func<bool> condition, double seconds, PluginRack? tick = null)
     {
         var sw = Stopwatch.StartNew();
         double nextTick = 0;

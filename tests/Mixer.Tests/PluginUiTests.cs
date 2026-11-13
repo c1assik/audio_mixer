@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json.Nodes;
+using Mixer.App;
 using Mixer.App.ViewModels;
 using Mixer.Audio.Dsp;
 using Mixer.Core.Config;
@@ -98,6 +99,27 @@ public sealed class PluginUiTests : IDisposable
             $"{{ \"Name\": \"{name}\", \"Factory Info\": {{ \"Vendor\": \"Example Audio\" }}, \"Classes\": [ {{ \"CID\": \"{cid}\", " +
             $"\"Category\": \"Audio Module Class\", \"Name\": \"{name}\", \"Version\": \"1.0\", \"SDKVersion\": \"VST 3.8\", \"Sub Categories\": [\"Fx\", \"{sub}\"] }} ] }}");
         return bundle;
+    }
+
+    /// <summary>
+    /// Ошибка этапа 4, найдена на этапе 5: StateFolder не передавался (строка закомментирована), и слот читал
+    /// plugins\ от текущей папки. Выбор ищет свободный ID рядом с graph.json, файла там нет — новый Graillon получал
+    /// ID и файл, где лежало состояние Supermassive («IComponent::setState failed»). Выбор и слот — один файл.
+    /// </summary>
+    [Fact]
+    public void Rack_AndPicker_UseTheSameStateFile_NextToTheGraph()
+    {
+        string graph = Path.Combine(_dir, "graph.json");
+        var cfg = new PluginConfig { Id = "p1", State = PluginEdits.StatePath("mic", "p1") };
+        using var rack = new PluginRack(AppOptions.HostOptions(graph, () => []).Plugins);
+        Assert.Equal(Path.Combine(_dir, "plugins", "mic-p1.state"), rack.StateFile(cfg));
+
+        WpfThread.Run(() =>
+        {
+            using var store = new GraphStore(graph, Graph());
+            var vm = new MainViewModel(Graph(), store, host: null, offlineDevices: []);
+            Assert.Equal(rack.StateFile(cfg), Path.GetFullPath(vm.StateFile("mic", "p1")));
+        });
     }
 
     [Fact]
