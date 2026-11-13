@@ -214,6 +214,7 @@ public sealed class PluginHost : IDisposable
             msg["options"] = new JsonObject
             {
                 ["mono"] = o.Mono, ["sleepMs"] = o.SleepMs, ["after"] = o.After, ["latency"] = o.Latency,
+                ["restartOnLoad"] = o.RestartOnLoad,
             };
         }
         else

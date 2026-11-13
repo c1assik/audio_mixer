@@ -1,4 +1,4 @@
-# Mixer.PluginBench: VST stages 0 and 1
+# Mixer.PluginBench: VST stages 0, 1, 2 and 5
 
 A console tool for «Микшер для Windows: поддержка VST»: how much the exchange with `Mixer.PluginHost.exe` costs and how much memory one host takes (stage 0), and a manual check of the editor window (stage 1). Since stage 1 it drives the host through [src/Mixer.Plugins](../../src/Mixer.Plugins) (`PluginHost`, `AudioLink`), the same code the mixer uses; in stage 0 the channel lived here in `HostChannel.cs`, which is now a thin wrapper.
 
@@ -17,6 +17,8 @@ tools\Mixer.PluginBench\bin\Release\net8.0-windows\Mixer.PluginBench.exe --frame
 | `--stall-every N --stall-ms M` | the host sleeps M ms on every N-th block (deadline check) |
 | `--out` | result JSON, default `probe-out/pluginbench-*.json` |
 | `--editor` | stage 1: load the plug-in, open its editor over a window of the bench (standing in for the mixer's main window), print the control messages and the window geometry, minimize and restore the owner, close the editor, read the state |
+| `--scan [--folder <dir>]… [--full]` | stage 2: scan the standard VST3 folders (and the given ones) with the mixer's cache, print the catalog and both problem lists |
+| `--compat [--folder <dir>]… [--only <name>] [--out <file.md>]` | stage 5: the compatibility check below, for every effect in the catalog or those whose name or path contains `--only` |
 | `--png <file>`, `--close`, `--x --y --w --h` | with `--editor`: capture the window (`PrintWindow`), close it without waiting for the user, pass a remembered position and size |
 
 Each run is a thread registered with MMCSS as "Pro Audio", like a device thread in the engine. A high-resolution waitable timer wakes it once per period. The thread sends a 440/660 Hz sine through the host with a deadline of 40% of the period and compares the output with the input bit for bit (AGain at its default gain of 1.0 and the copy are both exact). It reports:
@@ -57,3 +59,17 @@ Same machine. The bench now goes through `Mixer.Plugins` and protocol version 2 
 
 - **The exchange did not get more expensive.** A 15-second run with AGain at 480 and 128 frames in parallel: exchange p99 30.9 and 43.5 µs, 0 misses in 7,125 blocks, outputs bit-exact, 25.6–27.6 MB private per host. That is within the noise of the stage 0 hour (28.9 / 31.0 µs); 15 seconds do not say more about the tail.
 - **The editor window.** `--editor --close --png` with AGain: the window opens with the title «AGain VST3 — проверка» (UTF-8 → UTF-16 works), the view is 350×120 inside a 366×159 frame at 96 DPI, and VSTGUI draws into it (captured with `PrintWindow`). The owner is the bench's window from another process (`GW_OWNER` matches). Minimizing the owner hides the editor, and restoring the owner shows it again. A remembered position (300, 250) is used. A remembered size 500×200 is refused by AGain's `checkSizeConstraint` and stays 350×120. `editorClosed` reports the same rectangle, and the state after closing is 277 bytes. Not checked: a monitor above 100% scaling (none on this machine) and a resizable plug-in.
+
+## Compatibility check (stage 5)
+
+`--compat` checks every effect in the catalog through the same `PluginHost` and `AudioLink` the mixer uses. The input is 29 s of speech from SAPI (Russian and English sentences with sibilants, 48 kHz) at −6 dBFS with noise at −50 dBFS, so denoisers and de-essers have something to work on; without SAPI it is a synthetic harmonic voice. Audio runs without pauses and with a 1 s deadline: what matters here is what the plug-in computes, and its load is taken from the `process` time.
+
+1. **Load**: time to `ready`, private memory of the host, latency, channels, editor, visible parameters.
+2. **Sound** in 480-frame blocks: blocks the plug-in did not answer ("dry"), `process` errors, NaN or infinity, silence (gain below −60 dB), gain against the input, `process` p99 as a share of the 10 ms period. Blocks the host answered as suspended (the plug-in called `restartComponent` and is being reconfigured) are counted separately and are not a failure: the mixer does the same.
+3. **Window**: opened over a window of the bench while audio runs for 2 s, then found, checked for its owner, captured to `probe-out/compat/<name>.png` (blank if it has one colour) and closed.
+4. **State**: the first visible parameter is moved (a step or a quarter of its range), 0.5 s of audio follow (JUCE plug-ins move a parameter into their state on a message-thread timer; the mixer takes the state 2 s after the last change), then `getState`. A new host loads with that state: the parameter must have the new value. Whether the bytes are the same is reported too.
+5. **Rate change** 48 → 44.1 → 48 kHz with audio at each rate, last, so a plug-in that crashes there does not hide the rest.
+6. **Ragged blocks** (1–1024 frames, as application captures give them) in a fresh host, compared with the 480-frame output. When they differ: a repeat in 480-frame blocks in another fresh host (is the plug-in deterministic at all?), the lag with the best correlation, both outputs as `probe-out/compat/<name>-480.wav` and `-ragged.wav` to listen to, and the same ragged blocks with «ровные блоки» (compared 256 frames later).
+
+A plug-in "works" when it loads, its 480-frame sound is fine, its window works (or, without a window, it has parameters for the list), and the edited parameter survives the restart: the criterion of stage 5. The rate change and ragged blocks are reported but do not decide it. The result is a Markdown table for [docs/DEVELOPMENT.md](../../docs/DEVELOPMENT.md) (`probe-out/compat-*.md`, or `--out`) and the same data as JSON next to it. The exit code is 0 when every plug-in works.
+

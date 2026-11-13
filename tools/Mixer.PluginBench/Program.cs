@@ -36,6 +36,9 @@ internal static class Program
 
           --scan [--folder <dir>]... [--full]   этап 2: скан стандартных папок VST3 с кэшем микшера
                                (%LocalAppData%\Mixer\plugins.json), каталог и списки проблем; --full — без кэша
+          --compat [--folder <dir>]... [--only <имя>] [--out <file.md>]
+                               этап 5: проверка совместимости каждого эффекта каталога (загрузка, звук, неровные
+                               блоки, 44,1 кГц, окно, состояние после перезапуска); таблица для docs/DEVELOPMENT.md
         """;
 
     private static int Main(string[] argv)
@@ -58,6 +61,8 @@ internal static class Program
             return 2;
         }
 
+        if (o.Compat)
+            return CompatCheck.Run(o.HostExe, o.Folders, o.Only, o.OutPath);
         if (o.Scan)
             return ScanCheck.Run(o.HostExe, o.Folders, o.Full);
         if (o.Editor)
@@ -328,7 +333,8 @@ internal sealed class Options
     public double Seconds = 60;
     public string? Png;
     public EditorBounds? Bounds;
-    public bool Scan, Full;
+    public bool Scan, Full, Compat;
+    public string? Only;
     public List<string> Folders = [];
 
     public static Options Parse(string[] argv)
@@ -359,6 +365,8 @@ internal sealed class Options
                 case "--editor": o.Editor = true; break;
                 case "--scan": o.Scan = true; break;
                 case "--full": o.Full = true; break;
+                case "--compat": o.Compat = true; break;
+                case "--only": o.Only = Next(); break;
                 case "--folder": o.Folders.Add(Next()); break;
                 case "--close": o.Close = true; break;
                 case "--seconds": o.Seconds = Num(); break;
@@ -377,7 +385,7 @@ internal sealed class Options
         string? build = Paths.RepoRoot() is { } root ? Path.Combine(root, "src", "Mixer.PluginHost", "build") : null;
         o.HostExe = host ?? (build != null ? Path.Combine(build, "bin", "Mixer.PluginHost.exe") : "Mixer.PluginHost.exe");
         if (!File.Exists(o.HostExe)) throw new ArgumentException($"нет хоста {o.HostExe}: соберите tools/build-pluginhost.ps1");
-        if (!builtin && !o.Scan)
+        if (!builtin && !o.Scan && !o.Compat)
         {
             o.PluginPath = plugin ?? (build != null ? Path.Combine(build, "VST3", "Release", "again.vst3") : null);
             if (o.PluginPath == null || !Path.Exists(o.PluginPath)) throw new ArgumentException($"нет плагина {o.PluginPath}");

@@ -14,6 +14,7 @@ struct BuiltinOptions {
     int sleepMs = 50;        // sleep: столько спит каждый блок
     int after = 0;           // crash, nan: после стольких блоков
     int latency = 512;       // latency: задержка, сэмплов
+    bool restartOnLoad = false;  // latency: restartComponent из активации, первый process 20 мс (как CHOWTapeModel)
 };
 
 // Виды: copy, gain, sleep, crash, nan, latency. nullptr — неизвестный вид, причина в error.

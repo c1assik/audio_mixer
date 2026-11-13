@@ -64,6 +64,17 @@ public sealed record AppOptions
         return o;
     }
 
+    /// <summary>
+    /// Настройки управляющего слоя. Файлы состояния плагинов — рядом с graph.json, в plugins: без StateFolder пути
+    /// из схемы считались бы от текущей папки, и выбор плагина (он ищет свободный ID рядом с graph.json) выдал бы
+    /// новому слоту ID, под которым там уже лежит состояние другого плагина.
+    /// </summary>
+    public static MixerHostOptions HostOptions(string graphPath, Func<IEnumerable<string>> pluginFolders) => new()
+    {
+        Plugins = new Mixer.Core.Plugins.PluginRackOptions { StateFolder = Path.GetDirectoryName(Path.GetFullPath(graphPath)) },
+        PluginFolders = pluginFolders,
+    };
+
     public static string DefaultGraphPath =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Mixer", "graph.json");
 
@@ -163,11 +174,7 @@ public partial class App : Application
         };
         if (!opt.NoAudio)
         {
-            _host = new MixerHost(graph, _store.SaveJournal, options: new MixerHostOptions
-            {
-                // файлы состояния плагинов — рядом с graph.json, в plugins                Plugins = new Mixer.Core.Plugins.PluginRackOptions { StateFolder = Path.GetDirectoryName(Path.GetFullPath(path)) },
-                PluginFolders = () => prefs.PluginFolders,
-            });
+            _host = new MixerHost(graph, _store.SaveJournal, options: AppOptions.HostOptions(path, () => prefs.PluginFolders));
             _host.Log += m => _log?.Write("host", m);
             _host.Start(); // управляющий поток сам применит граф; окно не ждёт устройств
         }

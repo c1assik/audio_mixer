@@ -75,7 +75,7 @@ internal static unsafe class EditorCheck
     }
 
     /// <summary>Простое верхнее окно на своём потоке с очередью сообщений — замена главному окну микшера.</summary>
-    private sealed class OwnerWindow : IDisposable
+    internal sealed class OwnerWindow : IDisposable
     {
         private static readonly Native.WndProc s_proc = (h, m, w, l) => Native.DefWindowProcW(h, m, w, l);
         private readonly Thread _thread;
@@ -119,7 +119,7 @@ internal static unsafe class EditorCheck
         }
     }
 
-    private static IntPtr FindEditor(int pid)
+    internal static IntPtr FindEditor(int pid)
     {
         IntPtr found = IntPtr.Zero;
         Native.EnumWindows((h, _) =>
@@ -135,14 +135,15 @@ internal static unsafe class EditorCheck
         return found;
     }
 
-    private static string Title(IntPtr h)
+    internal static string Title(IntPtr h)
     {
         char* text = stackalloc char[256];
         int n = Native.GetWindowTextW(h, text, 256);
         return new string(text, 0, n);
     }
 
-    private static void SavePng(IntPtr wnd, int w, int h, string path)
+    /// <summary>Снимок окна в PNG; возвращает число разных цветов (до 256): 1 — окно пустое, плагин не нарисовался.</summary>
+    internal static int SavePng(IntPtr wnd, int w, int h, string path)
     {
         IntPtr screen = Native.GetDC(IntPtr.Zero);
         IntPtr dc = Native.CreateCompatibleDC(screen);
@@ -187,6 +188,10 @@ internal static unsafe class EditorCheck
             Chunk(file, "IDAT", ms.ToArray());
         }
         Chunk(file, "IEND", Array.Empty<byte>());
+
+        var colors = new HashSet<int>();
+        for (int i = 0; i < bgra.Length && colors.Count < 256; i += 4) colors.Add(BitConverter.ToInt32(bgra, i) & 0xFFFFFF);
+        return colors.Count;
     }
 
     private static void Chunk(Stream s, string type, byte[] data)

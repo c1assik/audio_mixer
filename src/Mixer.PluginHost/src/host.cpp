@@ -297,6 +297,7 @@ void Host::HandleLoad(const json& m) {
             o.sleepMs = it->value("sleepMs", o.sleepMs);
             o.after = it->value("after", o.after);
             o.latency = it->value("latency", o.latency);
+            o.restartOnLoad = it->value("restartOnLoad", o.restartOnLoad);
         }
         proc = MakeBuiltin(m["builtin"].get<std::string>(), o, *this, error);
         builtin_ = true;
